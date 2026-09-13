@@ -24,14 +24,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
 
       - name: 缓存已 clone 的代码基线
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .anchor-cache
           key: anchors-${{ hashFiles('tools/anchors.json') }}

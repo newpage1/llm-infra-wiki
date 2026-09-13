@@ -61,6 +61,32 @@
   }
 
   /* ---------- 主渲染 ---------- */
+  /* 段落 / 列表项内的软换行怎么拼
+     ------------------------------------------------------------
+     源码里的段落是**按列折行**的，一个换行只表示「同一段还接着」。
+     英文里拼一个空格是对的；中文里拼空格有两重害处：
+       ① 句子中间多出一个可见空格；
+       ② 空格是合法的断行点，于是浏览器会在「两种模式 ␣（…」这种地方断行，
+          而中文排版不该在「（」前断行 —— 读者看到的就是「莫名其妙的换行」。
+     所以：换行两侧只要有一侧是中文或全角标点，就直接拼接、不加空格。
+
+     判断前要把行尾 / 行首的 markdown 记号剥掉，否则
+     `…%%server.py%%` 换行到 `（…` 会因为末尾是 % 而被误判成西文。
+
+     实测：全站 3190 处段落内软换行，其中 2119 处断在中文字符或全角标点之间。 */
+  const WIDE = /[\u2E80-\u9FFF\u3000-\u303F\uFF00-\uFFEF\u2018\u2019\u201C\u201D\u2013\u2014\u2026]/;
+  const peelTail = t => t.replace(/[\s*_`%~]+$/, '');
+  const peelHead = t => t.replace(/^[\s*_`%~]+/, '');
+  function joinLines(lines) {
+    let s = lines[0];
+    for (let k = 1; k < lines.length; k++) {
+      const prev = peelTail(s).slice(-1);
+      const next = peelHead(lines[k]).charAt(0);
+      s += ((!prev || !next || WIDE.test(prev) || WIDE.test(next)) ? '' : ' ') + lines[k];
+    }
+    return s;
+  }
+
   function render(src, opts) {
     opts = opts || {};
     const lines = String(src).replace(/\r\n?/g, '\n').split('\n');
@@ -72,7 +98,7 @@
     let para = [];
 
     const flushPara = () => {
-      if (para.length) { out.push('<p>' + inline(para.join(' ')) + '</p>'); para = []; }
+      if (para.length) { out.push('<p>' + inline(joinLines(para)) + '</p>'); para = []; }
     };
     const closeList = () => { if (inList) { out.push('</' + inList + '>'); inList = null; } };
 
@@ -151,7 +177,7 @@
                !/^\s*(#{1,6}\s|>|~~~|```)/.test(lines[i])) {
           parts.push(lines[i].trim()); i++;
         }
-        out.push('<li>' + inline(parts.join(' ')) + '</li>');
+        out.push('<li>' + inline(joinLines(parts)) + '</li>');
         continue;
       }
 
@@ -167,7 +193,7 @@
                !/^\s*(#{1,6}\s|>|~~~|```)/.test(lines[i])) {
           parts.push(lines[i].trim()); i++;
         }
-        out.push('<li>' + inline(parts.join(' ')) + '</li>');
+        out.push('<li>' + inline(joinLines(parts)) + '</li>');
         continue;
       }
 

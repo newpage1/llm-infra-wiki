@@ -713,7 +713,7 @@ kvcache-ops（设备侧 AscendC 内核，git submodule）  ◄── 真正跑�
     {
       id: "engine-integration", name: "vLLM 连接器与引擎接缝",
       files: ["lmcache_ascend/v1/cache_engine.py", "lmcache_ascend/integration/vllm/vllm_v1_adapter.py", "lmcache_ascend/integration/vllm/lmcache_ascend_connector.py", "lmcache_ascend/integration/vllm/lmcache_ascend_connector_v1.py"],
-      summary: "把 vLLM 的 KV 连接器接口、连接器实现与被替换的引擎子类这三层接起来，让 import lmcache_ascend 之后的 vLLM 在 in-process 主路径 上不写一行 Ascend 代码就能走到 NPU 缓存。",
+      summary: "把 vLLM 的 KV 连接器接口、连接器实现与被替换的引擎子类这三层接起来，让 import lmcache_ascend 之后的 vLLM 在 in-process 主路径上不写一行 Ascend 代码就能走到 NPU 缓存。",
       flow: [
         "vLLM 按注册名 %%LMCacheAscendConnector%% 取到只有 66 行的连接器壳（%%lmcache_ascend_connector.py:32%%），壳本身几乎没有逻辑，只做转发。",
         "构造时先存下 %%_kv_cache_config%%（%%lmcache_ascend_connector.py:43%%）再调 %%super().__init__()%%，内层实现才拿得到这个参数。",
@@ -1035,12 +1035,12 @@ Mooncake 解决的是一件事：**KVCache 的搬运速度决定了 PD 分离架
 └──────────────────────────────────────────────────────────────────┘
 ~~~
 
-> 本页把两层一起讲：**上层对象模型（Store）** 与 **下层字节搬运（Transfer Engine）**。
+> 本页把两层一起讲：**上层对象模型（Store）**与**下层字节搬运（Transfer Engine）**。
 > 其余三个服务（p2p-store / pg / ep）不在本页范围内。
 
 ## 两条贯穿全仓库的设计原则
 
-**原则一：控制面与数据面分离。** 这个模式在仓库里反复出现：
+**原则一：控制面与数据面分离。**这个模式在仓库里反复出现：
 
 | 位置 | 控制面 | 数据面 |
 |---|---|---|
@@ -1051,7 +1051,7 @@ Mooncake 解决的是一件事：**KVCache 的搬运速度决定了 PD 分离架
 
 一句话概括：**小消息走控制通道协商出「句柄」，大数据凭句柄直连。**
 
-**原则二：统一抽象 + 可插拔。** 数据搬运被抽象成 %%Transport%% 接口（TE 内）、%%TransferSubmitter%%（store 内）、%%c10d::Backend%%（PG 内），具体介质（RDMA / TCP / 文件 / memcpy）都成为可替换实现。
+**原则二：统一抽象 + 可插拔。**数据搬运被抽象成 %%Transport%% 接口（TE 内）、%%TransferSubmitter%%（store 内）、%%c10d::Backend%%（PG 内），具体介质（RDMA / TCP / 文件 / memcpy）都成为可替换实现。
 
 ## 模块速查
 
@@ -1224,7 +1224,7 @@ client 调 %%MountSegment%% 时（%%client_service.cpp:2142%%）先 %%transfer_e
         "└ %%Client::Put(key, slices, config)%%（%%client_service.cpp:1173%%）",
         "　　├ **【控制面 RPC】** %%MasterClient::PutStart(key, slice_lengths, cfg)%%",
         "　　│　　└ master: %%AllocateAndInsertMetadata%% → %%allocation_strategy_->Allocate()%% → %%vector<Replica>{buffer_address, protocol, transport_endpoint}%%",
-        "　　├ **【数据面】** 对每个 MEMORY 副本 %%TransferWrite(replica, slices)%%",
+        "　　├ **【数据面】**对每个 MEMORY 副本 %%TransferWrite(replica, slices)%%",
         "　　│　　└ %%TransferSubmitter::submit(replica, slices, WRITE)%%（%%transfer_task.cpp:488%%）",
         "　　│　　　　├ endpoint 是本机？→ **LOCAL_MEMCPY**（MemcpyWorkerPool 线程池）",
         "　　│　　　　└ 否则 → **TRANSFER_ENGINE**：%%openSegment%% → 每 slice 一个 TransferRequest → %%allocateBatchID%% + %%submitTransfer%%（进入 TE 调用链）",
@@ -1386,7 +1386,7 @@ client 调 %%MountSegment%% 时（%%client_service.cpp:2142%%）先 %%transfer_e
       "summary": "TE 的独门设计：两侧各选一次网卡",
       "flow": [
         "**发现**（%%discover%%，%%topology.cpp:473%%）：解析 %%/sys/class/infiniband/*/device%%（realpath 得 PCI bus id、numa_node）、%%cudaDeviceGetPCIBusId%%、NVMe 设备",
-        "构建 %%存储位置(cpu:N / cuda:i) → {preferred_hca[], avail_hca[]}%% 矩阵",
+        "构建%%存储位置(cpu:N / cuda:i) → {preferred_hca[], avail_hca[]}%% 矩阵",
         "其中 **PCIe 距离 = sysfs realpath 的公共祖先深度**（%%getPciDistance%%，%%topology.cpp:343%%）——不依赖 hwloc",
         "**选择**（%%selectDevice%%，%%topology.cpp:572%%）：%%retry_count==0%% 时在 preferred 集合内随机（或 %%MC_PATH_ROUNDROBIN%% 轮询）做负载均衡；%%retry_count>0%% 时按 preferred→avail 顺序遍历——**重试次数本身驱动降级**",
         "**覆盖**：%%MC_CUSTOM_TOPO_JSON%% / %%installTransport%% / 段描述里的 %%priority_matrix%% 都能覆盖自动发现",
@@ -1424,7 +1424,7 @@ client 调 %%MountSegment%% 时（%%client_service.cpp:2142%%）先 %%transfer_e
         "　　│　　└ %%RdmaEndPoint::submitPostSend%%（%%rdma_endpoint.cpp:455%%）：按 QP 轮转分摊 slice → 构造 %%ibv_send_wr{WRITE, remote_addr, rkey}%% → **%%ibv_post_send%%**",
         "　　└ %%performPollCq%%(:269)：%%ibv_poll_cq%%，%%wc.wr_id%% 就是 %%Slice*%%；成功 → %%markSuccess()%%（整批完成时 CV 通知）；失败 → 删端点 + %%retry_cnt++%% → %%redispatch%%(:344)",
         "**【用户线程轮询】** %%getBatchTransferStatus%%（%%multi_transport.cpp:226%%）：快路径读原子 %%is_finished%%；慢路径逐 task 聚合 slice 计数",
-        "**【兜底线程】** 每 NIC 一个 %%monitorWorker%%（%%worker_pool.cpp:489%%）：epoll IBV 异步事件，QP_FATAL → 端点失活；DEVICE_FATAL/PORT_ERR → 整卡熔断；每秒尝试自愈"
+        "**【兜底线程】**每 NIC 一个 %%monitorWorker%%（%%worker_pool.cpp:489%%）：epoll IBV 异步事件，QP_FATAL → 端点失活；DEVICE_FATAL/PORT_ERR → 整卡熔断；每秒尝试自愈"
       ],
       "points": [
         "**数据面的终点是 %%ibv_post_send%%**——单边 RDMA，对端 CPU 零参与。这是「KV 搬运不占对端算力」的物理保证",
@@ -1724,7 +1724,7 @@ vLLM-Ascend 是 vLLM 在昇腾 NPU 上的官方插件。它保持 vLLM 的调度
 | %%kv_p2p/sfa_pd_rd2h/%% | P2P 传输 | 面向稀疏注意力的 PD 路径 |
 | %%sparse_kv_offload/%% | 稀疏卸载 | 只搬被稀疏注意力选中的 KV |
 
-> 一个观察：昇腾侧把 **%%kv_pool%%（池化/卸载）** 与 **%%kv_p2p%%（点对点）** 明确分成两条线。这个划分很有价值——前者解决「KV 存在哪」，后者解决「KV 从 A 到 B」，两者的失败模式与调优手段完全不同。
+> 一个观察：昇腾侧把 **%%kv_pool%%（池化/卸载）**与 **%%kv_p2p%%（点对点）**明确分成两条线。这个划分很有价值——前者解决「KV 存在哪」，后者解决「KV 从 A 到 B」，两者的失败模式与调优手段完全不同。
 
 ## 接口层：引擎与后端之间
 

@@ -19,9 +19,12 @@
 - **想改内容 / 加模块**：先读 [CONTRIBUTING.md](CONTRIBUTING.md)，
   本地 `./serve.sh` 起来 → 改 → `bash tools/verify.sh` 全绿 → 提 PR。
   GitHub 网页版可以直接编辑文件，手机上也能改。
-- **写作规范**：[`authoring/MODULE-SPEC.md`](authoring/MODULE-SPEC.md)（数据格式、八小节铁律、
-  SVG 约束、以及几个已经踩过的坑）；方法论见
-  [`data/SKILL-code-arch-analysis.md`](data/SKILL-code-arch-analysis.md)。
+- **写作规范**：三份文档分工不同——
+  [`authoring/MODULE-SPEC.md`](authoring/MODULE-SPEC.md) 讲**数据格式与校验器**
+  （八小节铁律、SVG 约束、哪些字段是纯文本）；
+  [`authoring/STYLE.md`](authoring/STYLE.md) 讲**文风**（去 AI 腔、术语表、不能碰的清单）；
+  [`data/SKILL-code-arch-analysis.md`](data/SKILL-code-arch-analysis.md) 讲**方法论**
+  （怎么划边界、找主干、提抽象、追数据流）。
 
 CI 会在每个 PR 上跑离线校验，**红了合不进去**。
 
@@ -269,11 +272,12 @@ llm-infra-wiki/
 │   ├── flows.js                   # 联动分析（跨组件链路）
 │   └── SKILL-code-arch-analysis.md  # 源码分析方法论（1600 行）
 ├── diagrams/                      # PlantUML 源与渲染出的 SVG
-├── authoring/                     # 写作规范 + 单模块自检包装
+├── authoring/                     # MODULE-SPEC（格式）+ STYLE（文风）+ 单模块自检
 ├── tools/
 │   ├── verify.sh                  # 离线自检（CI 跑这个）
 │   ├── verify-anchors.sh          # 完整校验（连行号与逐字围栏一起查）
 │   ├── check_publish.js           # 用真渲染器体检内容
+│   ├── style_audit.js             # 数「AI 腔」指标（含锚点不许减的守门项）
 │   ├── fetch_fonts.py             # 重新拉取自托管字体
 │   ├── anchors.json               # 各分析页钉住的仓库与提交 SHA
 │   ├── checker/                   # 校验器（从 skill vendor 进来）
@@ -705,6 +709,23 @@ bash deploy.sh               # 发生产
 ```
 
 （需要 `npm i -g wrangler && wrangler login`。）
+
+### 文风
+
+站点的正文是**技术文档**，不是营销稿。为了让多人协作时腔调不跑偏，
+`tools/style_audit.js` 把「AI 腔」变成了**可数的指标**（只统计正文，
+排除代码围栏、SVG 与 `%%标识符%%`）：
+
+```bash
+node tools/style_audit.js            # 看当前指标
+node tools/style_audit.js <分析页>    # 逐模块细看
+node tools/style_audit.js --guard     # 与基线比，涨了就失败（CI 里跑的就是它）
+```
+
+其中有一条是**守门指标**：`锚点总数（路径:行号）只许增不许减`——
+文风可以改，但不能以丢掉「每句话指得到某一行」为代价。
+
+指标口径与改写规则见 [`authoring/STYLE.md`](authoring/STYLE.md)。
 
 ### 绑自己的域名
 

@@ -37,6 +37,7 @@ const TICS = [
   ['其实', /其实/g, '模糊语气'],
   ['综上/首先其次', /综上所述|总而言之|首先，|其次，/g, '八股连接词'],
   ['非常/十分/极其', /非常|十分|极其/g, '程度副词刷量'],
+  ['这也解释了', /这(也)?解释了/g, '「这解释了为什么…」的推论腔'],
 ];
 
 /* 正文提取：去掉围栏、SVG、行内代码、路径:行号 */
@@ -54,7 +55,7 @@ function collectFields(node, out = []) {
     for (const k of Object.keys(node)) {
       const v = node[k];
       if (typeof v === 'string') {
-        if (['summary', 'modulesLead', 'lead', 'html', 'title', 'subtitle'].includes(k)) out.push(v);
+        if (['summary', 'modulesLead', 'lead', 'html', 'title', 'subtitle', 'h3', 'caption', 'note', 't', 'group'].includes(k)) out.push(v);
       } else collectFields(v, out);
     }
   } else if (Array.isArray(node)) node.forEach(x => collectFields(x, out));
@@ -94,12 +95,23 @@ for (const a of ANALYSES) {
   per[a.id]._modules = mods;
 }
 
+const TIC_NAMES = TICS.map(t => t[0]);
+
+/* --snapshot：把当前指标存成基线，之后 --guard 据它判断有没有退化 */
+if (process.argv.includes('--snapshot')) {
+  const bp = path.join(ROOT, 'tools', 'style-baseline.json');
+  fs.writeFileSync(bp, JSON.stringify({ savedAt: new Date().toISOString(), total }, null, 2));
+  console.log(`已写入基线 ${path.relative(ROOT, bp)}`);
+  for (const n of TIC_NAMES) console.log(`  ${n}: ${total[n] || 0}`);
+  console.log(`  锚点: ${total['_锚点(路径:行号)']}`);
+  process.exit(0);
+}
+
 if (process.argv.includes('--json')) {
   console.log(JSON.stringify({ total, per }, null, 2));
   process.exit(0);
 }
 
-const TIC_NAMES = TICS.map(t => t[0]);
 const pad = (s, n) => String(s).padEnd(n, ' ');
 const num = (s, n) => String(s).padStart(n);
 

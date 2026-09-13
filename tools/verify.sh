@@ -37,7 +37,10 @@ for id in $ANALYSES; do
   run "$id --cross"  node tools/checker/check_module.js data/analyses.js "$id" --cross
 done
 
-hdr "③ 手绘 SVG 的文字重叠"
+hdr "③ 文风指标（AI 腔不许写回去）"
+run "style_audit --guard" node tools/style_audit.js --guard
+
+hdr "④ 手绘 SVG 的文字重叠"
 run "lint_svg.py" python3 lint_svg.py
 
 if [[ $FAIL -eq 0 ]]; then

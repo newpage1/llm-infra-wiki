@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Infra Wiki · 大模型推理基础设施分层知识库</title>
+<meta name="description" content="从集群调度、推理引擎、KV 传输到 KV 存储，分层拆解 vLLM / SGLang / LMCache / Mooncake / Dynamo 等组件的架构与代码流程。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/style.css?v=398">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23faf6ef'/><rect x='7' y='8' width='18' height='4' rx='1.5' fill='%23b8491c'/><rect x='7' y='14' width='18' height='4' rx='1.5' fill='%23c08a0c'/><rect x='7' y='20' width='18' height='4' rx='1.5' fill='%235f7a37'/></svg>">
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<header class="topbar">
+  <a class="brand" href="#/">
+    <span class="brand-mark" aria-hidden="true">
+      <i style="--c:var(--l1)"></i><i style="--c:var(--l2)"></i><i style="--c:var(--l3)"></i><i style="--c:var(--l4)"></i>
+    </span>
+    <span class="brand-text">
+      <b>LLM&nbsp;INFRA&nbsp;WIKI</b>
+      <em>大模型推理基础设施分层知识库</em>
+    </span>
+  </a>
+  <div class="search">
+    <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg>
+    <input id="search-input" type="search" placeholder="搜索组件、模块、关键词…  ( / )" autocomplete="off" spellcheck="false">
+    <div id="search-results" class="search-results" hidden></div>
+  </div>
+  <div class="stackswitch" id="stackswitch" role="tablist" aria-label="栈视角">
+    <span class="ss-label">栈视角</span>
+    <span class="ss-seg">
+      <button type="button" role="tab" data-stack="ascend" aria-selected="true">昇腾栈</button>
+      <button type="button" role="tab" data-stack="nvidia" aria-selected="false">NV&nbsp;栈</button>
+    </span>
+  </div>
+  <nav class="topnav">
+    <a href="#/" data-nav="home">全景</a>
+    <a href="#/flows" data-nav="flows">联动分析</a>
+    <a href="#/about" data-nav="about">关于</a>
+  </nav>
+</header>
+
+<main id="view"></main>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <span>LLM Infra Wiki · 原型 v0.1</span>
+    <span class="dot">·</span>
+    <span>内容源：上游公开仓库源码与文档整理</span>
+    <span class="dot">·</span>
+    <a href="https://github.com/kvcache-ai/Mooncake" target="_blank" rel="noopener">Mooncake</a>
+    <a href="https://github.com/vllm-project/vllm" target="_blank" rel="noopener">vLLM</a>
+    <a href="https://github.com/LMCache/LMCache" target="_blank" rel="noopener">LMCache</a>
+  </div>
+</footer>
+
+<!-- v= 用于强制刷新缓存；改动 assets/ 或 data/ 后把它 +1 -->
+<script src="data/catalog.js?v=398"></script>
+<script src="data/flows.js?v=398"></script>
+<script src="data/analyses.js?v=398"></script>
+<script src="data/details.js?v=398"></script>
+<script src="data/details-ascend.js?v=398"></script>
+<script src="data/details-nvidia.js?v=398"></script>
+<script src="data/details-outline.js?v=398"></script>
+<script src="assets/js/markdown.js?v=398"></script>
+<script src="assets/js/app.js?v=398"></script>
+</body>
+</html>

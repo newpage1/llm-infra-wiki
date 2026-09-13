@@ -1,0 +1,45 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 12
+}
+title 两条实现共享一个基类，而基类继承的是宿主的抽象
+interface "BaseTransferChannel" as H <<宿主 · 走正门>>
+class "BaseMultiBufferChannel" as B <<插件 · 306 行>> {
+  多缓冲的公共部分
+  地址规范化 / 握手 / 缓冲登记
+}
+class "HcclChannel" as C1 <<862 行>>
+class "HixlChannel" as C2 <<397 行>>
+class "HcclAgentWrapper" as W1 <<142 行>>
+class "HixlEngineWrapper" as W2 <<121 行>>
+class "AscendBaseTransferContext" as T <<transfer_context.py · 377 行>> {
+  ping-pong 缓冲
+  引用计数的 Done 信号
+}
+class "P2PTransferContext" as T1
+class "PDTransferContext" as T2
+H <|.. B
+B <|-- C1
+B <|-- C2
+C1 ..> W1
+C2 ..> W2
+T <|-- T1
+T <|-- T2
+note right of H
+  这是插件里唯一完全走正门的扩展：
+  继承宿主的抽象、复用宿主的消息基类、
+  不改写任何宿主符号。
+end note
+note bottom of T
+  Done 信号引用计数，只发一次——
+  计数归零 或 显式 send_done_now()，二者取一。
+end note
+@enduml

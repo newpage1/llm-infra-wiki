@@ -1,0 +1,47 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 13
+skinparam ranksep 24
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+package "① 客户端契约" {
+  interface "RequestClient" as RC <<Protocol>> {
+    注册 / 数据 / 查询 / 收尾
+    全部返回 MessagingFuture
+  }
+}
+package "② 服务端契约" {
+  class "create_request_server" as SRV
+}
+package "③ 传输选择" {
+  class "RequestClientFactory" as FAC {
+    按 URL scheme 分派
+  }
+}
+package "④ 两个实现" {
+  class "zmq_impl" as ZMQ <<有实现>>
+  class "grpc_impl" as GRPC <<抛 NotImplementedError>>
+}
+class "MessageQueueClient" as MQC <<来自 mp-mq>>
+
+RC <|.. ZMQ
+RC <|.. GRPC
+FAC ..> ZMQ
+FAC ..> GRPC
+ZMQ ..> MQC : 包装
+SRV ..> ZMQ
+
+note bottom of GRPC
+  **声明了但没有实现**——
+  抛出可行动的异常，而不是静默返回别的实现
+end note
+@enduml

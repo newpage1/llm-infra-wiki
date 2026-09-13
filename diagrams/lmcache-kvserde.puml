@@ -1,0 +1,68 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 10
+skinparam ranksep 30
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+title KV 压缩 serde：一层新接口、三个实现、一层旧接口
+
+package "v1 接口（对象进对象出）" {
+  interface "Serializer" as S {
+    serialize(MemoryObj) → MemoryObj
+  }
+  interface "Deserializer" as D {
+    deserialize(MemoryObj) → MemoryObj
+  }
+}
+
+package "三个实现（状态完全不同）" {
+  class "NaiveSerializer / Deserializer" as N <<恒等>>
+  class "KIVISerializer / Deserializer" as K <<空壳>>
+  class "CacheGenSerializer / Deserializer" as C <<真正实现>>
+}
+
+package "旧接口（张量进字节出）" {
+  interface "Serializer" as OS {
+    to_bytes(torch.Tensor) → bytes
+  }
+  interface "Deserializer" as OD {
+    from_bytes(bytes) → torch.Tensor
+  }
+  class "SerializerDebugWrapper" as OW1
+  class "DeserializerDebugWrapper" as OW2
+}
+
+S <|.. N
+S <|.. K
+S <|.. C
+D <|.. N
+D <|.. K
+D <|.. C
+OS <|.. OW1
+OD <|.. OW2
+C ..> OS : encode_function
+C ..> OD : 解码
+OW1 o-- OS
+OW2 o-- OD
+
+note bottom of K
+  **KIVI 是空壳**：
+  两个方法都只有一句 TODO 然后原样返回。
+  选它不会报错，但等于没压缩。
+end note
+note bottom of C
+  **只有它跨到旧接口那一层**——
+  新接口是 MemoryObj，旧接口是 tensor/bytes，
+  CacheGen 的实现就是这两者之间的桥。
+end note
+
+@enduml

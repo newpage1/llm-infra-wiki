@@ -1,0 +1,33 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 12
+skinparam ranksep 20
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+class "BlendModule" as BM {
+  四个 mixin 组合
+}
+class "LMCacheDrivenTransferModule" as TM {
+  cache_contexts
+}
+class "matcher / rope / read_set" as PARTS {
+  纯逻辑：探测 / 重算 RoPE / 读集
+}
+
+BM --> TM : 构造时注入
+BM ..> PARTS : 使用
+
+note bottom of BM
+  跨模块读 GPU 状态，
+  是它唯一的越界
+end note
+@enduml

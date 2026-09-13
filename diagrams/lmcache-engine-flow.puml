@@ -1,0 +1,99 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 14
+skinparam ranksep 30
+skinparam arrowColor #8A7A67
+skinparam activity {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  FontColor #2B241B
+  FontSize 13
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #C9B9A2
+}
+
+title LMCacheEngine.store() 的处理逻辑
+
+start
+:is_healthy()?
+**不健康 → 直接 return**;
+note right
+  第一道闸：**健康检查**
+  在 assert 之前——不健康时连断言都不做
+end note
+
+if (_is_passive()?) then (是)
+  :**直接 return**;
+  note right: 被动 rank 不写缓存
+else (否)
+endif
+
+:算出 num_to_store_tokens;
+note right
+  **三条来源**：
+  mask → torch.sum(mask)
+  tokens → len(tokens)
+  hashes → sum(offsets)
+  **hashes 路径还会把 slot_mapping 转成 tensor**
+end note
+
+if (is_frozen()?) then (是)
+  :**直接 return**;
+  note right: 第二道闸：冻结模式
+else (否)
+endif
+
+:for (start, end, key)
+in token_database.process_tokens(...);
+note right
+  **生成器**——边算 key 边分配
+end note
+
+while (还有 chunk?) is (有)
+  :allocate(kv_shapes, kv_dtypes, fmt);
+  if (memory_obj is None?) then (是)
+    :**break**;
+    note right
+      **内存不足就停**——
+      **已分配的仍然会存**
+      （部分存储，不是全有或全无）
+    end note
+  else (否)
+    :累积到 starts/ends/keys/memory_objs;
+    if (kv_events_enabled?) then (是)
+      :append(CacheStoreEvent);
+    else (否)
+    endif
+  endif
+endwhile (无)
+
+if (memory_objs 为空?) then (是)
+  :**直接 return**;
+  note right: 一个都没分配，不必搬运
+else (否)
+endif
+
+:gpu_connector.batched_from_gpu(
+  memory_objs, starts, ends, **kwargs);
+note right
+  **第二阶段**：一次批量搬运
+  （不是每个 chunk 搬一次）
+end note
+
+:storage_manager.batched_put(
+  keys, memory_objs, location);
+note right
+  落存到 store_location
+  **ref_count_down 由它负责**
+end note
+
+:统计与日志;
+note right
+  **Stored X out of total Y**
+  ——"部分存储"的账在这里也报一次
+  （X 是实际存下的）
+end note
+stop
+@enduml

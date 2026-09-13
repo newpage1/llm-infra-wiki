@@ -1,0 +1,72 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 10
+skinparam ranksep 28
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+title 两层传输通道：嵌入模式一套，MP 模式另一套
+
+interface "BaseTransferChannel" as A <<嵌入模式 · 1,533 行>> {
+  lazy_init_peer_connection()
+  get_local_mem_indices()
+  batched_send / batched_recv
+  batched_write / batched_read
+  close()
+}
+
+class "PySocketChannel" as P <<基类>>
+class "MockMemoryChannel" as MK <<测试用>>
+class "NixlChannel" as N <<688 行 · 13 个方法>>
+
+class "CreateTransferChannel()" as F <<assert 白名单>> {
+  只认 "nixl" 与 "mock_memory"
+}
+
+interface "TransferChannelContext" as C <<MP 模式 · 1,672 行>> {
+  持有传输引擎（单例）
+  维护已注册的 L1 内存
+  把 L1 地址翻译成通道地址
+}
+class "TransferChannelServer" as S {
+  听连接 · 交换握手元数据
+}
+class "TransferChannelClient" as CL {
+  对端内存的读操作
+  **目前只支持读**
+}
+class "NixlImpl" as I1 <<626 行>>
+class "MooncakeTEImpl" as I2 <<609 行>>
+class "factory.py" as FR <<自注册注册表>>
+
+A <|.. P
+P <|-- MK
+A <|.. N
+F ..> N
+F ..> MK
+C *-down- S
+C *-down- CL
+I1 ..> C
+I2 ..> C
+FR ..> I1
+FR ..> I2
+
+note right of F
+  **一层是硬编码白名单**（assert），
+  **另一层是自注册注册表**——
+  同样是"按名字造东西"，机制不同。
+end note
+note bottom of P
+  **PySocketChannel 走不到工厂**：
+  它不在白名单里，是 MockMemoryChannel 的基类。
+end note
+
+@enduml

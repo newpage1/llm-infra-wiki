@@ -1,0 +1,46 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 24
+skinparam ranksep 44
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+skinparam package {
+  BackgroundColor #FDF6E8
+  BorderColor #E0D2BA
+  FontColor #8A7A67
+  FontSize 12
+}
+
+package "lmcache (host)" #FDF6E8 {
+  abstract "DeviceSpec" as DS {
+    +device_type : str
+    +ops_cls
+  }
+  class "NpuDeviceSpec" as NDS
+  abstract "DeviceOps" as DO {
+    +ensure_native()
+    +bind_native(mod)
+  }
+  class "NpuDeviceOps" as NDO
+}
+
+package "外部插件" #F7F1F4 {
+  class "lmcache_ascend.c_ops" as COPS <<compiled>>
+}
+
+DS <|-- NDS
+DO <|-- NDO
+NDO ..> COPS : import → bind_native()
+note right of NDO
+  插件缺失时**软失败**：
+  记 warning，留在 torch 基线
+end note
+@enduml

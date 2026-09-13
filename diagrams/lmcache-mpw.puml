@@ -1,0 +1,84 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 10
+skinparam ranksep 28
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+title MP 客户端适配器：一个连接器，按角色建两个适配器
+
+class "LMCacheMPConnector" as C <<vLLM 的连接器>> {
+  role : SCHEDULER / WORKER
+  持 SupportsHMA
+  --
+  __init__ 里按 role 分叉
+  12 个 vLLM 回调
+}
+
+class "LMCacheMPSchedulerAdapter" as S <<603 行>> {
+  只有调度阶段要的东西
+  --
+  maybe_submit_lookup_request()
+  check_lookup_result()
+  free_lookup_locks()
+}
+
+class "LMCacheMPWorkerAdapter" as W <<1158 行>> {
+  只有执行阶段要的东西
+  --
+  register_kv_caches()
+  batched_submit_store_requests()
+  batched_submit_retrieve_requests()
+}
+
+class "ParallelStrategy" as P <<共享类型>> {
+  mla_only · vllm_world_size
+  vllm_worker_id · n_servers · dcp_size
+  --
+  属性做换算：kv_world_size 等
+}
+
+class "LoadStoreOp" as O <<共享类型>> {
+  token_ids · block_ids[][]
+  start · end · skip_first_n_tokens
+}
+
+class "LMCacheMPRequestTracker" as T <<scheduler 侧状态>> {
+  allocated_block_ids : dict[int, list[int]]
+  num_lmcache_hit_tokens
+  state : LMCacheMPRequestState
+}
+
+class "HeartbeatThread" as H <<PeriodicThread>> {
+  探活 + 复活时重新登记显存
+}
+
+class "RequestClient" as RC <<组件内 · 下一层>>
+
+C *-down- S : role == SCHEDULER
+C *-down- W : role == WORKER
+S ..> P
+W ..> P
+S ..> O
+W ..> O
+S *-down- T
+W *-down- H
+S ..> RC : 过进程边界
+W ..> RC
+
+note right of S
+  **两个适配器不共享基类**：
+  字段与方法几乎没有交集——
+  调度器不需要 block id，
+  worker 不需要 token。
+end note
+
+@enduml

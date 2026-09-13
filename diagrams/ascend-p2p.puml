@@ -1,0 +1,45 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 12
+}
+title 一套自己的完成协议：七个消息类里四个是全新的
+class "宿主消息（三个）" as H {
+  BatchedLookupAndGetMsg
+  BatchedLookupAndGetRetMsg
+  BatchedLookupAndPutMsg
+}
+class "插件继承（三个）" as S {
+  AscendBatchedLookupAndGetMsg
+  AscendBatchedLookupAndGetRetMsg
+  AscendBatchedLookupAndPutMsg
+  --
+  buffer_uuids: list[str]
+  替换了宿主的裸 mem_addrs
+}
+class "插件新增（四个）" as N {
+  AscendBatchedLookupAndGetDoneMsg
+  AscendBatchedLookupAndGetDoneRetMsg
+  AscendQueryDonePortMsg
+  AscendQueryDonePortRetMsg
+  --
+  前两个与后两个各自成对
+  其中两个是空体（只当信号）
+}
+H <|-- S
+note bottom of N
+  四个新消息里有两个是空体（pass）——
+  它们不装数据，只当"信号"用。
+end note
+note right of S
+  这是唯一的接口改动：
+  宿主传裸地址，插件传 UUID + mem_index。
+end note
+@enduml

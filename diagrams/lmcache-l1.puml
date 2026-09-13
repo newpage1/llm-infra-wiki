@@ -1,0 +1,41 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 13
+skinparam ranksep 22
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+package "① 状态模型" {
+  class "L1ObjectState" as S {
+    memory_obj
+    write_lock : TTLLock
+    read_lock  : TTLLock
+    is_temporary : bool
+  }
+}
+package "② 并发控制" {
+  class "l1_mgr_synchronized" as SYNC <<装饰器>>
+  class "_validate_read_locks" as VAL
+}
+package "③ 锁协议" {
+  class "reserve_* / finish_*" as PROTO
+}
+package "④ 生命周期与查询" {
+  class "delete / touch_keys / clear" as LIFE
+  class "is_key_evictable" as EV
+  class "register_listener" as LIS
+}
+
+S *-- PROTO : 每个 key 一份状态
+SYNC ..> PROTO : 包住所有公开方法
+PROTO ..> VAL
+LIFE ..> S
+@enduml

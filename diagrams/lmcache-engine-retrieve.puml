@@ -1,0 +1,99 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 13
+skinparam ranksep 26
+skinparam arrowColor #8A7A67
+skinparam activity {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  FontColor #2B241B
+  FontSize 13
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #C9B9A2
+}
+
+title LMCacheEngine.retrieve() 的处理逻辑
+
+start
+if (is_healthy()?) then (否)
+  :**return torch.zeros(len(tokens), bool)**;
+  note right
+    **优雅降级**：长度对、全是 False
+    调用方当成"全部未命中"
+  end note
+  stop
+else (是)
+endif
+
+:assert gpu_connector 非空;
+:算出 num_required_tokens;
+note right
+  mask 有值 → torch.sum(mask)
+  否则 → len(tokens)
+end note
+
+:on_retrieve_request(num_required_tokens);
+:建 ret_mask =
+torch.zeros(len(tokens), bool, **device="cpu"**);
+
+if (_is_passive()?) then (是)
+  :**跳过取数**，reordered_chunks 为空;
+  note right: 被动 rank 只参与广播
+else (否)
+  if (async_loading?) then (是)
+    :_async_process_tokens_internal();
+  else (否)
+    :_process_tokens_internal();
+  endif
+  note right
+    两者都产出 **reordered_chunks**
+    与 tot_kv_size
+  end note
+endif
+
+if (save_only_first_rank?) then (是)
+  :在 broadcast_stream 上广播;
+  if (gpu_connector 有 load_stream?) then (有)
+    note right: **同一个 stream**，顺序执行
+  else (没有)
+    :**broadcast_stream.synchronize()**;
+    note right: 不同 stream，必须显式同步
+  endif
+else (否)
+endif
+
+if (reordered_chunks 非空?) then (是)
+  if (**leader rank** 且替身数量匹配?) then (是)
+    :用 **_leader_gpu_substitute_objs**;
+    note right
+      **从 HBM 读，而不是走 PCIe 重读 L1**
+      注释实测：**~9 ms → ~0.5 ms**
+    end note
+  else (否)
+    :用 CPU 的 memory_objs;
+    note right
+      **降级 + warning**
+      （替身数量不匹配 = bug 或状态过期）
+    end note
+  endif
+  :gpu_connector.batched_to_gpu(...);
+  note right
+    **finally** 里清空替身引用——
+    否则 CUDA OOM 会让它悬空在长生命周期对象上
+  end note
+else (否)
+endif
+
+:清理循环（对每个 chunk）;
+note right
+  **两条路径**：
+  remove_after_retrieve → storage_manager.remove()
+  否则 → unpin() + ref_count_down()
+end note
+
+:统计与日志;
+ :return ret_mask;
+stop
+@enduml

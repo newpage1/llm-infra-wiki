@@ -1,0 +1,60 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 14
+skinparam ranksep 38
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+skinparam package {
+  BackgroundColor #FDF6E8
+  BorderColor #E0D2BA
+  FontColor #8A7A67
+  FontSize 12
+}
+
+package "lmcache (host) · 792 行" #FDF6E8 {
+  interface "StorageBackendInterface" as SBI
+  class "P2PBackend" as P2P {
+    支持 ✓ batched_get_non_blocking
+    不支持 ✗ sync get / put / pin / remove
+  }
+}
+
+package "lmcache_ascend (plugin) · 1965 行" #F7F1F4 {
+  class "AscendP2PBackend" as AP2P {
+    ★ batched_contains
+    ★ batched_get_blocking
+    ★ 完成信号与 port 发现
+    ★ 同步查询控制器
+  }
+}
+
+package "消息协议" #F8FAF5 {
+  class "P2PMsgBase（宿主）" as MB
+  class "3 个宿主消息\n（插件继承扩展）" as EXT
+  class "4 个新增消息\n（宿主没有）" as NEW
+}
+
+SBI <|.. P2P
+P2P <|-- AP2P : 继承并补齐
+MB <|-- EXT : 继承
+EXT <|-- AP2P : 收发
+
+note right of AP2P
+  宿主在 docstring 里写着
+  "not supported for now" 的同步路径，
+  插件把它补上了。
+end note
+note bottom of NEW
+  完成信号 + port 发现协议——
+  宿主 grep 结果为 0，
+  属于完全净增、**无对照物**
+end note
+@enduml

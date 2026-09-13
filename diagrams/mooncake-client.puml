@@ -1,0 +1,32 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam state {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+[*] --> PENDING
+
+PENDING --> MASTER_FAILED : BatchPutStart 失败
+PENDING --> TRANSFER_FAILED : 数据搬运失败
+PENDING --> FINALIZE_FAILED : BatchPutEnd 失败
+PENDING --> SUCCESS : 三阶段均成功
+
+MASTER_FAILED --> [*]
+TRANSFER_FAILED --> [*]
+FINALIZE_FAILED --> [*]
+SUCCESS --> [*]
+
+note right of TRANSFER_FAILED
+  **失败按阶段命名**，不是笼统的 FAILED。
+  三种失败的重试策略不同：
+  控制面可只重试元数据，
+  数据面要重传，
+  收尾可能只需重发 End。
+end note
+@enduml

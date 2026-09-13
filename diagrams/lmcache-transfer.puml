@@ -1,0 +1,42 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 12
+skinparam ranksep 24
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+abstract "TransferContext" as TC
+class "LMCacheDrivenTransferContext" as LMD {
+  IPC / SHM 零拷贝
+  传句柄
+}
+class "EngineDrivenTransferContext" as EGD {
+  宿主侧 gather/scatter
+  拷数据
+}
+class "AsyncEngineDrivenTransferContext" as AEGD {
+  同上，异步原语
+}
+
+TC <|-- LMD
+TC <|-- EGD
+EGD <|-- AEGD
+
+note right of LMD
+  需要设备注册了
+  KV-wrapper 工厂
+end note
+note bottom of EGD
+  **AUTO 的判据**：
+  device_type == "cuda" → lmcache_driven
+  其余 → engine_driven
+end note
+@enduml

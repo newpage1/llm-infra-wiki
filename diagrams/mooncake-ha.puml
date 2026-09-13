@@ -1,0 +1,35 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam state {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 12
+}
+
+state kStarting
+state kStandby
+state kCandidate
+state kRecovering
+state kCatchingUp
+state kLeaderWarmup
+state kServing
+
+[*] --> kStarting
+kStarting --> kStandby
+kStandby --> kCandidate : 竞选
+kCandidate --> kRecovering : 赢得竞选
+kRecovering --> kCatchingUp : 从快照恢复
+kCatchingUp --> kLeaderWarmup : replay oplog 追平
+kLeaderWarmup --> kServing : 预热完成才开始服务
+kServing --> kStandby : 失去领导权
+
+note bottom of kRecovering
+  kRecovering / kCatchingUp / kLeaderWarmup
+  在角色映射里**仍算 standby**
+  —— 赢得竞选 ≠ 可以服务
+end note
+@enduml

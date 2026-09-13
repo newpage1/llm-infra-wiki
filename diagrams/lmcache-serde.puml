@@ -1,0 +1,52 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 13
+skinparam ranksep 22
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+package "① 接口" {
+  abstract "Serializer" as S <<同步>>
+  abstract "Deserializer" as D <<同步>>
+  abstract "SerdeProcessor" as SP <<异步>>
+  class "AsyncSerdeProcessor" as ASP <<适配器>>
+}
+package "② 内置 serde" {
+  class "Fp8" as F
+  class "AesGcm" as A
+  class "AsymK16V8" as K
+  class "TurboQuant" as T
+}
+package "④ 扩展" {
+  class "Multi" as M <<mixin>>
+}
+class "工厂" as FAC <<③ 注册与装配>>
+
+S <|.. F
+D <|.. F
+S <|.. A
+D <|.. A
+S <|.. K
+D <|.. K
+S <|.. T
+D <|.. T
+S <|.. M
+D <|.. M
+SP <|-- ASP
+ASP o-- S
+ASP o-- D
+FAC ..> SP : 按配置构造
+
+note bottom of ASP
+  作者只实现**两个同步方法**
+  框架用线程池包出异步
+end note
+@enduml

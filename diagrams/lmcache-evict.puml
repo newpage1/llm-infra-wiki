@@ -1,0 +1,49 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 13
+skinparam ranksep 22
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+package "① 契约与桥接" {
+  abstract "EvictionPolicy" as EP {
+    三个 on_keys_* 通知
+    get_eviction_actions 决策
+    capture / restore / name
+  }
+  class "L1EvictionPolicy" as L1 <<bridge>>
+  class "L2EvictionPolicy" as L2 <<bridge>>
+}
+package "② 三个策略" {
+  class "LRUEvictionPolicy" as LRU
+  class "IsolatedLRUEvictionPolicy" as ILRU {
+    每 cache_salt 一个 OrderedDict
+  }
+  class "NoOpEvictionPolicy" as NOOP
+}
+interface "L1ManagerListener" as LL
+interface "L2AdapterListener" as LAL
+class "工厂" as FAC <<③>>
+
+EP <|-- LRU
+EP <|-- ILRU
+EP <|-- NOOP
+LL <|.. L1
+LAL <|.. L2
+L1 o-- EP : 构造注入
+L2 o-- EP : 同一个策略可服务两层
+FAC ..> EP
+
+note bottom of EP
+  策略**不认识**自己被 L1 还是 L2 使用
+  ——绑定由桥接类完成
+end note
+@enduml

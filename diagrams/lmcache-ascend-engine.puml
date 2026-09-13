@@ -1,0 +1,45 @@
+@startuml
+left to right direction
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 22
+skinparam ranksep 42
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+skinparam package {
+  BackgroundColor #FDF6E8
+  BorderColor #E0D2BA
+  FontColor #8A7A67
+  FontSize 12
+}
+
+package "lmcache (host)" #FDF6E8 {
+  interface "KVConnectorBase_V1" as KVCB
+  abstract "LMCacheEngine" as LME
+  abstract "StorageManager" as SM
+  interface "StorageBackendInterface" as SBI
+  class "GPUConnectorInterface" as GCI
+}
+
+package "lmcache_ascend (plugin)" #F7F1F4 {
+  class "LMCacheConnectorV1" as ACV
+  class "AscendLMCacheEngine" as ALME
+  class "AscendNPUConnector" as ANC
+  class "CreateStorageBackends" as CSB <<patched>>
+}
+
+KVCB <|.. ACV
+LME <|-- ALME : _patch_cache_engine
+GCI <|.. ANC : _patch_gpu_connector
+SM o-- "0..*" SBI : 可插拔
+CSB ..> SBI : 剔除 NIXL
+ALME --> SM
+ACV --> ALME
+@enduml

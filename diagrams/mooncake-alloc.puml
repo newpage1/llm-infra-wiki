@@ -1,0 +1,33 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 14
+skinparam ranksep 32
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+abstract "AllocationStrategy" as AS
+class "RandomAllocationStrategy" as RAN
+class "RankedAllocationStrategy" as RNK
+class "FreeRatioFirst" as FRF <<final>>
+class "SsdFreeRatioFirst" as SSD <<final>>
+class "CxlAllocationStrategy" as CXL
+
+AS <|-- RAN
+RAN <|-- RNK
+RNK <|-- FRF
+AS <|-- SSD
+AS <|-- CXL
+
+note right of RAN
+  LOCAL_FIRST 走的就是这个类
+  （工厂里和 RANDOM 同一分支）
+end note
+@enduml

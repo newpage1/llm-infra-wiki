@@ -1,0 +1,47 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 8
+skinparam ranksep 26
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 12
+}
+
+title 覆写层：五个类，五个宿主基类，一个空类
+
+package "宿主 · lmcache.v1.gpu_connector" {
+  class "VLLMBufferLayerwiseGPUConnector" as B1
+  class "VLLMPagedMemGPUConnectorV2" as B2
+  class "VLLMPagedMemLayerwiseGPUConnector" as B3
+  class "SGLangGPUConnector" as B4
+  class "SGLangLayerwiseGPUConnector" as B5
+}
+
+package "插件 · lmcache_ascend" {
+  class "VLLMBufferLayerwiseNPUConnector" as N1 <<7 覆写>>
+  class "VLLMPagedMemNPUConnectorV2" as N2 <<15 覆写>>
+  class "VLLMPagedMemLayerwiseNPUConnector" as N3 <<4 覆写>>
+  class "SGLangNPUConnector" as N4 <<pass>>
+  class "SGLangLayerwiseNPUConnector" as N5 <<5 覆写>>
+}
+
+B1 <|-- N1
+B2 <|-- N2
+B3 <|-- N3
+B4 <|-- N4
+B5 <|-- N5
+
+note bottom of N4
+  **四行，一个 pass**。
+  它不是"还没写"——
+  这个形态的搬运逻辑与 vLLM 那份**完全一致**，
+  所以它只是把基类换个名字挂上去。
+end note
+
+@enduml

@@ -1,0 +1,54 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 20
+skinparam ranksep 46
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+skinparam package {
+  BackgroundColor #FDF6E8
+  BorderColor #E0D2BA
+  FontColor #8A7A67
+  FontSize 12
+}
+
+package "lmcache (host) · gpu_connector" #FDF6E8 {
+  abstract "GPUConnectorInterface" as GCI
+  class "VLLMPagedMemGPUConnectorV2" as PG2
+  class "VLLMPagedMemLayerwiseGPUConnector" as PLW
+  class "VLLMBufferLayerwiseGPUConnector" as BLW
+}
+
+package "lmcache_ascend (plugin)" #F7F1F4 {
+  class "VLLMPagedMemNPUConnectorV2" as APG2 {
+    -kv_format : KVCacheFormat
+    -kv_lora_rank : int
+    -qk_rope_head_dim : int
+    -_failed_load_req_ids : Set[str]
+    +to_gpu() / from_gpu()
+    +to_gpu_310p() / from_gpu_310p()
+    +drain_failed_load_req_ids()
+  }
+  class "VLLMPagedMemLayerwiseNPUConnector" as APLW
+  class "VLLMBufferLayerwiseNPUConnector" as ABLW
+  class "ProxyMemoryObj" as PMO
+  class "AscendBaseTransferContext" as ATC
+  class "c_ops" as OPS <<patched>>
+}
+
+GCI <|.. PG2
+PG2 <|-- APG2 : 310P / MLA / DSA 分支
+PLW <|-- APLW
+BLW <|-- ABLW
+APG2 ..> PMO : 代理显存对象
+APG2 ..> ATC : 传输上下文
+APG2 ..> OPS : 走插件算子
+APLW ..> ATC
+@enduml

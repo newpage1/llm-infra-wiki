@@ -1,0 +1,47 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 12
+skinparam ranksep 22
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+interface "StorageBackendInterface" as SBI {
+  contains / batched_contains
+  batched_submit_put_task
+  get_blocking / batched_get_blocking
+  pin / unpin / remove
+}
+interface "AllocatorBackendInterface" as ABI {
+  allocate / batched_allocate
+}
+class "StorageManager" as SM {
+  batched_put / batched_get
+}
+class "CreateStorageBackends" as CSB <<factory>>
+class "LocalCPUBackend" as CPU
+class "LocalDiskBackend" as DSK
+class "RemoteBackend" as REM
+class "…另 5 个实现" as MORE
+
+SBI <|-- ABI
+SM o-- "0..*" SBI
+CSB ..> SBI
+SBI <|.. CPU
+SBI <|.. DSK
+SBI <|.. REM
+SBI <|.. MORE
+ABI <|.. CPU
+
+note right of CSB
+  插件替换的就是这个函数
+  （整段复制，仅 3 处差异）
+end note
+@enduml

@@ -1,0 +1,84 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 10
+skinparam ranksep 34
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+title vLLM 的连接器族：一层版本分派 + 两种形态
+
+class "KVConnectorBase_V1" as BASE <<vLLM 提供>> {
+  宿主定义的接口
+  role 是**构造参数**
+}
+
+class "LMCacheConnectorV1Dynamic" as DYN <<版本分派层>> {
+  lmcache_connector_v1.py · 208
+  lmcache_connector_v1_085.py · 145
+  **同名两个文件**，靠模块路径选
+}
+
+class "LMCacheConnectorV1Impl" as EMB <<嵌入模式>> {
+  vllm_v1_adapter.py · 1935
+  --
+  lmcache_engine : LMCacheEngine
+  直连，不过进程边界
+}
+
+class "LMCacheMPConnector" as MP <<MP 模式>> {
+  lmcache_mp_connector.py · 1622
+  --
+  持 SupportsHMA
+  按 role 建**不同的**适配器
+}
+
+class "LMCacheMPSchedulerAdapter" as SCH {
+  vllm_multi_process_adapter.py · 603
+  --
+  只有调度阶段用得到的东西
+  maybe_submit_lookup_request()
+  check_lookup_result()
+}
+
+class "LMCacheMPWorkerAdapter" as WRK {
+  vllm_multi_process_adapter.py · 1158
+  --
+  register_kv_caches()
+  batched_submit_store_requests()
+  batched_submit_retrieve_requests()
+}
+
+class "LMCacheEngine" as ENG <<组件内>>
+class "RequestClient" as RC <<组件内>>
+
+BASE <|-- DYN
+DYN *--down- EMB
+DYN *--down- MP
+MP *--down- SCH : role == SCHEDULER
+MP *--down- WRK : role == WORKER
+
+EMB ..> ENG : 直连
+SCH ..> RC : 过进程边界
+WRK ..> RC : 过进程边界
+
+note right of DYN
+  **为什么要有这一层**：
+  vLLM 的内部 API 跨版本会变，
+  所以钉死版本而不是兼容。
+end note
+
+note right of MP
+  **两个适配器不共享基类**：
+  它们的字段与方法没有交集——
+  调度器不需要 block id，worker 不需要 token。
+end note
+
+@enduml

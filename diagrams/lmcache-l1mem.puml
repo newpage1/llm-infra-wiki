@@ -1,0 +1,47 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 13
+skinparam ranksep 22
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+package "① 契约" {
+  interface "L1ManagerProtocol" as P {
+    allocate / free
+    get_memory_usage
+    get_backend_type
+    get_l1_memory_desc
+    memcheck
+  }
+}
+package "② 三个实现" {
+  class "L1MemoryManager" as CPU <<pinned DRAM>>
+  class "DevDaxL1MemoryManager" as DAX <<device-DAX>>
+  class "GDSL1MemoryManager" as GDS <<slab file>>
+}
+package "③ 分配器" {
+  class "LazyMemoryAllocator" as LAZY
+  class "MixedMemoryAllocator" as MIX <<可选 shm>>
+}
+class "L1Manager" as L1M
+
+P <|.. CPU
+P <|.. DAX
+P <|.. GDS
+CPU *-- LAZY
+CPU *-- MIX
+L1M o-- P : 持有一个
+
+note bottom of GDS
+  get_l1_memory_desc() → None
+  **所以 GDS L1 下 L2 adapter 必须禁用**
+end note
+@enduml

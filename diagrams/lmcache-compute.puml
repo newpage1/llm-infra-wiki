@@ -1,0 +1,74 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 10
+skinparam ranksep 28
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+title 嵌入模式的 CacheBlend：包一层模型，逐层换掉 attention
+
+class "LMCBlender" as B <<编排>> {
+  process_qkv() / blend_layer() / blend()
+  --
+  两个生成器交替推进
+}
+
+class "LMCBlenderBuilder" as BB {
+  按名字造 blender
+  LMCBlenderBuilder.get_or_create()
+}
+
+class "LMCBaseModel" as M <<nn.Module>> {
+  __init__ 里逐层换 attention
+  compute_layer(tokens)
+}
+
+class "LMCLlamaModel" as M1
+class "LMCQwen3Model" as M2
+class "VLLMModelTracker" as T {
+  infer_model_from_vllm(vllm_model, …)
+  按 vLLM 类名分派
+}
+
+interface "AttentionInterface" as A {
+  forward_contiguous(q,k,v,out,meta)
+  init_attn_metadata(input_ids, …)
+  → 这就是被换掉的那个方法
+}
+
+class "LMCFlashAttnBackend" as A1 <<默认>>
+class "LMCFlashInferSparseBackend" as A2 <<稀疏·flashinfer>>
+class "LMCTritonSparseBackend" as A3 <<稀疏·triton>>
+
+class "BasicReverseRope" as R1 <<反 RoPE>>
+class "FusedRope" as R2
+
+A <|.. A1
+A <|.. A2
+A <|.. A3
+M <|-- M1
+M <|-- M2
+T ..> M1
+T ..> M2
+B *-down- M : layerwise_model
+BB ..> B
+A1 ..> R1 : 重算前要去掉位置
+A2 ..> R1
+A3 ..> R1
+M *-down- A : 每层一个
+
+note right of M
+  **它不改 vLLM 的模型**：
+  在外面包一层，
+  把每层的 self_attn.attn 换成 LMCache 的实现。
+end note
+
+@enduml

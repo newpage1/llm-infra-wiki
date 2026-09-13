@@ -1,0 +1,90 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 12
+skinparam ranksep 30
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+title 控制面的内部结构：一个 Manager、两个 controller、一个扇出器
+
+class "LMCacheControllerManager" as M <<集群侧入口>> {
+  三个 ZMQ socket（见关键实现）
+  --
+  controller_urls : dict
+  health_check_interval : int
+  lmcache_worker_timeout : int
+}
+
+class "RegistrationController" as R {
+  registry : 谁在线、在哪个地址
+  --
+  get_socket(instance_id, worker_id)
+  get_workers(instance_id)
+  get_peer_init_url(...)
+}
+
+class "KVController" as K {
+  registry（借用 R 的）
+  --
+  post_init(R, executor)
+  键统计 · pin · clear · 压缩
+}
+
+class "FullSyncTracker" as T {
+  sync_id · 批次进度 · 超时
+  --
+  should_request_full_sync()
+  receive_batch() / complete_sync()
+  can_exit_freeze()
+}
+
+class "LMCacheClusterExecutor" as X <<扇出器>> {
+  按 instance 取全部 worker
+  --
+  clear() / pin() / compress()
+  decompress() / move() / health()
+  execute_workers(...)
+}
+
+class "LMCacheWorker" as W <<实例侧 · 每个引擎一个>> {
+  连 controller 的 PULL/ROUTER
+  --
+  put_msg(msg) / deregister()
+  心跳
+}
+
+class "FullSyncSender" as F {
+  按批发全量 KV
+  --
+  发完调 engine.freeze()
+}
+
+M *-down- R
+M *-down- K
+M *-down- X
+K *-down- T
+R ..> K : post_init 补线
+K ..> R : 构造时借 registry
+X ..> R : 运行时查地址
+W ..> M : ZMQ 消息
+F ..> W
+note right of T
+  **freeze 的进度条**：
+  谁在同步、收到几批、
+  够不够解冻。
+end note
+note bottom of K
+  **K 与 R 互相需要**——
+  构造顺序解决不了，
+  所以用 post_init 补后向边。
+end note
+
+@enduml

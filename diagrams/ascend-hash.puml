@@ -1,0 +1,27 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 12
+}
+title 两个函数，149 行，替掉宿主的两个方法
+class "TokenDatabase._hash_tokens" as H1 <<宿主>>
+class "TokenDatabase.process_tokens" as H2 <<宿主>>
+class "_hash_tokens" as P1 <<插件 · tokens_hash.py 30 行>> {
+  多一个 if：extra_keys 为 None 时不参与哈希
+}
+class "TokenDatabase_process_tokens" as P2 <<插件 · token_database.py 119 行>>
+H1 <|-- P1
+H2 <|-- P2
+note right of P1
+  补丁替换的就是它。
+  30 行里真正的改动只有一行——
+  但那行改的是「哈希的输入是什么」。
+end note
+@enduml

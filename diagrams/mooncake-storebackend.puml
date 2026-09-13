@@ -1,0 +1,35 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 12
+skinparam ranksep 22
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+interface "StorageBackendInterface" as SBI {
+  Init / BatchOffload / BatchLoad
+  IsExist / IsEnableOffloading
+  ScanMeta(handler)
+}
+class "StorageBackendAdaptor" as SBA
+class "BucketStorageBackend" as BSB
+class "DistributedStorageBackend" as DSB
+class "…另 3 个实现" as MORE
+
+SBI <|.. SBA
+SBI <|.. BSB
+SBI <|.. DSB
+SBI <|.. MORE
+
+note bottom of SBI
+  6 个纯虚，全部返回
+  tl::expected<T, ErrorCode>
+end note
+@enduml

@@ -1,0 +1,67 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 20
+skinparam ranksep 44
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+skinparam package {
+  BackgroundColor #FDF6E8
+  BorderColor #E0D2BA
+  FontColor #8A7A67
+  FontSize 12
+}
+
+package "lmcache/v1/platform（内建）" #FDF6E8 {
+  abstract "DeviceSpec" as DS {
+    +device_type : str
+    +backend_name : str
+    +torch_module_name : str
+    +ops_cls : type[DeviceOps]
+    +is_available() : bool
+    +get_ops() : DeviceOps
+  }
+  class "CudaDeviceSpec" as CUDA
+  class "RocmDeviceSpec" as ROCM
+  class "NpuDeviceSpec" as NPU
+  class "CpuDeviceSpec" as CPU
+  class "XpuDeviceSpec" as XPU
+
+  abstract "DeviceOps" as DO {
+    +ensure_native()
+    +bind_native(module)
+  }
+  class "NpuDeviceOps" as NDO
+  class "CudaDeviceOps" as CDO
+}
+
+package "外部插件" #F7F1F4 {
+  class "lmcache_ascend.c_ops" as COPS <<compiled>>
+  class "其他厂商 DeviceSpec" as EXT <<entry point>>
+}
+
+DS <|-- CUDA
+CUDA <|-- ROCM : ROCm 复用 CUDA 语义
+DS <|-- NPU
+DS <|-- CPU
+DS <|-- XPU
+DS --> DO : ops_cls
+DO <|-- NDO
+DO <|-- CDO
+NDO ..> COPS : 约定导入
+DS ..> EXT : entry-point 组\nlmcache.device_plugins
+
+note right of NDO
+  昇腾走**内建 spec**，
+  不是 entry point。
+  模块名 lmcache_ascend.c_ops
+  硬编码在宿主代码里。
+end note
+@enduml

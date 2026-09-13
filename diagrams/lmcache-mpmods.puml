@@ -1,0 +1,44 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 12
+skinparam ranksep 22
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+class "LookupModule" as LM {
+  lookup / prefetch 轮询
+  free_lookup_locks / end_session
+}
+class "P2PController" as P2P {
+  p2p_lookup_and_lock
+  p2p_query_lookup_results
+  p2p_unlock_objects
+}
+class "ManagementModule" as MG {
+  管理操作 + reaper
+}
+class "SessionManager" as SM {
+  每 request 的预取簿记
+  prefetch_hit_chunks
+  prefetch_locked_gids
+}
+class "StorageManager" as ST
+
+LM --> SM : 记账
+LM --> ST : finish_read_prefetched
+P2P --> SM
+
+note bottom of LM
+  **只释放本次真的锁过的组**——
+  对象 key 跨请求共享，
+  多释放会清掉别的请求的锁
+end note
+@enduml

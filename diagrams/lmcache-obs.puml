@@ -1,0 +1,42 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 13
+skinparam ranksep 26
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+class "Event" as EV {
+  event_type / timestamp
+  metadata / session_id
+}
+class "EventBus" as BUS {
+  publish() · 四个只读访问器
+}
+abstract "EventSubscriber" as SUB
+class "指标订阅者 ×18" as M
+class "日志订阅者 ×9" as L
+class "TraceRecorder" as REC
+class "StorageTraceRecorder" as SREC
+class "TraceReader" as RD
+
+EV --> BUS
+BUS --> SUB : 按 EventType 分发
+SUB <|-- M
+SUB <|-- L
+SUB <|-- REC
+REC <|-- SREC
+RD ..> SREC : 读回
+
+note right of BUS
+  **不 import OTel**
+  由订阅者把访问器变成指标
+end note
+@enduml

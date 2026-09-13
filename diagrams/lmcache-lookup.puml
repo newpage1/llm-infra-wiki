@@ -1,0 +1,53 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 10
+skinparam ranksep 34
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+title 检索客户端：选一个，再包两层
+
+interface "LookupClientInterface" as I {
+  lookup() / lookup_cache() / close()
+}
+
+class "四个可选实现" as P <<按配置选一个>> {
+  LMCacheLookupClient      默认 · ZMQ
+  LMCacheAsyncLookupClient enable_async_loading
+  LMCacheBypassLookupClient 调度器旁路
+  MooncakeLookupClient     外部 mooncakestore://
+}
+
+class "HitLimitLookupClient" as E <<包装一>> {
+  持有另一个 client
+  按 hit_miss_ratio 限流
+}
+
+class "ChunkStatisticsLookupClient" as F <<包装二>> {
+  持有另一个 client
+  记 chunk 命中统计
+}
+
+I <|.. P
+I <|.. E
+I <|.. F
+E o-- I : 内部持有
+F o-- I : 内部持有
+
+note bottom of P
+  四个是并列替代品，同一时刻只有一个生效。
+end note
+note right of F
+  两个包装不是第七、第八种实现：
+  它们实现同一接口，内部却持有另一个 client。
+end note
+
+@enduml

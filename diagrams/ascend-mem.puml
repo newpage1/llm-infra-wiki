@@ -1,0 +1,42 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 12
+}
+title 三个部件：两个改动加一个新类型
+class "MemoryObj" as M <<宿主>>
+class "ProxyMemoryObj" as P <<插件 · 490 行>> {
+  is_proxy / resolved / consumed
+  set_backing_obj / clear_backing_obj
+  resolve()
+  resolve_batch() / submit_resolve_batch()
+}
+class "KVCacheFormat" as K <<插件 · 159 行>> {
+  UNDEFINED / MERGED_KV / SEPARATE_KV
+  MLA_KV / DSA_KV
+  is_*() 五个判定 / get_kv_size()
+  detect()
+}
+class "GPUMemoryAllocator__init__" as G <<插件 · 54 行>> {
+  一个模块级函数
+  **按名字即约定，替换宿主方法**
+}
+M <|-- P
+note right of P
+  **它继承 MemoryObj 而不是包装它**——
+  所以能在任何接受 MemoryObj 的地方直接传进去。
+  代价：它必须实现全部接口，多数是转发。
+end note
+note bottom of G
+  **54 行只做一件事**：
+  把宿主的分配器构造换成 NPU 版本。
+  名字里的 __init__ 就是被替换的目标。
+end note
+@enduml

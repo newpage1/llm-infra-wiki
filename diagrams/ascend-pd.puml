@@ -1,0 +1,33 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam classAttributeIconSize 0
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 12
+}
+title 第四种适配形态：继承 + 两个 mixin，宿主那份原样留着
+class "PDBackend" as H <<宿主 · 1087 行 · push>>
+class "AscendPDSenderMixin" as S <<578 行>>
+class "AscendPDReceiverMixin" as R <<463 行>>
+class "AscendPDBackend" as B <<338 行>>
+class "AscendAllocResponse" as M1 <<继承宿主>>
+class "PullReadyNotif" as M2 <<新>>
+class "PullReadyDoneAck" as M3 <<新>>
+class "PullDoneSignal" as M4 <<新>>
+H <|-- B
+S <|-- B
+R <|-- B
+note bottom of B
+  三个父类并列：两个 mixin 提供 pull 协议的两半，
+  宿主类提供 push 那套与全部既有能力。
+end note
+note right of M2
+  pull 协议的发起消息，
+  带 sender 的缓冲 UUID 与 done_url。
+end note
+@enduml

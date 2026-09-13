@@ -1,0 +1,58 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam sequence {
+  ArrowColor #8A7A67
+  LifeLineBorderColor #C9B9A2
+  ParticipantBorderColor #C9B9A2
+  ParticipantBackgroundColor #FFFDF8
+  ParticipantFontColor #2B241B
+  FontSize 13
+  FontColor #2B241B
+}
+skinparam noteBackgroundColor #FEFFDD
+skinparam noteBorderColor #C9B9A2
+
+title retrieve_layer()：一次 next() 推进一层，取数与搬运重叠
+
+participant "调用方\n(vLLM / SGLang)" as C
+participant "LMCacheEngine\n.retrieve_layer()" as E
+participant "StorageManager\n(异步取数)" as S
+participant "GPUConnector\n.batched_to_gpu()" as G
+
+note over E
+  **本方法是生成器**
+  yield 次数 = num_layers + 1
+end note
+
+C -> E : next()
+E -> S : layerwise_batched_get() 取第 0 层
+E --> C : **yield torch.sum(ret_mask)**
+note right
+  **只有第 0 层返回掩码**——
+  sglang 在这一步就需要知道命中多少
+  （注释：since there is no lookup）
+end note
+
+loop layer_id = 0 .. num_layers-1
+  C -> E : next()
+  E -> S : next(get_generator) 取第 layer_id+1 层
+  note right: **先发起下一层的取数**
+  E --> C : yield None
+  note right: **交还控制权**——模型可以继续算下一层
+  S --> E : task.result() 第 layer_id 层到手
+  E -> G : send(第 layer_id 层对象)
+  note right
+    **drive 搬运**：把对象送进
+    batched_to_gpu 的生成器
+  end note
+end
+
+E -> E : 对 to_count_down 逐个 ref_count_down()
+note right
+  **引用不在循环里减**——
+  攒到最后统一放，避免搬运中对象被回收
+end note
+E --> C : yield None（最后一次）
+@enduml

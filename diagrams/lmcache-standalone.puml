@@ -1,0 +1,68 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 10
+skinparam ranksep 30
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+title standalone：换掉组装契约，其余全部复用
+
+class "BaseServiceFactory" as B <<ABC · 九个槽位>> {
+  get_or_create_lmcache_engine()
+  maybe_create_lookup_client()
+  maybe_create_lookup_server()
+  … 共九个
+}
+
+class "StandaloneServiceFactory" as S <<六空三填>> {
+  填：engine / internal_api_server / health_monitor
+  空：其余六个一律 return None
+}
+
+class "LMCacheManager" as M {
+  按工厂返回的东西装配
+}
+
+class "StandaloneLMCacheManager" as SM {
+  只换工厂，其余继承
+}
+
+class "LMCacheStandaloneStarter" as ST <<__main__>> {
+  _generate_fixed_kvcaches()
+  _generate_multi_group_kvcaches()
+  start() / stop()
+}
+
+class "LayerGroupSpec" as L {
+  layer_count · shape · dtype
+  --
+  "(2,2,256,4,16):float16:2"
+}
+
+B <|-- S
+M <|-- SM
+SM *-down- S : 构造时新建
+ST *-down- SM : 用它当 manager
+ST ..> L : 形状规格解析成它
+
+note right of S
+  **它做的事是"减法"**：
+  九个槽位里六个返回 None。
+  没有 lookup / offload / plugin /
+  prometheus / 分散的 server。
+end note
+note bottom of L
+  **括号里的形状不解析**——
+  原样留成字符串，
+  以容纳不同的 Attention 实现。
+end note
+
+@enduml

@@ -1,0 +1,46 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 16
+skinparam ranksep 38
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+abstract "MemoryObj" as MO
+class "TensorMemoryObj" as TMO
+class "ProxyMemoryObj" as PMO <<插件新增>> {
+  +is_proxy()
+  +resolve()
+  +set_backing_obj()
+}
+class "MemoryFormat" as MF <<宿主>> {
+  KV_2LTD
+  KV_MLA_FMT
+  KV_T2D
+}
+class "KVCacheFormat" as KVF <<插件>> {
+  MERGED_KV
+  SEPARATE_KV
+  MLA_KV / DSA_KV
+}
+
+MO <|-- TMO
+MO <|-- PMO
+MF ..> TMO : 分配器用
+KVF ..> PMO : 算子用
+
+note right of PMO
+  延迟求值：一路携带元数据，
+  到 batched_to_gpu 才 resolve
+end note
+note bottom of KVF
+  第二套格式词汇表
+end note
+@enduml

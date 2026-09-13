@@ -1,0 +1,53 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 12
+skinparam ranksep 26
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+title LMCacheEngine 的内部结构：一个工厂 + 一个编排者 + 被注入的协作者
+
+class "LMCacheEngineBuilder" as B {
+  {static} _instances : Dict[str, LMCacheEngine]
+  {static} get_or_create(instance_id, ...)
+  {static} destroy(instance_id)
+}
+
+class "LMCacheEngine" as E {
+  == ② 主干（数据进出）==
+  + store() / store_layer()
+  + retrieve() / retrieve_layer()
+  == ③ 查询与预取 ==
+  + lookup() / async_lookup_and_prefetch()
+  + lookup_unpin() / cleanup_memory_objs()
+}
+
+class "TokenDatabase" as TD
+class "GPUConnectorInterface" as GC
+class "StorageManager" as SM
+class "LMCacheEngineConfig" as CFG
+
+B ..> E : 按 instance_id 创建并缓存
+E --> TD : 构造注入
+E --> GC : 构造注入
+E --> CFG : 构造注入
+E --> SM : post_init 自建
+
+note right of E
+  **它不实现搬运、分配、算键**
+  只把请求拆成对协作者的调用
+end note
+
+note bottom of B
+  **不是单例**：四个字典都按 instance_id 索引
+  多 rank / 多模型时每个 id 一个 Engine
+end note
+@enduml

@@ -1,0 +1,39 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 13
+skinparam ranksep 24
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+package "① 契约" {
+  enum "ThreadLevel" as TL
+  class "ThreadRunSummary" as TRS
+  abstract "PeriodicThread" as PT
+}
+package "② 循环实现" {
+  class "start / stop / wake" as CTL
+  class "get_status()" as GS
+}
+package "③ 注册表" {
+  class "PeriodicThreadRegistry" as REG <<singleton>>
+}
+
+PT --> TRS : 每轮返回
+PT --> TL : 声明重要性
+PT *-- CTL
+PT *-- GS
+PT ..> REG : 启动时注册
+
+note bottom of PT
+  子类只实现 **一个** _execute()
+  循环 / 计时 / 异常 / 统计全在基类
+end note
+@enduml

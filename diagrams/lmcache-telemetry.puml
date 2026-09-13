@@ -1,0 +1,51 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 10
+skinparam ranksep 26
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+title 两个观测系统：一个给维护者，一个给部署方
+
+class "usage_telemetry/" as U <<phone-home 匿名统计>> {
+  消费者 = LMCache 维护者
+  传输：HTTP 到统计服务
+  --
+  messages.py —— 线上schema唯一来源
+  guard.py —— 不抛异常保证
+  identity.py —— 退出开关
+  env_probe / context / continuous
+  mp / mp_continuous / l1_usage / l2_usage
+}
+
+class "observability.py" as O <<operator 指标>> {
+  消费者 = 部署方
+  传输：Prometheus 拉取
+  --
+  LMCacheStats + 五个请求统计
+  LMCStatsMonitor
+  PrometheusLogger（1103 行）
+  LMCacheStatsLogger
+}
+
+class "v1/mp_observability/" as M <<operator 指标 · MP 模式>> {
+  47 文件 · 约 7000 行
+  **已单独成页**
+}
+
+U ..> U : 自己的退出开关
+O ..> O : 自己的退出开关
+note bottom of O
+  README 原话：这一套是
+  "single-process mode" 的 operator 观测。
+end note
+
+@enduml

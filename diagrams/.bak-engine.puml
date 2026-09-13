@@ -1,0 +1,49 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 13
+skinparam ranksep 24
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+package "① 构造" {
+  class "LMCacheEngineBuilder" as B <<singleton>> {
+    get_or_create / destroy
+  }
+}
+package "② 主干" {
+  class "LMCacheEngine" as E {
+    store / retrieve（+ layerwise）
+  }
+}
+package "③ 查询与预取" {
+  class "lookup / async_lookup_and_prefetch" as L {
+    + lookup_unpin / cleanup_memory_objs
+  }
+}
+package "④ 被注入的协作组件" {
+  class "token_database" as TD
+  class "gpu_connector" as GC
+  class "storage_manager" as SM
+  class "broadcast_fn" as BF
+}
+
+B ..> E : 创建并注入依赖
+E *-- L
+E o-- TD
+E o-- GC
+E o-- SM
+E o-- BF
+
+note bottom of E
+  **它不创建任何组件**——
+  全部由 Builder 注入
+end note
+@enduml

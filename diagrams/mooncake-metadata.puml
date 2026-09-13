@@ -1,0 +1,60 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 14
+skinparam ranksep 36
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+class "TransferMetadata" as TM {
+  Segment 描述
+  RpcMetaEntry
+  NotifyDesc
+  ---
+  +syncSegmentCache()
+  +sendProbe() / receivePeerProbe()
+  +pushNotify() / getNotifies()
+}
+
+interface "MetadataStoragePlugin" as MSP {
+  +get(key, value)
+  +set(key, value)
+  +remove(key)
+}
+interface "HandShakePlugin" as HSP {
+  +startDaemon()
+  +send / sendNotify / sendProbe
+  +registerOn…CallBack() ×4
+}
+
+class "RedisStoragePlugin" as REDIS
+class "HTTPStoragePlugin" as HTTP
+class "EtcdStoragePlugin" as ETCD
+class "SocketHandShakePlugin" as SOCK
+
+class "刷新线程" as THR <<std::thread>> {
+  周期 syncSegmentCache("")
+  可中断等待 + 三层异常捕获
+}
+
+TM o-- "1" MSP
+TM o-- "1" HSP
+TM --> THR : 持有
+MSP <|.. REDIS
+MSP <|.. HTTP
+MSP <|.. ETCD
+HSP <|.. SOCK
+
+note right of HSP
+  这个抽象**只有一个实现**，
+  且工厂无条件返回它、
+  完全忽略传入的 conn_string
+end note
+@enduml

@@ -1,0 +1,68 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 12
+skinparam ranksep 28
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+title 装配：一个注册表扫三个目录，每个实例一份 app
+
+class "InternalAPIServer" as S <<每实例一个>> {
+  port / socket_path（由 role 决定）
+  app : FastAPI  ← 自己的一份
+  --
+  start() / stop()
+  run() → uvicorn
+}
+
+class "APIRegistry" as R {
+  register_all_apis(categories)
+  --
+  扫目录：common / vllm / controller
+  逐文件 include_router
+}
+
+class "discover_api_routers" as D <<v1/utils>> {
+  (category_path, category_package)
+  → Iterable[APIRouter]
+}
+
+class "LMCacheManager" as M {
+  被塞进 app.state.lmcache_adapter
+}
+
+package "端点模块（各自定义模块级 router）" {
+  class "common/ 6 个" as C1 <<通用>>
+  class "vllm/ 11 个" as C2 <<vLLM 专用>>
+  class "controller/ 2 个" as C3 <<控制器专用>>
+}
+
+S *-down- R
+R ..> D : 用它扫
+R ..> C1
+R ..> C2
+R ..> C3
+S ..> M : 注入 app.state
+
+note right of S
+  模块级那个 `app` 只为兼容测试保留；
+  **生产代码每个实例自己 _build_app()**——
+  否则同进程的 scheduler 与 worker
+  会互相覆盖 app.state。
+end note
+
+note bottom of C1
+  **common 会被 MP server 复用**：
+  multiprocess/http_apis/common_api.py 直接扫这个目录。
+  所以这一层不是嵌入模式独有的。
+end note
+
+@enduml

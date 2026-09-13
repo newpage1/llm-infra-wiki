@@ -1,0 +1,63 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 18
+skinparam ranksep 44
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+skinparam package {
+  BackgroundColor #FDF6E8
+  BorderColor #E0D2BA
+  FontColor #8A7A67
+  FontSize 12
+}
+
+package "lmcache (host)" #FDF6E8 {
+  abstract "BaseTransferChannel" as BTC {
+    +lazy_init_peer_connection()
+    +send/handle_init_side_msg()
+    +get_local_mem_indices()
+    +batched_send() / batched_recv()
+    +batched_write() / batched_read()
+    +close()
+  }
+  class "PySocketChannel" as PYS
+  class "NixlChannel" as NIXL
+  class "InitSideMsgBase" as ISM <<msgspec>>
+}
+
+package "lmcache_ascend (plugin)" #F7F1F4 {
+  abstract "BaseMultiBufferChannel" as BMBC {
+    多 buffer 的注册与解析
+    +_register_buffers()
+    +get_local_buffer_refs()
+    +_resolve_transfer_addrs()
+  }
+  class "HcclChannel" as HCCL
+  class "HixlChannel" as HIXL
+  class "HcclAgentWrapper" as HCA
+  class "HixlEngineWrapper" as HXE
+}
+
+BTC <|-- PYS
+BTC <|-- NIXL
+BTC <|-- BMBC : 插件**继承**宿主抽象
+BMBC <|-- HCCL
+BMBC <|-- HIXL
+HCCL *-- HCA
+HIXL *-- HXE
+BMBC ..> ISM : 复用宿主消息基类
+
+note bottom of BMBC
+  这是插件里**唯一**完全走正门的扩展：
+  继承宿主抽象、复用宿主消息基类、
+  不改写任何宿主符号。
+end note
+@enduml

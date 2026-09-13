@@ -1,0 +1,38 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 12
+skinparam ranksep 22
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+abstract "Transport" as T {
+  submitTransfer
+  getTransferStatus
+  registerLocalMemory
+  unregisterLocalMemory
+  getName
+}
+class "RdmaTransport" as RDMA
+class "TcpTransport" as TCP
+class "AscendTransport" as ASC
+class "…另 15 个实现" as MORE
+
+T <|-- RDMA
+T <|-- TCP
+T <|-- ASC
+T <|-- MORE
+
+note bottom of T
+  以上 5 个是**全部**纯虚方法；
+  其余 9 个 virtual 都有默认实现
+  （supportsGroupedScatter 默认 false）
+end note
+@enduml

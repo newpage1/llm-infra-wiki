@@ -1,0 +1,81 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 12
+skinparam ranksep 26
+skinparam arrowColor #8A7A67
+skinparam activity {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  FontColor #2B241B
+  FontSize 13
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #C9B9A2
+}
+
+title LMCacheEngine.lookup() 的处理逻辑
+
+start
+if (is_healthy()?) then (否)
+  :**return 0**;
+  note right
+    **失败语义 = 命中 0 个 token**
+    不是抛异常，调用方照常往下走
+  end note
+  stop
+else (是)
+endif
+
+:assert storage_manager 非空;
+:统计 on_lookup_request;
+
+if (search_range is None?) then (是)
+  :search_range = retrieve_locations;
+else (否)
+endif
+
+if (use_layerwise?) then (是)
+  :**逐 chunk 单独查**;
+  note right: key.split_layers → batched_contains
+  while (还有 chunk?) is (有)
+    if (逐层全命中
+    且只在一处?) then (是)
+      :res = end，continue;
+      note right: 全层命中 + 同一位置
+    else (否)
+      :**return res**;
+      note right: 前面命中的保留
+    endif
+  endwhile (无)
+else (否)
+  :**先收集全部 chunk**;
+  note right: 另一条路：**一次批量查**
+  :batched_contains(keys, range, pin);
+  note right
+    **前缀语义在它内部**：
+    逐个 contains，
+    **第一个不命中就 break**
+  end note
+  while (还有 idx?) is (有)
+    if (idx < hit_chunks?) then (是)
+      :res = end，continue;
+    else (否)
+      :**return res**;
+    endif
+  endwhile (无)
+endif
+
+:return res;
+note right
+  **返回最后一个命中 chunk 的 end**
+  ——即"可复用的前缀 token 数"
+end note
+
+:on_lookup_finished(stats, res);
+:if pin: touch_cache();
+note right
+  注释：**与 batched_contains 紧耦合**
+end note
+stop
+@enduml

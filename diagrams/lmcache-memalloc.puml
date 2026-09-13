@@ -1,0 +1,60 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 10
+skinparam ranksep 30
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+title 内存分配器：一个接口，十三种"内存从哪来"
+
+interface "MemoryAllocatorInterface" as I {
+  allocate(shapes, dtypes, fmt) → MemoryObj
+  batched_allocate(...)
+}
+
+class "CPU 侧（四个）" as C <<预留 CPU/pinned 内存>> {
+  HostMemoryAllocator
+  PinMemoryAllocator
+  LazyMemoryAllocator
+  MixedMemoryAllocator
+}
+
+class "设备侧（五个）" as G <<显存与张量>> {
+  GPUMemoryAllocator
+  TensorMemoryAllocator
+  PagedTensorMemoryAllocator
+  BufferAllocator
+  PagedCpuGpuMemoryAllocator
+}
+
+class "文件与设备文件（三个）" as F <<内存来自文件>> {
+  CuFileMemoryAllocator
+  HipFileMemoryAllocator
+  DevDaxMemoryAllocator
+}
+
+class "不预留（一个）" as A <<每次现要>> {
+  AdHocMemoryAllocator
+}
+
+I <|.. C
+I <|.. G
+I <|.. F
+I <|.. A
+
+note bottom of F
+  **三个里有两个是继承而非实现**：
+  CuFile / HipFile 继承 GPUMemoryAllocator，
+  而不是直接实现接口——
+  所以它们复用显存分配，只换"这块内存的来路"。
+end note
+
+@enduml

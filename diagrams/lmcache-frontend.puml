@@ -1,0 +1,63 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 10
+skinparam ranksep 26
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+title MP 前端：一个聚合面板 + 反向代理，外加一层插件桥
+
+class "app.py" as A <<1048 行 · FastAPI>> {
+  _NodeRegistry —— 节点表
+  fetch_nodes_from_supplier() —— 从上游拉
+  proxy_request() / proxy_request_by_name()
+  aggregated_metrics() —— 聚合各节点指标
+  add_proxy / update_node / delete_node
+}
+
+class "HeartbeatService" as H <<257 行>> {
+  worker() —— 定时上报
+  start() / stop() / status()
+  --
+  **节点靠它注册上来**
+}
+
+package "静态前端" {
+  class "static/js/app.js" as JS <<1189 行>>
+  class "static/index.html" as HTML <<239 行>>
+}
+
+class "lmcache_mp_frontend_plugin.py" as P <<176 行 · MP 插件>> {
+  _parse_mp_config() / build_argv()
+  main()
+}
+
+class "MPRuntimePluginLauncher" as L <<宿主侧 · v1/plugin>>
+
+A *-down- JS
+A *-down- HTML
+A ..> H : 起停心跳
+L ..> P : --runtime-plugin-locations
+P ..> A : 读配置后调 app.main()
+H ..> A : 节点上报到它
+
+note right of A
+  **它是"代理"也是"面板"**：
+  对浏览器是面板，
+  对节点是代理入口。
+end note
+note bottom of P
+  **它不做业务**：
+  只把 MP server 的配置
+  翻译成前端的命令行参数。
+end note
+
+@enduml

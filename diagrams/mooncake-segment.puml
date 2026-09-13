@@ -1,0 +1,44 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 12
+skinparam ranksep 24
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 12
+}
+
+class "SegmentDesc" as SD {
+  name / protocol
+  devices / topology
+  nvmeof_buffers
+  cxl_name / cxl_base_addr
+  rank_info
+  tcp_data_host / port
+  rdma_server_name
+}
+class "BufferDesc" as BD {
+  name / addr / length
+  device_id / protocol
+  lkey / rkey
+  shm_name
+  offset
+  tseg / l_seg_index
+}
+class "NVMeoFBufferDesc" as NVD
+
+SD *-- "0..*" BD
+SD *-- "0..*" NVD
+
+note bottom of BD
+  lkey/rkey 给 rdma，shm_name 给 nvlink，
+  offset 给 cxl，tseg 给 ub/urma
+  —— 每个协议只用其中几个字段，
+  但结构体里全都有（与 Transport::Slice 同一模式）
+end note
+@enduml

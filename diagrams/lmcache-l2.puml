@@ -1,0 +1,48 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 13
+skinparam ranksep 24
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+package "① 契约" {
+  interface "L2AdapterInterface" as L2 {
+    store / load
+    lookup_and_lock / unlock
+    三个 eventfd
+  }
+}
+package "② 实现族（20 个）" {
+  class "KV / 对象存储" as A <<valkey · aerospike · s3 …>>
+  class "文件系统" as B <<fs · dax · raw_block …>>
+  class "NIXL / 插件" as C <<nixl_store · plugin …>>
+  class "测试用" as D <<mock · fault_inject>>
+}
+package "③ 装配" {
+  class "L2AdaptersConfig" as CFG
+  class "工厂" as FAC
+}
+class "SerdeL2AdapterWrapper" as SW <<装饰器>>
+
+L2 <|.. A
+L2 <|.. B
+L2 <|.. C
+L2 <|.. D
+FAC ..> L2 : 按配置构造
+CFG --> FAC
+SW ..|> L2 : 也实现同一接口
+SW o-- L2 : 包住一个真实 adapter
+
+note bottom of SW
+  装饰器：控制器看到的是
+  **一个普通 adapter**
+end note
+@enduml

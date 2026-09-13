@@ -1,0 +1,38 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 12
+skinparam ranksep 22
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 12
+}
+
+class "TransferTask" as TT
+class "Slice" as SL {
+  source_addr / length
+  target_id / opcode
+  status
+  cleanup_callback
+  from_cache
+}
+
+TT *-- "1..*" SL
+
+note bottom of SL
+  五种状态：PENDING / POSTED /
+  SUCCESS / TIMEOUT / FAILED
+
+  markSuccess() 与 markFailed() 会
+  delete this —— 所以必须分配在堆上
+
+  用完会归还线程本地缓存（from_cache），
+  所以 cleanup_callback 必须在归还前
+  执行，但不能删 Slice 本身
+end note
+@enduml

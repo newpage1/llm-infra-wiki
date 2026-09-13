@@ -1,0 +1,65 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 14
+skinparam ranksep 40
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+skinparam package {
+  BackgroundColor #FDF6E8
+  BorderColor #E0D2BA
+  FontColor #8A7A67
+  FontSize 12
+}
+
+package "lmcache (host)" #FDF6E8 {
+  interface "AllocatorBackendInterface" as ABI
+  class "PDBackend" as PD {
+    push-based 传输
+    +allocate / batched_allocate
+    +batched_submit_put_task
+    «1087 行»
+  }
+}
+
+package "lmcache_ascend (plugin) · pd/" #F7F1F4 {
+  class "AscendPDSenderMixin" as SM {
+    ★ _batched_submit_put_task_pull
+    ★ _handle_pull_done
+    ★ _wait_for_backpressure
+    ★ _sweep_expired_pull_pending
+  }
+  class "AscendPDReceiverMixin" as RM {
+    ★ _handle_pull_ready / _eager / _delay
+    ★ _send_pull_done_to_sender
+    +_mem_alloc_loop
+  }
+  class "AscendPDBackend" as APD {
+    同时初始化 CPU + NPU 分配器
+    注册 CPU + NPU 双 buffer
+  }
+}
+
+ABI <|.. PD
+PD <|-- APD : 继承宿主基类
+SM <|-- APD : mixin 组合
+RM <|-- APD : mixin 组合
+
+note right of APD
+  **第四种适配形态**：
+  继承 + mixin 组合
+  既不复写宿主，也不复制宿主
+end note
+note bottom of SM
+  宿主只做 push；
+  push/pull 在宿主源码里只出现 1 次
+  （注释），**pull 是净增**
+end note
+@enduml

@@ -1,0 +1,51 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 13
+skinparam ranksep 24
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+package "④ 共享上下文" {
+  class "MPCacheServerContext" as CTX {
+    storage_manager · token_hasher
+    session_manager · event_bus
+    layout_desc_registry
+  }
+  class "LayoutDescRegistry" as LDR {
+    按 (model, world_size) 登记
+  }
+}
+package "② 模块契约" {
+  interface "EngineModule" as EM {
+    context / report_status / close
+  }
+  interface "InstanceLivenessTarget" as ILT
+}
+package "① 组装者" {
+  class "MPCacheServer" as S {
+    report_status() / close()
+  }
+}
+class "六个具体模块" as MODS
+
+CTX *-- LDR
+S o-- "1" CTX
+S o-- "0..*" EM
+EM <|.. MODS
+ILT <|.. MODS
+MODS ..> CTX : 读共享状态
+
+note bottom of S
+  组装者本身几乎不干活：
+  状态靠 report_status 聚合，
+  关闭靠 close 逐层下放
+end note
+@enduml

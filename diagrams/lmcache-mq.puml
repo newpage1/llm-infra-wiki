@@ -1,0 +1,56 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 13
+skinparam ranksep 22
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+package "① 客户端" {
+  class "MessageQueueClient" as C {
+    submit_request() → Future
+    只入队 + notify
+  }
+  class "ClientPollingLoop" as LOOP <<singleton>> {
+    一个线程 poll 所有 client
+    引用计数启停
+  }
+}
+package "② 异步结果" {
+  class "MessagingFuture" as F {
+    retain_reference()
+  }
+}
+package "③ 服务端处理器" {
+  abstract "RequestHandlerBase" as RH
+  class "SyncRequestHandler" as SRH
+  class "BlockingRequestHandler" as BRH
+}
+package "④ 编码与线程池" {
+  class "msgspec 编解码" as MS
+  class "AffinityThreadPool" as POOL {
+    同 key 固定同 slot
+  }
+}
+
+C --> LOOP : 注册
+LOOP o-- "0..*" C
+C --> F : 返回
+RH <|-- SRH
+RH <|-- BRH
+SRH ..> MS
+RH ..> POOL
+
+note bottom of LOOP
+  **共享放大故障**：一帧解不出
+  会拖垮所有 client，
+  所以必须 catch 后继续
+end note
+@enduml

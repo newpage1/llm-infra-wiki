@@ -1,0 +1,74 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 10
+skinparam ranksep 28
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+title csrc：一个共享头 + 三个原生模块
+
+class "engine_kv_format.h" as F <<共享定义>> {
+  enum class EngineKVFormat
+  format_facts(f) : FormatFacts
+  --
+  is_kv_list / is_layer_list
+  is_cross_layer / is_mla
+  LMC_KV_FORMAT_HD = __host__ __device__
+}
+
+class "lmcache_native" as N <<工具模块>> {
+  Bitmap · TTLLock
+  fold / unfold
+  ParallelPatternMatcher
+  RangePatternMatcher
+  PeriodicEventNotifier
+}
+
+class "cuda_ops" as C <<GPU 算子>> {
+  multi_layer_kv_transfer
+  load_and_reshape_flash
+  encode_fast_new / decode_fast_new
+  calculate_cdf
+  rotary_embedding_k_fused
+  alloc_pinned_ptr …
+}
+
+class "storage_backends" as S <<每后端一个模块>> {
+  redis · aerospike · mooncake · fs
+  --
+  connector_base.h（657）
+  connector_interface.h
+}
+
+class "sycl/*" as Y <<Intel 端口>> {
+  只覆盖一部分算子
+  ac_enc / ac_dec / cal_cdf
+  mem_kernels / pos_kernels
+}
+
+F ..> N : 判定函数导出给 Python
+F ..> C : 同一份枚举在设备侧也能用
+F ..> Y
+C <|-- Y : 同一批算子的另一个后端
+S ..> F
+
+note bottom of F
+  **它是唯一"共享"的东西**：
+  同一份枚举与判定函数，
+  既编进 Python 扩展，也编进 kernel——
+  靠 LMC_KV_FORMAT_HD 这一个宏切换。
+end note
+note right of Y
+  **SYCL 不是完整移植**：
+  没有 blend 与 KV 搬运那几个 kernel。
+end note
+
+@enduml

@@ -1,0 +1,53 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 12
+skinparam ranksep 24
+skinparam arrowColor #8A7A67
+skinparam component {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  FontColor #2B241B
+  FontSize 13
+}
+
+title LMCacheEngine 的协作关系
+
+[推理引擎 vLLM Connector] as VLLM
+
+rectangle "协作组件（Builder 注入）" {
+  [TokenDatabase] as TD
+  [MemoryAllocator] as MA
+  [GPUConnector] as GC
+  [StorageManager] as SM
+}
+
+rectangle "LMCacheEngine —— 只做编排" {
+  [store] as ST
+  [retrieve] as RT
+  [lookup] as LK
+}
+
+VLLM --> ST
+VLLM --> RT
+VLLM --> LK
+
+ST --> TD : ① 算 chunk 键
+ST --> MA : ② 申请 MemoryObj
+ST --> GC : ③ batched_from_gpu
+ST --> SM : ④ batched_put
+
+RT --> SM : ① batched_get
+RT --> GC : ② to_gpu
+
+LK --> SM : batched_contains
+
+note right of LK
+  **lookup 不碰数据**——只回答"能省多少"
+  **它自己 pin 住命中的键**：与 retrieve 之间有时间窗
+end note
+note right of SM
+  **唯一的跨层入口**：L1 / L2 / 远端都在后面
+end note
+@enduml

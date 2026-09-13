@@ -1,0 +1,51 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 13
+skinparam ranksep 24
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+package "① 搬运契约" {
+  abstract "GPUConnectorInterface" as IFACE {
+    to_gpu / from_gpu
+  }
+}
+package "② 引擎侧实现" {
+  class "vLLM ×4" as V <<PagedV2/V3 · Layerwise×2>>
+  class "SGLang ×2" as S <<Paged · Layerwise>>
+  class "TRT-LLM" as T
+  class "厂商变体 ×3" as HW <<musa · xpu · hpu>>
+}
+package "③ KV 格式子系统" {
+  class "KVFormatSpec ×18" as SPEC {
+    枚举名**就是**形状
+  }
+  class "detectors ×5" as DET {
+    vllm / sglang / trtllm / atom
+  }
+}
+package "④ 异步文件 I/O" {
+  class "cufile / gds / hipfile / phx / ugds" as ASYNC
+}
+
+IFACE <|-- V
+IFACE <|-- S
+IFACE <|-- T
+IFACE <|-- HW
+V ..> SPEC : 按格式取几何
+DET ..> SPEC : 探测出格式
+SPEC ..> ASYNC : 需要落盘时
+
+note bottom of SPEC
+  事实**镜像到 csrc/engine_kv_format.h**，
+  有测试把两侧钉住
+end note
+@enduml

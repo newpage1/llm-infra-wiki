@@ -1,0 +1,48 @@
+@startuml
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 14
+skinparam ranksep 36
+skinparam class {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  ArrowColor #8A7A67
+  FontColor #2B241B
+  FontSize 13
+}
+
+class "Topology" as TOP {
+  +discover(filter)
+  +parse(topology_json)
+  +disableDevice(name)
+  ★ +selectDevice(storage_type, retry_count)
+  ---
+  preferred_hca / avail_hca 两档
+}
+
+class "MultiTransport" as MT {
+  +getTransport(proto)
+  +listTransports()
+  ★ +selectTransport(entry, transport&)
+  ---
+  多协议段按**优先级 + 可达性**路由
+}
+
+class "Transport（18 个）" as TR <<后端族>>
+
+TOP ..> MT : 提供候选设备
+MT --> TR : 选定一个后端
+
+note right of TOP
+  retry_count = 0 → 随机（打散负载）
+  retry_count > 0 → 顺序轮转
+  —— 故障换路不靠异常，靠计数器
+end note
+note bottom of MT
+  hip 是 GPU IPC，跨节点不可达
+  代码自动降级到 rdma，
+  **不要求运维设 MC_DISABLE_HIP**
+end note
+@enduml

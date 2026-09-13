@@ -69,7 +69,14 @@ function audit(text) {
     const m = p.match(re);
     r[name] = m ? m.length : 0;
   }
-  r['_字数(千字)'] = +(p.replace(/\s/g, '').length / 1000).toFixed(1);
+  const chars = p.replace(/\s/g, '').length || 1;
+  r['_字数(千字)'] = +(chars / 1000).toFixed(1);
+  // 密度指标：de-slopify 与 Wikipedia 都把「破折号过量」列为文档类写作的第一号 AI 标志，
+  // 「粗体机械强调」单列一节。绝对值没意义（页面大小不同），所以按千字归一。
+  // 先累加分子分母，密度在全部合并完之后再算——直接把每个模块的密度相加是错的
+  r['_破折号数'] = (p.match(/——/g) || []).length;
+  r['_粗体数'] = (p.match(/\*\*/g) || []).length / 2;
+  r['_正文字数'] = chars;
   r['_锚点(路径:行号)'] = (String(text).match(/[\w./-]+\.(?:py|cpp|h|go|cu|cuh|js|ts|md|json|yaml|yml|sh|toml|rs|java|proto):\d+/g) || []).length;
   return r;
 }
@@ -96,6 +103,18 @@ for (const a of ANALYSES) {
 }
 
 const TIC_NAMES = TICS.map(t => t[0]);
+
+/* 密度指标不能逐模块相加，要由总量算 */
+function finishDensity(o) {
+  const c = o['_正文字数'] || 1;
+  o['_破折号/千字'] = +((o['_破折号数'] || 0) / c * 1000).toFixed(2);
+  o['_粗体/千字'] = +((o['_粗体数'] || 0) / c * 1000).toFixed(2);
+  return o;
+}
+
+/* 密度必须在这里算完——--snapshot 与 --guard 都要读它 */
+finishDensity(total);
+Object.values(per).forEach(finishDensity);
 
 /* --snapshot：把当前指标存成基线，之后 --guard 据它判断有没有退化 */
 if (process.argv.includes('--snapshot')) {
@@ -137,6 +156,10 @@ for (const n of TIC_NAMES) {
 console.log('  ' + pad('正文规模', w) + '  ' + num(total['_字数(千字)'].toFixed(1) + ' 千字', 6));
 console.log('  ' + pad('锚点总数', w) + '  ' + num(total['_锚点(路径:行号)'], 6) +
   '   ← 只许增不许减');
+for (const n of ['_破折号/千字', '_粗体/千字']) {
+  console.log('  ' + pad(n.replace(/^_/, ''), w) + '  ' + num(total[n].toFixed(2), 6) +
+    '   ← 密度，只许降不许升（de-slopify / Wikipedia 列为文档类首号标志）');
+}
 
 console.log('\n分页\n');
 const pw = Math.max(...Object.keys(per).map(k => k.length));
@@ -162,6 +185,10 @@ if (process.argv.includes('--guard')) {
   }
   if ((total['_锚点(路径:行号)'] || 0) < (base.total['_锚点(路径:行号)'] || 0)) {
     worse.push(`锚点变少了：${base.total['_锚点(路径:行号)']} → ${total['_锚点(路径:行号)']}`);
+  }
+  for (const n of ['_破折号/千字', '_粗体/千字']) {
+    const b = (base.total[n] ?? 0), c = (total[n] ?? 0);
+    if (c > b + 0.02) worse.push(`${n.replace(/^_/, '')} 密度涨了：${b} → ${c}`);
   }
   if (worse.length) {
     console.log('\n❌ 文风指标退化：');

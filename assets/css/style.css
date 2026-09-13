@@ -1258,3 +1258,64 @@ body::before{
 .mod-gap ul{margin:7px 0 0;padding-left:18px;display:flex;flex-wrap:wrap;gap:4px 22px}
 .mod-gap li{color:var(--muted)}
 .mod-gap code{font-family:var(--font-mono);font-size:11.5px;color:var(--ink)}
+
+/* ============================================================
+   架构图的窄屏可读性 + 放大浮层
+   ------------------------------------------------------------
+   实测（390px CSS 视口）：.diagram 是 width:100%，1200 宽的作者坐标系
+   被压到 316px，缩放系数 0.263 —— 10.5px 的标注实际只渲染成 3px。
+   容器虽然早就写了 overflow-x:auto，但 SVG 永不溢出，滚动条是死的。
+
+   所以：窄屏下让图保留 min-width 并真的溢出，横滑读；
+   再给一个点开看的浮层（可缩放、可拖动），照顾需要看细节的场景。
+   ============================================================ */
+
+.fig{margin:0}
+.fig-hint{
+  display:none;margin:7px 0 0;padding-left:2px;
+  font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;color:var(--muted);
+}
+.flow-canvas{cursor:zoom-in}
+
+@media (max-width:860px){
+  .fig-hint{display:block}
+  /* 不是把图缩小，而是让它按接近桌面的比例渲染、由容器横向滚动。
+     960px 是「标注字号 ≥ 8.4px」的下限，再小就没有阅读价值了。
+     **必须限定在 .flow-canvas 里**——否则 min-width 会压过放大浮层的内联
+     宽度，浮层的缩放按钮就失效了（踩过：点 + 数字变了但图纹丝不动）。 */
+  .flow-canvas .diagram{width:auto;min-width:960px;max-width:none}
+  .flow-canvas{-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+}
+
+body.zoom-open{overflow:hidden}
+
+.zoom-layer{
+  position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;
+  background:color-mix(in srgb,var(--bg) 97%,transparent);
+  backdrop-filter:blur(12px) saturate(140%);
+}
+.zoom-bar{
+  display:flex;align-items:center;gap:8px;flex:0 0 auto;
+  padding:10px 14px;border-bottom:1px solid var(--line);
+  background:color-mix(in srgb,var(--bg) 88%,transparent);
+}
+.zoom-hint{
+  flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  font-family:var(--font-mono);font-size:10.5px;letter-spacing:.06em;color:var(--muted);
+}
+.zoom-pct{
+  min-width:52px;text-align:center;
+  font-family:var(--font-mono);font-size:11px;color:var(--ink-2);
+}
+.zoom-bar button{
+  font-family:var(--font-display);font-size:13px;font-weight:600;
+  min-width:34px;padding:6px 10px;cursor:pointer;
+  color:var(--ink-2);background:var(--panel);
+  border:1px solid var(--line);border-radius:var(--radius-sm);transition:.16s;
+}
+.zoom-bar button:hover{color:var(--ink);border-color:var(--line-2);background:var(--wash)}
+.zoom-stage{
+  flex:1 1 auto;overflow:auto;padding:16px;
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+}
+.zoom-stage svg.diagram{display:block;max-width:none;height:auto}

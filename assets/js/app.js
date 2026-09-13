@@ -71,6 +71,16 @@
   }
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
+  /* 图的外壳：滚动容器 + 「点图放大」提示。
+     窄屏下 .diagram 保留 min-width（见 style.css 末尾），靠这个容器横滑——
+     否则 1200 宽的架构图会被压到 300 多 px，10.5px 的标注实际只有 3px。 */
+  function figCanvas(svg) {
+    const fig = el('figure', { class: 'fig' });
+    fig.appendChild(el('div', { class: 'flow-canvas' }, svg));
+    fig.appendChild(el('figcaption', { class: 'fig-hint' }, '点图放大 · 窄屏可左右滑动'));
+    return fig;
+  }
+
   function detailOf(id) { return DETAILS[id] || null; }
 
   /* ============================================================
@@ -688,7 +698,7 @@
     if (b.h3) out.push(el('h3', { class: 'an-h3', id: 'a-' + b.h3id }, esc(b.h3)));
     if (b.lead) out.push(el('p', { class: 'an-lead' },
       window.md(b.lead).html.replace(/^<p>|<\/p>$/g, '')));
-    if (b.svg) out.push(el('div', { class: 'flow-canvas' }, b.svg));
+    if (b.svg) out.push(figCanvas(b.svg));
     if (b.puml) {
       const box = el('div', { class: 'puml-box' });
       box.appendChild(el('div', { class: 'puml-cap' },
@@ -724,7 +734,7 @@
         loadPuml(holder, sec.puml.svgUrl);
       }
     }
-    if (sec.svg) s2.appendChild(el('div', { class: 'flow-canvas' }, sec.svg));
+    if (sec.svg) s2.appendChild(figCanvas(sec.svg));
     if (sec.html) s2.appendChild(el('div', { class: 'an-body' }, window.md(sec.html).html));
     if (sec.chain) {
       const ol = el('ol', { class: 'leg-steps' });
@@ -1016,7 +1026,7 @@
 
     if (f.diagram) {
       wrap.appendChild(el('h2', { class: 'flow-h2', id: 'topology' }, '总图'));
-      wrap.appendChild(el('div', { class: 'flow-canvas' }, f.diagram));
+      wrap.appendChild(figCanvas(f.diagram));
     }
 
     (f.legs || []).forEach(leg => {
@@ -1440,5 +1450,101 @@ L4 构造键 → 写入落存 → 登记索引
     items[next].scrollIntoView({ block: 'nearest' });
   });
 
+  /* ============================================================
+     图的放大浮层
+     ------------------------------------------------------------
+     实测：1200 作者宽度的图在 390px 手机上缩放系数只有 0.26，
+     10.5px 的标注渲染出来是 3px —— 完全读不了。
+     CSS 让窄屏保留 min-width 并允许横滑（能读了，但要滑），
+     这里再给一个「点开看大图」的浮层：可缩放、可拖动、Esc 关闭。
+     ============================================================ */
+  function installZoom() {
+    const BASE = 1200;                     // 图的作者坐标系宽度
+    let layer = null, stage = null, svg = null, pct = null, z = 1;
+
+    function apply(keepCenter) {
+      if (!svg) return;
+      const pw = stage.scrollWidth || 1, ph = stage.scrollHeight || 1;
+      const cx = (stage.scrollLeft + stage.clientWidth / 2) / pw;
+      const cy = (stage.scrollTop + stage.clientHeight / 2) / ph;
+      svg.style.width = Math.round(BASE * z) + 'px';
+      if (pct) pct.textContent = Math.round(z * 100) + '%';
+      if (keepCenter) {
+        stage.scrollLeft = cx * stage.scrollWidth - stage.clientWidth / 2;
+        stage.scrollTop = cy * stage.scrollHeight - stage.clientHeight / 2;
+      }
+    }
+    // 适应宽度（可能小于 100%，用来「看全整张图」）
+    function fitWidth() { return Math.max(0.15, (stage.clientWidth - 32) / BASE); }
+    // 打开时不低于 100%：缩到 30% 就等于又把字压回 3px，浮层就白做了
+    function fit() { if (!stage) return; z = Math.max(1, fitWidth()); apply(false); }
+    function whole() { if (!stage) return; z = fitWidth(); apply(false); }
+    function zoomBy(f) { z = Math.min(6, Math.max(0.25, z * f)); apply(true); }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+
+    function close() {
+      if (!layer) return;
+      layer.remove();
+      layer = stage = svg = pct = null;
+      document.body.classList.remove('zoom-open');
+      document.removeEventListener('keydown', onKey);
+    }
+
+    function open(src) {
+      layer = el('div', {
+        class: 'zoom-layer', role: 'dialog', 'aria-modal': 'true', 'aria-label': '放大看图'
+      });
+      const bar = el('div', { class: 'zoom-bar' });
+      bar.innerHTML =
+        '<span class="zoom-hint">拖动查看 · 双击放大一倍 · Esc 关闭</span>' +
+        '<button type="button" data-zoom="out" aria-label="缩小">−</button>' +
+        '<span class="zoom-pct">100%</span>' +
+        '<button type="button" data-zoom="in" aria-label="放大">+</button>' +
+        '<button type="button" data-zoom="whole">整图</button>' +
+        '<button type="button" data-zoom="close" aria-label="关闭">✕</button>';
+      stage = el('div', { class: 'zoom-stage' });
+      svg = src.cloneNode(true);
+      stage.appendChild(svg);
+      layer.appendChild(bar);
+      layer.appendChild(stage);
+      document.body.appendChild(layer);
+      document.body.classList.add('zoom-open');
+      pct = bar.querySelector('.zoom-pct');
+      fit();
+      document.addEventListener('keydown', onKey);
+
+      bar.addEventListener('click', e => {
+        const b = e.target.closest('button[data-zoom]');
+        if (!b) return;
+        const a = b.dataset.zoom;
+        if (a === 'close') close();
+        else if (a === 'in') zoomBy(1.25);
+        else if (a === 'out') zoomBy(0.8);
+        else whole();
+      });
+      // 双击在 100% 与 200% 之间切换
+      stage.addEventListener('dblclick', () => { z = (z > 1.2) ? 1 : 2; apply(true); });
+      stage.addEventListener('wheel', e => {          // Ctrl / ⌘ + 滚轮缩放
+        if (!e.ctrlKey && !e.metaKey) return;
+        e.preventDefault();
+        zoomBy(e.deltaY < 0 ? 1.1 : 0.9);
+      }, { passive: false });
+      layer.addEventListener('click', e => { if (e.target === layer) close(); });
+    }
+
+    // 事件委托：路由切换会重建 DOM，监听挂一次就够
+    document.addEventListener('click', e => {
+      if (layer) return;
+      const canvas = e.target.closest('.flow-canvas');
+      if (!canvas) return;
+      const s = canvas.querySelector('svg');
+      if (!s) return;
+      // 正在选字就别弹浮层
+      if (window.getSelection && String(window.getSelection()).length) return;
+      open(s);
+    });
+  }
+
+  installZoom();
   route();
 })();

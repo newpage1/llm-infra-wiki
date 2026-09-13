@@ -1,0 +1,28 @@
+name: verify
+
+# 每个 PR 与每次推到 main 都跑。这个是**离线**校验：
+# 不 clone 被分析的仓库，所以几十秒就能出结果，挡的是「格式坏了」的问题。
+# 行号与逐字围栏的完整校验见 anchors.yml（定时 + 手动）。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 离线自检
+        run: bash tools/verify.sh

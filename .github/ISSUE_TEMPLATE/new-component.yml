@@ -1,0 +1,41 @@
+name: 建议新增内容
+description: 新增一个组件、一条跨组件链路，或某个模块的深度分析
+title: "[建议] "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: 想加什么
+      options:
+        - 一个新组件的深度分析页
+        - 在已有分析页里补一个关键模块
+        - 一条跨组件的链路（flows）
+        - 一个组件的详情页
+    validations:
+      required: true
+
+  - type: input
+    id: target
+    attributes:
+      label: 目标项目 / 模块
+      description: 仓库地址与想分析的范围（目录或文件）。
+      placeholder: 'https://github.com/vllm-project/vllm —— vllm/v1/attention/'
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: 为什么值得加
+      description: 它解决了什么问题？读者为什么需要它？与站上已有内容是什么关系（补充 / 对比 / 替代）？
+    validations:
+      required: true
+
+  - type: input
+    id: revision
+    attributes:
+      label: 建议钉住的版本
+      description: 提交 SHA 或 tag。不填的话由维护者决定。
+    validations:
+      required: false

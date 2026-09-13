@@ -1,0 +1,32 @@
+{
+  "_comment": [
+    "深度分析页的行号与逐字围栏都要对着**钉住的提交**校验，所以必须先有代码。",
+    "id 必须与 data/analyses.js 里分析页的 id 一致。",
+    "rev 一律用提交 SHA（不用 tag）——tag 会被移动，SHA 不会。",
+    "local: true 表示这个基线**无法从公开仓库复现**，校验会被跳过并给出原因。"
+  ],
+  "repos": {
+    "mooncake": {
+      "url": "https://github.com/kvcache-ai/Mooncake.git",
+      "rev": "e389a85"
+    },
+    "lmcache": {
+      "url": "https://github.com/LMCache/LMCache.git",
+      "rev": "b5d109ea"
+    },
+    "lmcache-ascend": {
+      "url": "https://github.com/LMCache/LMCache-Ascend.git",
+      "rev": "452bcf4",
+      "local": true,
+      "note": "本地合成提交：dsv4_support_045(1452551) + 未合并的 PR#291(222b0a4) 与 PR#292(e5fa5e6)，并把 third_party/kvcache-ops 子模块按其钉住的 c3db0eb 物化进树。上游没有这个 SHA，无法用 git clone 复现——要复跑必须自己按同样步骤合成。"
+    },
+    "vllm": {
+      "url": "https://github.com/vllm-project/vllm.git",
+      "rev": "568afb3a"
+    },
+    "vllm-ascend": {
+      "url": "https://github.com/vllm-project/vllm-ascend.git",
+      "rev": "f2f74a16"
+    }
+  }
+}

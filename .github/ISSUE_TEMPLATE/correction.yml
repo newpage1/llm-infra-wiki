@@ -1,0 +1,35 @@
+name: 纠错 / 内容不对
+description: 行号过期、说法不对、链接失效、事实有误
+title: "[纠错] "
+labels: ["correction"]
+body:
+  - type: input
+    id: where
+    attributes:
+      label: 在哪个页面
+      description: 页面路径或链接。深度分析页形如 `#/a/<分析页>/<模块>`，组件页形如 `#/c/<组件>`。
+      placeholder: '#/a/vllm/worker'
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: 哪里不对
+      description: 贴出原文（一小段即可），并说明你认为正确的说法。
+      placeholder: |
+        原文：「……」
+        问题：……
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 依据
+      description: |
+        如果方便，给出能支持你的判断的证据：`路径:行号`、官方文档链接、issue 链接都行。
+        本站的口径是「每句话要指得到某一行」，所以带证据的纠错会处理得最快。
+      placeholder: 'vllm/v1/worker/worker_base.py:143'
+    validations:
+      required: false

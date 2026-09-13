@@ -1,0 +1,40 @@
+name: anchors
+
+# 完整校验：把每个深度分析页钉住的代码 clone 下来，逐条核对
+# 「这个行号真实存在吗」「这段围栏与仓库原文逐字一致吗」。
+#
+# 为什么不定在每个 PR 上：五个仓库里 vllm 一个就上百 MB，跑一次几分钟。
+# 内容改动频繁的时候，每周一次 + 需要时手动触发足够了。
+#
+#   lmcache-ascend 会被自动跳过：它的基线是本地合成提交，上游没有这个 SHA。
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: '只查指定分析页 id（空格分隔，留空=全部）'
+        required: false
+        default: ''
+  schedule:
+    # 每周一 03:00 UTC
+    - cron: '0 3 * * 1'
+
+jobs:
+  anchors:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 缓存已 clone 的代码基线
+        uses: actions/cache@v4
+        with:
+          path: .anchor-cache
+          key: anchors-${{ hashFiles('tools/anchors.json') }}
+
+      - name: 完整校验（行号 + 逐字围栏）
+        run: bash tools/verify-anchors.sh ${{ github.event.inputs.only }}

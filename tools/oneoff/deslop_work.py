@@ -18,7 +18,7 @@ import io, json, os, re, subprocess, sys, tempfile
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'))
 P = os.path.join(ROOT, 'data', 'analyses.js')
-WORK = os.path.join(ROOT, '.work', 'deslop')
+WORK = os.path.join(ROOT, *os.environ.get('DESLOP_DIR', '.work/deslop').split('/'))
 CHECKER = os.path.join(ROOT, 'tools', 'checker', 'check_module.js')
 IDS = ['mooncake', 'lmcache', 'lmcache-ascend', 'vllm', 'vllm-ascend']
 
@@ -91,6 +91,13 @@ def check(aid):
     blob = json.dumps(obj, ensure_ascii=False)
     blob = re.sub(r'~~~[a-z]*\n[\s\S]*?\n~~~', '', blob)
     blob = re.sub(r'<svg[\s\S]*?</svg>', '', blob)
+    # 顺带报一下破折号密度（这一轮的目标）
+    r = subprocess.run(['node', os.path.join(ROOT, 'tools', 'style_audit.js'), aid],
+                       capture_output=True, text=True,
+                       env=dict(os.environ, WIKI_ANALYSES=tmp))
+    for l in (r.stdout or '').split('\n'):
+        if '破折号' in l or '粗体' in l or '锚点总数' in l:
+            print('   ' + l.strip())
     print('剩余句式：而是 %d · 这就是 %d · 这正是 %d' % (
         len(re.findall('而是', blob)), len(re.findall('这就是', blob)), len(re.findall('这正是', blob))))
     return rc

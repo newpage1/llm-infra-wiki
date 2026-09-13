@@ -21,7 +21,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 global.window = {};
-require(path.join(ROOT, 'data', 'analyses.js'));
+require(process.env.WIKI_ANALYSES || path.join(ROOT, 'data', 'analyses.js'));
 
 const TICS = [
   // [显示名, 正则, 说明]

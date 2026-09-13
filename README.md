@@ -706,6 +706,13 @@ bash deploy.sh               # 发生产
 
 （需要 `npm i -g wrangler && wrangler login`。）
 
+### 绑自己的域名
+
+现网址是 `https://newpage1.github.io/llm-infra-wiki/`——由「平台 + 账号 + 仓库名」
+拼出来的，换仓库名或换托管商都会失效。绑一个自己的域名之后链接就只跟域名走。
+
+完整步骤（含 Cloudflare 的两个经典坑）见 [`docs/custom-domain.md`](docs/custom-domain.md)。
+
 ### 没有外部依赖
 
 字体已自托管（`assets/fonts/`，10 个 woff2 共 177KB，由 `tools/fetch_fonts.py` 生成），

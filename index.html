@@ -5,10 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LLM Infra Wiki · 大模型推理基础设施分层知识库</title>
 <meta name="description" content="从集群调度、推理引擎、KV 传输到 KV 存储，分层拆解 vLLM / SGLang / LMCache / Mooncake / Dynamo 等组件的架构与代码流程。">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/style.css?v=400">
+<!-- 字体自托管（原来是 Google Fonts）：站内文本以中文为主，这三套字体只覆盖拉丁
+     字符，CJK 落到系统字体；外链在国内会慢/连不上，首屏还会字体跳动。
+     文件由 tools/fetch_fonts.py 生成。 -->
+<link rel="preload" as="font" type="font/woff2" crossorigin
+      href="assets/fonts/zYXzKVElMYYaJe8bpLHnCwDKr932-G7dytD-Dmu1syxeKYbSB4Zh.woff2">
+<link rel="stylesheet" href="assets/css/fonts.css?v=401">
+<link rel="stylesheet" href="assets/css/style.css?v=401">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%23faf6ef'/><rect x='7' y='8' width='18' height='4' rx='1.5' fill='%23b8491c'/><rect x='7' y='14' width='18' height='4' rx='1.5' fill='%23c08a0c'/><rect x='7' y='20' width='18' height='4' rx='1.5' fill='%235f7a37'/></svg>">
 </head>
 <body>
@@ -58,14 +61,14 @@
 </footer>
 
 <!-- v= 用于强制刷新缓存；改动 assets/ 或 data/ 后把它 +1 -->
-<script src="data/catalog.js?v=400"></script>
-<script src="data/flows.js?v=400"></script>
-<script src="data/analyses.js?v=400"></script>
-<script src="data/details.js?v=400"></script>
-<script src="data/details-ascend.js?v=400"></script>
-<script src="data/details-nvidia.js?v=400"></script>
-<script src="data/details-outline.js?v=400"></script>
-<script src="assets/js/markdown.js?v=400"></script>
-<script src="assets/js/app.js?v=400"></script>
+<script src="data/catalog.js?v=401"></script>
+<script src="data/flows.js?v=401"></script>
+<script src="data/analyses.js?v=401"></script>
+<script src="data/details.js?v=401"></script>
+<script src="data/details-ascend.js?v=401"></script>
+<script src="data/details-nvidia.js?v=401"></script>
+<script src="data/details-outline.js?v=401"></script>
+<script src="assets/js/markdown.js?v=401"></script>
+<script src="assets/js/app.js?v=401"></script>
 </body>
 </html>

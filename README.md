@@ -3,12 +3,27 @@
 大模型推理基础设施的**分层知识库**站点。按「集群调度 → 推理引擎 → KV 传输 → KV 存储」四层组织，
 外加一条纵向穿透的底座带，每个组件页包含**整体介绍**与**代码流程子模块走读**。
 
-> **v0.1 原型**：结构、视觉、交互已定型。当前覆盖 **27 个组件 / 137 个模块走读**，
-> 其中 10 个是完整走读（LMCache-Ascend、LMCache、Mooncake、
-> vLLM、SGLang、vLLM-Ascend、Dynamo、CANN、CUDA、HIXL），其余 17 个为「骨架」。
+> **v0.1 原型**：结构、视觉、交互已定型。当前覆盖 **27 个组件**，
+> 其中 10 个有完整走读（LMCache-Ascend、LMCache、Mooncake、vLLM、SGLang、
+> vLLM-Ascend、Dynamo、CANN、CUDA、HIXL），其余 17 个为「骨架」。
 >
-> **当前内容重点：LMCache-Ascend、LMCache 与 Mooncake**——这两个组件的页面依据本地 call-path 走读笔记重写，
-> 包含整体调用链、模块之间的关系、以及每个模块的功能设计（LMCache-Ascend 12 模块 / LMCache 7 / Mooncake 16）。
+> **深度分析页（本站最重的内容）共 5 个、92 个关键模块**：
+> vLLM（9）· vLLM-Ascend（10）· LMCache（33）· LMCache-Ascend（17）· Mooncake（23）。
+> 每页都钉住一个上游提交，行号与代码围栏逐条校验。
+
+---
+
+## 参与贡献
+
+- **只想指出问题**：开 [纠错 Issue](.github/ISSUE_TEMPLATE/correction.yml?q=)，不用改代码。
+- **想改内容 / 加模块**：先读 [CONTRIBUTING.md](CONTRIBUTING.md)，
+  本地 `./serve.sh` 起来 → 改 → `bash tools/verify.sh` 全绿 → 提 PR。
+  GitHub 网页版可以直接编辑文件，手机上也能改。
+- **写作规范**：[`authoring/MODULE-SPEC.md`](authoring/MODULE-SPEC.md)（数据格式、八小节铁律、
+  SVG 约束、以及几个已经踩过的坑）；方法论见
+  [`data/SKILL-code-arch-analysis.md`](data/SKILL-code-arch-analysis.md)。
+
+CI 会在每个 PR 上跑离线校验，**红了合不进去**。
 
 ---
 
@@ -132,7 +147,7 @@ python3 bump.py        # index.html 里 10 个 ?v=N 统一 +1
 走完这些读者应当**不必读源码就能说出这个模块由哪几块组成**；
 **具体实现放在其后**。
 
-## sticky 侧栏必须自己可滚## sticky 侧栏必须自己可滚
+## sticky 侧栏必须自己可滚
 
 **sticky 元素被钉在 `top` 之后，自身不随页面滚动。**
 如果它的内容高于视口，**超出部分永久不可达**——表现为"目录拖不动"。
@@ -235,17 +250,35 @@ PORT=9000 ./serve.sh    # 换端口
 llm-infra-wiki/
 ├── index.html                     # 唯一页面（hash 路由）
 ├── serve.sh                       # 本地预览脚本
+├── bump.py                        # 统一递增 index.html 里的 ?v=N
+├── lint_svg.py                    # 手绘 SVG 的文字重叠检查
+├── fix_fences.py                  # 裸 ~~~ 围栏 → 带语言标记
+├── deploy.sh                      # 用 wrangler 直传 Cloudflare Pages
+├── CONTRIBUTING.md                # 怎么参与：本地跑起来 / 校验 / 提 PR
 ├── assets/
-│   ├── css/style.css              # 设计系统：暖色纸感风格 + 层级配色
+│   ├── css/{style.css,fonts.css}  # 设计系统 + 自托管字体声明（生成物）
+│   ├── fonts/*.woff2              # Saira / IBM Plex Sans / IBM Plex Mono
 │   └── js/
 │       ├── markdown.js            # 轻量 Markdown 渲染器（含 heading 锚点生成）
-│       └── app.js                 # 路由 / 渲染 / 搜索 / TOC 滚动高亮
-└── data/
-    ├── catalog.js                 # 编目：4 层 + 底座 + 27 个组件的元信息与「特点速览」
-    ├── details.js                 # 7 个旗舰组件的完整走读
-    ├── details-ascend.js          # 昇腾线深度解读（CANN、HIXL）
-    ├── details-nvidia.js          # NVIDIA 线底座（CUDA）
-    └── details-outline.js         # 其余 17 个组件的骨架内容
+│       └── app.js                 # 路由 / 渲染 / 搜索 / TOC / 图放大浮层
+├── data/
+│   ├── catalog.js                 # 编目：4 层 + 底座 + 27 个组件的元信息与「特点速览」
+│   ├── analyses.js                # 深度分析页（本站最重的内容，5 个页面）
+│   ├── details.js                 # 旗舰组件的完整走读
+│   ├── details-{ascend,nvidia,outline}.js
+│   ├── flows.js                   # 联动分析（跨组件链路）
+│   └── SKILL-code-arch-analysis.md  # 源码分析方法论（1600 行）
+├── diagrams/                      # PlantUML 源与渲染出的 SVG
+├── authoring/                     # 写作规范 + 单模块自检包装
+├── tools/
+│   ├── verify.sh                  # 离线自检（CI 跑这个）
+│   ├── verify-anchors.sh          # 完整校验（连行号与逐字围栏一起查）
+│   ├── check_publish.js           # 用真渲染器体检内容
+│   ├── fetch_fonts.py             # 重新拉取自托管字体
+│   ├── anchors.json               # 各分析页钉住的仓库与提交 SHA
+│   ├── checker/                   # 校验器（从 skill vendor 进来）
+│   └── oneoff/                    # 一次性迁移脚本（留档）
+└── .github/                       # CI 工作流 + PR / Issue 模板
 ```
 
 **数据与视图完全分离**：`data/` 下全是纯数据，`assets/js/` 只负责渲染。
@@ -419,22 +452,23 @@ KV 入向（算之前搬进来） → 计算 → KV 出向（算完搬出去）
 
 ## 已完成的深度分析
 
-**三个分析页的关键模块全部完成**（48 个模块）。
+**五个深度分析页，共 92 个关键模块**，全部按 `authoring/MODULE-SPEC.md` 的八小节规范写，
+并逐条对齐钉住的提交（`tools/anchors.json`）。
 
-| 组件 | 节数 | 模块 | 状态 |
+| 分析页 | 钉住的版本 | 模块 | 内容概要 |
 |---|---|---|---|
-| **lmcache**（宿主） | 6 | `platform` · `StorageManager/StorageBackend` · `GPUConnector` · `LMCacheEngine` | ✅ 4/4 |
-| **lmcache-ascend**（插件） | 7 | `NPUConnector` · `MemoryManager/KvFormat` · `P2PBackend` · `TransferChannel` · `PDBackend` · `TokensHash` | ✅ 6/6 |
-| **mooncake** | 6 | 对象层：`MasterService` · `Client/ClientService` · `StorageBackend` · `AllocationStrategy` · `HA`<br>字节层：`Transport` · `TransferMetadata` · `Topology/MultiTransport` · `Segment/Buffer` | ✅ 9/9 |
+| **vllm** | v0.26.0 `568afb3a` | 9 | 请求编排 → 引擎核心 → 执行 → KV 出口四段 |
+| **vllm-ascend** | v0.26.0rc1 `f2f74a16` | 10 | 平台骨架 / 算子与内核 / KV 池化 / KV 点对点 |
+| **lmcache** | `b5d109ea` | 33 | 宿主：引擎、缓存策略、扩展点 |
+| **lmcache-ascend** | 本地合成 `452bcf4` | 17 | 插件：NPU 搬运、PD 分离、状态缓存、融合内核 |
+| **mooncake** | `e389a86` | 23 | 对象层 + 字节层 + TENT 第二代引擎 + 训练侧 |
 
-**跨侧互链**：宿主与插件的 10 个模块**每个都有一条指向对面一侧的链接**
-（写在模块页的「风险」节末），保证读者从任一侧进入都能找到另一侧。
+校验口径：每页都要过 `--all`（结构 + 行号 + 逐字围栏）、`--design`（总体设计图 ↔ 模块认领）、
+`--cross`（宿主页不得提到插件），**目标一律是 0 错误 0 提示**。
 
-**插件式组件的分析纪律**：分析 lmcache-ascend 时**必须同时读 lmcache**。
-每个模块页首节是「先看宿主」——把宿主的对应实现与插件实现**并列贴出**，
-并标注相同的是布局知识、不同的是入口与调用约定。
-**在宿主侧**（`lmcache/gpu-connector`、`lmcache/engine`）有「与插件的接合」一节，
-给出双向派发图与影响推断。**两侧互链，缺一边就读不懂。**
+**两侧互链**：宿主页（lmcache / vllm）与插件页（lmcache-ascend / vllm-ascend）各自成页，
+插件在 `data/analyses.js` 里用 `pluginOf` + `aliasNames` 声明归属，`--cross` 会据此
+检查宿主页**一处都不提插件**。
 
 ## 联动分析（跨组件）
 
@@ -640,26 +674,57 @@ console.log('缺详情:',C.filter(c=>!D[c.id]).map(c=>c.name));
 
 ## 部署（让别人能访问）
 
-纯静态站点，任意静态托管均可：
+纯静态站点、无构建步骤，**发布就是把文件放到静态托管上**。
+发布体积约 6MB（`index.html` + `assets/` + `data/` + `diagrams/`），
+`.backup/`、`.work/`、`tools/`、`authoring/` 都不需要上传（`deploy.sh --dry-run` 会列清单）。
+
+### 推荐：Cloudflare Pages + GitHub
+
+1. 仓库推到 GitHub；
+2. Cloudflare Dashboard → Pages → Connect to Git → 选这个仓库；
+3. Build command 留空，Build output directory 填 `/`；
+4. 之后**推到 `main` 就自动发布**，PR 会拿到独立的预览 URL。
+
+免费、无限带宽、自动 HTTPS，绑自定义域名即可。
+
+### 其他托管
+
+| 方案 | 适用 |
+|---|---|
+| **对象存储 + CDN**（阿里云 OSS / 腾讯云 COS） | 读者主要在大陆时最快；自定义域名走大陆节点需要 ICP 备案 |
+| **GitHub Pages** | 最省事，但 `*.github.io` 在大陆访问不稳定 |
+| **内网 nginx** | 只给公司内部看，最可控 |
+| **Vercel / Netlify** | 部署体验好，但大陆访问常被墙 |
+
+### 不想走 git 的直发通道
 
 ```bash
-git init && git add -A && git commit -m "LLM Infra Wiki v0.1"
-
-# GitHub Pages：推到仓库 Settings → Pages 选分支
-# Vercel / Netlify：直接拖目录，或 netlify deploy --dir=.
-# 对象存储 + CDN：oss/cos/s3 上传后开静态网站托管
+bash deploy.sh --dry-run     # 先看会传哪些文件
+bash deploy.sh --preview     # 发一个预览，拿到临时 URL
+bash deploy.sh               # 发生产
 ```
 
-部署前建议替换：
+（需要 `npm i -g wrangler && wrangler login`。）
 
-- `index.html` 中的 Google Fonts 链接建议换成本地字体或国内镜像，避免部分网络下字体加载慢
+### 没有外部依赖
 
----
+字体已自托管（`assets/fonts/`，10 个 woff2 共 177KB，由 `tools/fetch_fonts.py` 生成），
+`index.html` 里没有任何指向 CDN 的资源引用——**离线、内网、断网环境下都能正常显示**。
+中文本来就落在系统字体上，这三套字体只覆盖拉丁字符。
+
+### 移动端
+
+窄屏（≤860px）下架构图保留 `min-width:960px` 并由容器横向滚动，
+**点任意一张图可以打开全屏浮层**放大查看（可缩放、可拖动、Esc 关闭）。
+实测 390px 视口下图上标注的实际字号从 3.0px 提升到 8.8px。
 
 ## 待办
 
+- [x] ~~纳入 git 版本管理~~（首次提交 `c2f34ec`）
+- [x] ~~自托管字体，去掉 Google Fonts 依赖~~
+- [x] ~~记录每个分析页对着哪个上游 commit 整理~~（`tools/anchors.json` + 每周自动校验）
 - [ ] 把 17 个骨架组件补成完整走读（昇腾线剩余：MemFabric、MemCache 深化、MindIE、PyMotor）
 - [ ] 补一层「横向对比」页面（各引擎的 KV 量化支持、各 KV 存储的索引粒度等）
-- [ ] 加入 `log.md` 式的更新日志，记录每个组件是对着哪个上游 commit 整理的
 - [ ] 支持从真实 `.md` 文件构建（现在是数据内联，改造成本很低）
 - [ ] 增加中英切换
+- [ ] lmcache / lmcache-ascend 那两页的 19 个「提示」清到 0（其余三页已是 0/0）

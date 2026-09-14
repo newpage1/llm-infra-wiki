@@ -23,7 +23,12 @@ function repoData(repo) {
   let listing = [], texts = {};
   try {
     listing = git(['ls-tree', '-r', '--name-only', 'HEAD']).split('\n').filter(Boolean);
-    listing.filter(f => /\.(py|cpp|cc|h|hpp|rs|go|java|ts|md)$/.test(f)).forEach(f => {
+    // 后缀表**必须和 verifyPaths 用的 FILE_EXT 一致**。这里早先是一份手写的小表，
+    // 漏了 .cu/.cuh/.c/.rst/.js 等，于是「标识符核对」看不到 CUDA 源码里的名字——
+    // lmcache 的 csrc 模块引 `PhaseTimer`（真实存在，在 csrc/cuda/mp_mem_kernels.cu:544）
+    // 却被报成「仓库里搜不到」。FILE_EXT 在文件后面才定义，但 repoData 是运行时才调用，
+    // 那时它已经初始化了。
+    listing.filter(f => FILE_EXT.test(f)).forEach(f => {
       // 优先读工作树——每个文件 spawn 一次 git show 会把 --all 拖到几分钟
       const wt = pathx.join(repo, f);
       try {

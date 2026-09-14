@@ -312,7 +312,9 @@ function check(m, linkTargets) {
   const countClaims = [];
   secs.forEach(x => {
     if (!x.lead) return;
-    const m = String(x.lead).match(/(?:下面|分为?|共|一共|按)([一二三四五六七八九十])(?:条腿|块|张图|个小节|步)/);
+    // 「N 步」不算块计数——它说的是流程里的步骤，而块是「一张图 + 它的解析」。
+    // kvpool 的 flow lead「共六步」只有 1 个块，早先把这两个概念混在一起报了假警。
+    const m = String(x.lead).match(/(?:下面|分为?|共|一共|按)([一二三四五六七八九十])(?:条腿|块|张图|个小节)/);
     if (!m) return;
     const claimed = CN[m[1]];
     const actual = (x.blocks && x.blocks.length) ? x.blocks.length : 0;

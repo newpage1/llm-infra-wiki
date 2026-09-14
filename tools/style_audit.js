@@ -21,13 +21,22 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 global.window = {};
-require(process.env.WIKI_ANALYSES || path.join(ROOT, 'data', 'analyses.js'));
+/* 三处正文都要数。曾经只数 analyses.js，于是 details.js / flows.js 里的行话
+   （例如「接缝」）从来没进过指标，--guard 也拦不住——这是工具的盲区，不是内容的。
+   WIKI_ANALYSES 是隔离改写用的临时单页副本；设了就只量它，别把全站混进来。 */
+const ISOLATED = process.env.WIKI_ANALYSES;
+const FILES = ISOLATED
+  ? [ISOLATED]
+  : ['analyses.js', 'details.js', 'details-ascend.js',
+     'details-nvidia.js', 'details-outline.js', 'flows.js']
+      .map(f => path.join(ROOT, 'data', f));
+for (const f of FILES) require(f);
 
 const TICS = [
   // [显示名, 正则, 说明]
   ['接缝', /接缝/g, '行话。多数场合「接口 / 边界 / 交界」更直白'],
   ['负责(公式化)', /\|\s*\*{0,2}不?负责\*{0,2}\s*\||^#{2,4}[^\n]*负责[^\n]*$|\*\*它不?负责什么\*\*[：:]/gm, '被当成模板的章节标题与表格标签；散文里的「引擎负责注册」不算'],
-  ['一句话', /一句话/g, '千篇一律的开场套话'],
+  ['一句话', /一句话(?:定位|概括|总结)|一句话[：:]/g, '当成标题或开场套话。「用一句话解释」「有一句话」这类正常说法不算'],
   ['值得注意', /值得注意(的是)?/g, '强调虚壳，后面跟的往往是常识'],
   ['真正的', /真正的/g, '强调虚壳，删掉通常不损失信息'],
   ['而是', /而是/g, '「不是…而是…」排比模板，密了就成腔'],
@@ -55,7 +64,11 @@ function collectFields(node, out = []) {
     for (const k of Object.keys(node)) {
       const v = node[k];
       if (typeof v === 'string') {
-        if (['summary', 'modulesLead', 'lead', 'html', 'title', 'subtitle', 'h3', 'caption', 'note', 't', 'group'].includes(k)) out.push(v);
+        // a/why/from/to/name 是 flows 与 details 的锚点与表头字段：本身没有措辞，
+        // 但带着路径:行号，收进来锚点总数才完整（prose() 会把路径剥掉）。
+        if (['summary', 'modulesLead', 'lead', 'html', 'title', 'subtitle', 'h3',
+             'caption', 'note', 't', 'group', 'a', 'why', 'from', 'to', 'name',
+             'reading', 'overview', 'scope', 'notCovered'].includes(k)) out.push(v);
       } else collectFields(v, out);
     }
   } else if (Array.isArray(node)) node.forEach(x => collectFields(x, out));
@@ -100,6 +113,19 @@ for (const a of ANALYSES) {
     merge(total, r);
   }
   per[a.id]._modules = mods;
+}
+
+/* 组件详情页与联动分析页同样在读者面前，指标必须一起算。
+   per 的键加前缀，免得和同名的分析页（例如 vllm）互相覆盖。 */
+if (!ISOLATED) {
+  for (const [cid, d] of Object.entries(global.window.WIKI_DETAILS || {})) {
+    merge(total, merge(per['详情:' + cid] = per['详情:' + cid] || {},
+      audit(collectFields(d).join('\n'))));
+  }
+  for (const f of (global.window.WIKI_FLOWS || [])) {
+    merge(total, merge(per['联动:' + f.id] = per['联动:' + f.id] || {},
+      audit(collectFields(f).join('\n'))));
+  }
 }
 
 const TIC_NAMES = TICS.map(t => t[0]);

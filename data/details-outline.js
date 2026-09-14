@@ -10,7 +10,7 @@ Object.assign(window.WIKI_DETAILS, {
 aibrix: {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 AIBrix 是字节跳动开源、并已进入 vLLM 社区的**K8s 原生推理控制面**。它不重造引擎，而是在 Kubernetes 之上补齐推理服务缺的那一层：KV-aware 路由、分布式 KV 缓存编排、LoRA 动态加载、弹性伸缩。
 
@@ -44,7 +44,7 @@ Dynamo 是**框架**，自己定义数据面与控制面；AIBrix 是**控制面
 'llm-d': {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 llm-d 是 Red Hat、Google、IBM 等联合推进的 **K8s 原生分布式推理栈**，目标是做「LLM 推理领域的 Kubernetes 标准姿势」：用 Gateway API 做流量入口，用 Inference Scheduler 做 KV-aware 调度，用 InferencePool 抽象引擎实例组。
 
@@ -76,7 +76,7 @@ llm-d 与 vLLM、SGLang 的对接是**通过引擎侧的 KV Connector 与指标�
 pymotor: {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 MindIE PyMotor 是华为昇腾开源的**一键式 PD 分离 / PD 混部部署框架**。它定位在引擎之上、集群之下：基于云原生插件化架构，同时适配 vLLM-Ascend 与 SGLang，提供 PD 编排、高性能调度与负载均衡。
 
@@ -110,7 +110,7 @@ PD 分离并非总是最优：**当请求普遍较短时，KV 传输成本会吃
 volcano: {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 Volcano 是 CNCF 孵化、华为云主导的 **K8s 批处理与高性能计算调度器**。它不在请求路径上，而是决定「一组 Pod 能不能同时被调度起来」。
 
@@ -145,7 +145,7 @@ Volcano 是 CNCF 孵化、华为云主导的 **K8s 批处理与高性能计算�
 'ray-serve': {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 Ray Serve 是通用分布式服务框架，RayLLM 是其上的 LLM 服务层。它不提供 LLM 专用调度算法，而是提供一套**灵活到可以自己写调度逻辑**的编排原语。
 
@@ -177,7 +177,7 @@ Ray Serve 是通用分布式服务框架，RayLLM 是其上的 LLM 服务层。�
 'tensorrt-llm': {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 TensorRT-LLM 是 NVIDIA 官方推理引擎，路线与 vLLM 不同：**以编译期优化与极致 kernel 为核心**，用 CUDA Graph、量化、In-flight Batching 把单卡性能压到硬件极限。
 
@@ -214,7 +214,7 @@ TRT-LLM 既是引擎，也是 Dynamo 的原生后端之一。它的 KV 也通过
 xllm: {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 xLLM 是京东开源的高性能推理引擎，定位在**大规模 PD 分离部署与国产芯片适配**。相比 vLLM，它更强调端到端的服务化能力与国产硬件支持。
 
@@ -241,7 +241,7 @@ xLLM 属于 L2 推理引擎，与 vLLM 是同类竞品。它的差异化在于**
 lmdeploy: {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 LMDeploy 是上海 AI Lab 开源的推理工具箱，核心是 **TurboMind 引擎** + 成熟的量化工具链（W4A16 / KV INT8/INT4）。在量化与长上下文场景有长期积累。
 
@@ -270,7 +270,7 @@ LMDeploy 是上海 AI Lab 开源的推理工具箱，核心是 **TurboMind 引�
 mindie: {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 MindIE 是华为昇腾的原生推理引擎套件（MindIE-LLM / MindIE-Service / MindIE-Motor），与 CANN、ATB 深度绑定，是昇腾上性能上限最高的路径。
 
@@ -304,7 +304,7 @@ MindIE 是华为昇腾的原生推理引擎套件（MindIE-LLM / MindIE-Service 
 nixl: {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 NIXL（NVIDIA Inference Xfer Library）是 NVIDIA 推出的**统一数据传输抽象层**，目标是用一套 API 覆盖 RDMA、NVLink、GPUDirect Storage、共享内存等所有搬运路径。它是 Dynamo 的默认传输底座，也是 vLLM / TRT-LLM 的 PD 分离实现所依赖的通道。
 
@@ -345,7 +345,7 @@ NIXL（NVIDIA Inference Xfer Library）是 NVIDIA 推出的**统一数据传输�
 memfabric: {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 MemFabric 是华为昇腾生态的**内存池化软件**，基于灵衢（UnifiedBus / UB）互联提供跨节点的内存语义访问，把多台机器的内存聚合成一个可寻址的内存池。
 
@@ -382,7 +382,7 @@ MemFabric 属于 L3 传输层，同时因为提供池化能力而与 L4 存储�
 'ascend-store-connector': {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 AscendStoreConnector 是 **vLLM-Ascend 的 KV Pool 连接器**，用于把引擎的 KV 接入外部 KV 存储系统。它本身不提供存储，而是**统一接入契约**，让 MemCache / Mooncake / Yuanrong 等后端可以插拔替换。
 
@@ -450,7 +450,7 @@ AscendStoreConnector 是 **vLLM-Ascend 的 KV Pool 连接器**，用于把引擎
 'yuanrong-ds': {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 openYuanrong DataSystem 是 openEuler / 华为的 **Serverless 分布式数据系统**，核心能力是「异构分布式多级缓存」，提供 Object 与 Stream 语义。在推理场景中，它作为 **KV Pool 的存储后端**被 vLLM-Ascend 接入。
 
@@ -462,7 +462,7 @@ openYuanrong DataSystem 是 openEuler / 华为的 **Serverless 分布式数据�
 - **多级缓存**：内存 + 盘 + 远端的分层
 - **生命周期管理**：数据与函数实例生命周期解耦
 
-把它用作 KV Pool 后端是一次**能力迁移**：KV 本质上也是一种需要在实例间共享的大对象。
+把它用作 KV Pool 后端是一次**能力迁移**：KV 也是一种需要在实例间共享的大对象。
 
 ## 关键能力
 
@@ -474,7 +474,7 @@ openYuanrong DataSystem 是 openEuler / 华为的 **Serverless 分布式数据�
 | 跨语言 | C++ / Python / Java / Go 接口 |
 | K8s 部署 | 提供 helm / operator 形态 |
 
-## 值得注意的张力
+## 内在张力
 
 通用数据系统的**接口抽象是为通用性设计的**，而 KV 访问有极强的模式特征（块大小固定、生命周期与请求绑定、需要注册可被 RDMA 访问的内存）。把它用作 KV 后端时，性能上限往往取决于**能否绕开通用抽象走 KV 专用快路径**。
 
@@ -490,7 +490,7 @@ openYuanrong DataSystem 是 openEuler / 华为的 **Serverless 分布式数据�
 flexkv: {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 FlexKV 是腾讯云 TACO 团队开源的**分布式 KV 存储与多级缓存管理系统**。它的独特之处在于：从 client-server 模式**转型为可直接调用的库**，去掉了进程间通信开销。
 
@@ -539,7 +539,7 @@ GPU HBM  ──►  Host DRAM  ──►  Local SSD  ──►  Remote (RDMA / M
 memcache: {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 MemCache 是华为昇腾开源的高性能**分布式 KV 缓存**（2025-11 开源），作为 vLLM-Ascend 的 **KV Pool 后端**之一，主要服务于 PrefixCache 加速场景。
 
@@ -569,7 +569,7 @@ Mooncake TE / HIXL / MemFabric  ← 传输层：字节怎么过去
 
 > 这个划分值得借用到自己的系统设计里：**「决定搬什么」「东西存在哪」「字节怎么过去」是三件独立的事**，混在一起会让每一件都做不好。
 
-## 一个值得注意的差异：目前唯一支持 layerwise 的后端
+## 目前唯一支持 layerwise 的后端
 
 vLLM-Ascend 的 KV Pool 有一个参数 %%use_layerwise%%（逐层保存/加载 KV），文档明确写着：
 
@@ -661,7 +661,7 @@ vLLM-Ascend 的 KV Pool 有一个参数 %%use_layerwise%%（逐层保存/加载 
 ucm: {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 UCM（Unified Cache Manager）是华为 **ModelEngine** 社区开源的**统一缓存管理框架**，中心是「**KV Cache 多级缓存 + 推理记忆管理**」。它最大的特点是**把稀疏注意力算法做成了可插拔件**——类似 KV Connector 生态，但针对的是「哪些 KV 需要参与计算」这个问题。
 
@@ -734,7 +734,7 @@ UCM 的架构是把「稀疏算法」与「存储后端」两层依赖都反转�
 hf3fs: {
   draft: true,
   overview: `
-## 一句话定位
+## 定位
 
 3FS（Fire-Flyer File System）是 DeepSeek 开源的高性能分布式文件系统，为 AI 训练与推理场景设计。在 KV 存储栈中，它是 **Mooncake、LMCache 等系统可选的底层持久化层**。
 

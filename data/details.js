@@ -13,7 +13,7 @@ window.WIKI_DETAILS = {};
    ================================================================ */
 window.WIKI_DETAILS.vllm = {
   overview: `
-## 一句话定位
+## 定位
 
 vLLM 是当前 LLM 推理引擎的事实标准。它最有价值的贡献不是某个 kernel，而是把 KV Cache 从「每请求一整块连续显存」改造成**按固定大小 block 分页管理**——分页一旦成立，continuous batching、前缀共享、PD 分离、KV 卸载这些上层能力才全部变得可实现。
 
@@ -46,7 +46,7 @@ vLLM v1 把「请求编排」和「模型执行」拆成两个进程角色：
 
 ## 为什么值得作为第一站
 
-%%vllm/v1/core/sched/scheduler.py%% 与 %%vllm/v1/core/block_pool.py%% 定义了整个行业后来都在复用的接口形状。读懂这两个文件之后，LMCache、Mooncake、Dynamo 的很多设计会立刻变得可解释——因为它们本质上都在回答「分页之后，KV 还能怎么用」。
+%%vllm/v1/core/sched/scheduler.py%% 与 %%vllm/v1/core/block_pool.py%% 定义了整个行业后来都在复用的接口形状。读懂这两个文件之后，LMCache、Mooncake、Dynamo 的很多设计会立刻变得可解释——因为它们都在回答「分页之后，KV 还能怎么用」。
 `,
   modules: [
     {
@@ -127,7 +127,7 @@ vLLM v1 把「请求编排」和「模型执行」拆成两个进程角色：
         '按需走 CUDA Graph / torch.compile 路径以减少 launch 开销'
       ],
       points: [
-        '**%%slot_mapping%% 是理解 vLLM 的钥匙**：它把「逻辑 token 位置」翻译成「物理显存偏移」，是分页显存与 kernel 的接缝',
+        '**%%slot_mapping%% 是理解 vLLM 的钥匙**：它把「逻辑 token 位置」翻译成「物理显存偏移」，是分页显存与 kernel 的交界',
         '采样在 Worker 侧完成，只把 token id 传回 EngineCore，避免跨进程搬 logits 大张量',
         '%%gpu_input_batch.py%% 维护**常驻输入缓冲**，每步增删改而不是重新分配'
       ]
@@ -201,7 +201,7 @@ vLLM v1 把「请求编排」和「模型执行」拆成两个进程角色：
    ================================================================ */
 window.WIKI_DETAILS.sglang = {
   overview: `
-## 一句话定位
+## 定位
 
 SGLang 是 vLLM 之外的另一条主线：它把**前缀复用从「块级哈希」推进到「token 级 Radix Tree」**，并把「结构化输出」做成了与调度器深度耦合的一等能力。在长系统提示、多轮 agent、共享前缀密集的场景下，它的命中粒度和复用效率通常优于固定块方案。
 
@@ -229,7 +229,7 @@ SGLang 是 vLLM 之外的另一条主线：它把**前缀复用从「块级哈�
 | ModelRunner | %%srt/model_executor/model_runner.py%% | 组 batch 与 forward |
 | GrammarManager | %%srt/constrained/grammar_manager.py%% | 结构化输出约束 |
 
-## 值得注意的演化方向
+## 演化方向
 
 近几个版本的 %%mem_cache/%% 目录已经膨胀到几十个文件：%%unified_radix_cache.py%%、%%swa_radix_cache.py%%、%%mamba_radix_cache.py%%、%%deepseek_v4_memory_pool.py%%……这说明一件事——**「一种 KV 布局打天下」的时代结束了**，滑动窗口、混合注意力、稀疏注意力各自需要自己的缓存结构与淘汰策略。
 `,
@@ -365,7 +365,7 @@ SGLang 是 vLLM 之外的另一条主线：它把**前缀复用从「块级哈�
    ================================================================ */
 window.WIKI_DETAILS.lmcache = {
   overview: `
-## 一句话定位
+## 定位
 
 LMCache 是**跨引擎的 KV 复用层**：把 KV Cache 从推理引擎的显存里「接管」出来，放进 CPU 内存、本地盘、远端存储，下一个请求到来时再塞回去。引擎自带的前缀缓存只活在单实例显存的运行期；LMCache 要解决的是**跨请求、跨实例、跨进程重启**的复用。
 
@@ -470,7 +470,7 @@ C++/CUDA 扩展 %%lmcache.c_ops%%（%%csrc/%%）提供 H2D/D2H 分页内存传�
         '**三步骨架**：分块 → 分配 → D2H 搬运 → 分发落存。读 %%cache_engine.py:363%% 的这一段就能抓住主线',
         '**切块粒度由 token_database 决定**，它同时决定了 key 的粒度与传输效率——是整条链路里最值得调的参数',
         '**各级后端是并行分发而非串行下沉**：%%batched_put%% 一次投递给所有注册的后端，本地热缓存与远端池同时收到',
-        '真正的数据拷贝发生在 %%mem_kernels.cu%%——上面的 Python 层都在做编排，不在搬数据'
+        '实际的数据拷贝发生在 %%mem_kernels.cu%%——上面的 Python 层都在做编排，不在搬数据'
       ]
     },
     {
@@ -542,7 +542,7 @@ C++/CUDA 扩展 %%lmcache.c_ops%%（%%csrc/%%）提供 H2D/D2H 分页内存传�
         '另有 HostMemoryAllocator(:1895)、GPUMemoryAllocator(:2239)、TensorMemoryAllocator(:1274) + PagedTensorMemoryAllocator(:1563)'
       ],
       points: [
-        '**%%PinMemoryAllocator%% 是暴露给 Mooncake 零拷贝的那一个**——钉内存才能被网卡直接注册访问，这是 LMCache 与月之暗面 Store 的接缝',
+        '**%%PinMemoryAllocator%% 是暴露给 Mooncake 零拷贝的那一个**——钉内存才能被网卡直接注册访问，这是 LMCache 与月之暗面 Store 的交界',
         '%%ref_count%% 与 %%pin%% 是两套不同语义：前者管内存回收，后者管「不许淘汰」',
         '%%MemoryFormat%% 的价值在 MLA / GQA 等异构布局上体现——不同注意力的 KV 形状完全不同，硬编码形状会在换模型时立刻失效'
       ]
@@ -562,13 +562,13 @@ C++/CUDA 扩展 %%lmcache.c_ops%%（%%csrc/%%）提供 H2D/D2H 分页内存传�
       points: [
         '**后端链的顺序即是性能模型**：把慢的后端放在前面会让每次读都被拖慢',
         '%%P2PBackend%% 与 %%RemoteBackend%% 的区别是「实例间直取」与「经共享存储中转」，前者延迟更低但需要拓扑可发现',
-        '%%connector/%% 下几十个 adapter（redis / s3 / hf3fs / infinistore / mooncakestore…）说明后端生态是它真正的护城河'
+        '%%connector/%% 下几十个 adapter（redis / s3 / hf3fs / infinistore / mooncakestore…）说明后端生态是它的护城河'
       ]
     },
     {
-      id: 'mooncake-backend', name: 'Mooncake 作为远端后端：零拷贝接缝',
+      id: 'mooncake-backend', name: 'Mooncake 作为远端后端：零拷贝接入',
       files: ['lmcache/v1/storage_backend/connector/mooncakestore_connector.py'],
-      summary: 'LMCache 与 Mooncake Store 的唯一接缝',
+      summary: 'LMCache 与 Mooncake Store 的唯一接口',
       flow: [
         '%%MooncakestoreConnectorAdapter%%（scheme %%mooncakestore://%%）构造出 %%MooncakestoreConnector(RemoteConnector)%%（:323）',
         '构造时建 %%MooncakeDistributedStore()%%（:348）并 %%setup_mooncake_store%%（:413）',
@@ -578,8 +578,8 @@ C++/CUDA 扩展 %%lmcache.c_ops%%（%%csrc/%%）提供 H2D/D2H 分页内存传�
       ],
       points: [
         '**「注册 CPU buffer」这一步就是零拷贝的全部秘密**：注册过之后，Mooncake 的 TE 可以直接往这块内存写，不需要中间缓冲',
-        '这也解释了为什么 LMCache 需要 %%PinMemoryAllocator%%——只有钉内存才能被注册，普通可换页内存不行',
-        '这条接缝很窄（一个 connector、一个注册调用），**是两个系统耦合最紧也最容易出问题的地方**'
+        'LMCache 因此需要 %%PinMemoryAllocator%%：只有钉内存才能被注册，普通可换页内存不行',
+        '这个接口很窄（一个 connector、一个注册调用），**是两个系统耦合最紧也最容易出问题的地方**'
       ]
     },
   ],
@@ -591,7 +591,7 @@ C++/CUDA 扩展 %%lmcache.c_ops%%（%%csrc/%%）提供 H2D/D2H 分页内存传�
    ================================================================ */
 window.WIKI_DETAILS['lmcache-ascend'] = {
   overview: `
-## 一句话定位
+## 定位
 
 LMCache-Ascend 是把 [LMCache](#/c/lmcache) 的 KV 复用能力带到**昇腾 NPU** 上的官方插件。它解决的是同一个问题——把 KV 从显存接管出来、放进多级缓存、下一个请求再塞回去——但全部换成昇腾的实现。
 
@@ -617,7 +617,7 @@ if not LMCACHE_ASCEND_PATCHED:
 
 **注意有两条接管路径，不是一条**：上面这条是「导入时改内存」；
 另有 \`integration/patch/\` 一套**文件级补丁器**（改第三方包源码、打前备份、按版本区间择时），
-用来处理光靠改属性解决不了的地方（SGLang 的循环依赖、CacheBlend 的注意力接缝）。
+用来处理光靠改属性解决不了的地方（SGLang 的循环依赖、CacheBlend 的注意力融合点）。
 
 ## 依赖与兼容矩阵
 
@@ -711,7 +711,7 @@ kvcache-ops（设备侧 AscendC 内核，git submodule）  ◄── 真正跑�
       ]
     },
     {
-      id: "engine-integration", name: "vLLM 连接器与引擎接缝",
+      id: "engine-integration", name: "vLLM 连接器与引擎的接口",
       files: ["lmcache_ascend/v1/cache_engine.py", "lmcache_ascend/integration/vllm/vllm_v1_adapter.py", "lmcache_ascend/integration/vllm/lmcache_ascend_connector.py", "lmcache_ascend/integration/vllm/lmcache_ascend_connector_v1.py"],
       summary: "把 vLLM 的 KV 连接器接口、连接器实现与被替换的引擎子类这三层接起来，让 import lmcache_ascend 之后的 vLLM 在 in-process 主路径上不写一行 Ascend 代码就能走到 NPU 缓存。",
       flow: [
@@ -724,7 +724,7 @@ kvcache-ops（设备侧 AscendC 内核，git submodule）  ◄── 真正跑�
         "抢占时先释放查询 pin 再排空后台写（%%vllm_v1_adapter.py:1084%%）；关闭时先投毒丸排空 worker，最后才 %%super().close()%%（%%cache_engine.py:1349%%）。"
       ],
       points: [
-        "**三条接缝**各司其职：连接器壳只转发、内层 impl 管设备侧、引擎子类替宿主兜住异步写、分片广播、PD 租约与有序关闭。",
+        "**三个接口**各司其职：连接器壳只转发、内层 impl 管设备侧、引擎子类替宿主兜住异步写、分片广播、PD 租约与有序关闭。",
         "本模块新增的数据结构只有两个：%%ThreadSafeEventList%%（%%cache_engine.py:38%%）与 %%LMCacheAscendConnectorMetadata%%（%%vllm_v1_adapter.py:55%%），其余全部沿用宿主类型。",
         "引擎子类多数是覆写宿主已有方法名，净增接口很少，所以使用者需要额外学的接口不多。",
         "%%lookup%% 与 %%lookup_unpin%% 是合并冲突后自行解析出的合成形态，状态分派与 PD 租约共处一个函数，读上游任一分支都对不上。"
@@ -824,7 +824,7 @@ kvcache-ops（设备侧 AscendC 内核，git submodule）  ◄── 真正跑�
         "**这是插件里唯一完全走正门的扩展**：继承宿主抽象而不是复制它、复用宿主的消息基类族、十个文件里没有一处对宿主符号赋值；唯一的例外是包级 bootstrap 把本模块的 %%get_correct_device%% 装回宿主（%%lmcache_ascend/__init__.py:576%%）。",
         "**成对的收发它故意不实现**：%%batched_send%% / %%batched_recv%% 与两个异步版一律 %%raise NotImplementedError%%（%%base_channel.py:261%%），因为单向读写只需要一端发起。",
         "远端缓冲是四层描述：%%MemHandleMeta%%（%%buffer_config.py:29%%）是登记后的本地视图，%%PeerBufferInfo%%（%%buffer_config.py:45%%）是唯一跨进程的那一层（msgspec 可编码），收到之后重建为 %%RemotePeerBufferHandle%%（%%buffer_config.py:53%%）与 %%RemotePeerBufferList%%（%%buffer_config.py:64%%）。",
-        "**HCCL 与 HIXL 的差别只在传输动作**：两者最终产出同一个对端描述类型，这正是地址解析能收进基类的前提。"
+        "**HCCL 与 HIXL 的差别只在传输动作**：两者最终产出同一个对端描述类型，这是地址解析能收进基类的前提。"
       ]
     },
     {
@@ -984,11 +984,11 @@ kvcache-ops（设备侧 AscendC 内核，git submodule）  ◄── 真正跑�
         "装配顺序固定，且先做互斥校验：%%enable_pd%% 不能与 %%use_layerwise%% 共存（%%storage_backend/__init__.py:70%%），%%enable_p2p%% 也不能与 %%use_layerwise%% 共存（%%storage_backend/__init__.py:111%%）——两条都是启动时直接 raise，而不是静默降级。",
         "%%LocalCPUBackend%% 总是要造或复用（%%storage_backend/__init__.py:84%%），因为其它后端要拿它当中转 buffer；%%enable_p2p%% 时它会断言存在（%%storage_backend/__init__.py:121%%）。",
         "%%_patch_storage_manager()%%（%%lmcache_ascend/__init__.py:488%%）再叠五个补丁：%%get%% / %%batched_get%% 加延迟取数代理的写回守卫、%%batched_contains%% 加 PD 接收侧请求租约、%%prefetch_all_done_callback%% 镜像热缓存、两个 %%touch_cache%% 改成 best-effort、以及 %%allocate_and_copy_objects%% 改走复数的 shapes/dtypes。",
-        "代理守卫的判据只有一个：%%is_proxy%% 为真就不写回本地 CPU（%%storage_manager.py:196%%、%%storage_manager.py:241%%）——把没有数据的占位对象镜像进热缓存，会污染缓存并挡住真正的落盘。",
+        "代理守卫的判据只有一个：%%is_proxy%% 为真就不写回本地 CPU（%%storage_manager.py:196%%、%%storage_manager.py:241%%）——把没有数据的占位对象镜像进热缓存，会污染缓存并挡住实际落盘。",
         "请求身份靠 %%contextvars%% 从 cache_engine 透传到 storage_manager，而不是改函数签名：%%_current_pd_lookup_id%%（%%storage_manager.py:84%%）与 %%_current_pd_retrieve_id%%（%%storage_manager.py:87%%）。"
       ],
       points: [
-        "**「NIXL 被移除」是这一层最值得记住的一条**：上游的跨节点能力建立在 NIXL 上，昇腾直接删掉了它——这正是三条昇腾传输通道存在的原因。",
+        "**「NIXL 被移除」是这一层最值得记住的一条**：上游的跨节点能力建立在 NIXL 上，昇腾直接删掉了它——这是三条昇腾传输通道存在的原因。",
         "**顺序即性能模型**：装配顺序被代码注释写成 %%The hierarchy is fixed for now%%（%%storage_backend/__init__.py:78%%），改顺序需要改代码。",
         "%%state_store_locations()%%（%%storage_manager.py:108%%）给状态缓存选级：只支持本地 CPU/磁盘，且必须与 %%LocalCPUBackend%% 共用同一个分配器。",
         "%%allocate_and_copy_objects%%（%%storage_manager.py:126%%）改用复数 %%get_shapes()%% / %%get_dtypes()%%（%%storage_manager.py:145%%），因为上游的 %%get_shape()%% 只覆盖第 0 组、会把多组对象分配小。"
@@ -1007,11 +1007,11 @@ kvcache-ops（设备侧 AscendC 内核，git submodule）  ◄── 真正跑�
    ================================================================ */
 window.WIKI_DETAILS['mooncake'] = {
   overview: `
-## 一句话定位
+## 定位
 
 Mooncake 解决的是一件事：**KVCache 的搬运速度决定了 PD 分离架构的效率**。GPU 显存放不下、CPU/SSD/远端节点的 KV 需要以接近硬件带宽的速度移动，还要在网卡故障、进程崩溃时不停机。
 
-整个仓库其实就是**一个传输内核 + 建在内核上的三层服务**：
+整个仓库就是**一个传输内核 + 建在内核上的三层服务**：
 
 ~~~text
 ┌─────────────────────────────────────────────────────────────────┐
@@ -1049,7 +1049,7 @@ Mooncake 解决的是一件事：**KVCache 的搬运速度决定了 PD 分离架
 | PG 内部 | 建连 / QP 信息经 c10d Store 交换 | 集合通信数据走 TE 的单边 WRITE |
 | EP 内部 | QP / rkey 经 PG 的集合通信交换 | token 数据由 GPU 设备侧直接下发 RDMA WQE |
 
-一句话概括：**小消息走控制通道协商出「句柄」，大数据凭句柄直连。**
+**小消息走控制通道协商出「句柄」，大数据凭句柄直连。**
 
 **原则二：统一抽象 + 可插拔。**数据搬运被抽象成 %%Transport%% 接口（TE 内）、%%TransferSubmitter%%（store 内）、%%c10d::Backend%%（PG 内），具体介质（RDMA / TCP / 文件 / memcpy）都成为可替换实现。
 
@@ -1070,7 +1070,7 @@ Mooncake 解决的是一件事：**KVCache 的搬运速度决定了 PD 分离架
 
 深度分析页的模块数从 9 个扩到 **23 个**，把之前没覆盖的部分都补上了：
 
-| 子系统 | 一句话 | 为什么值得看 |
+| 子系统 | 它做什么 | 为什么值得看 |
 |---|---|---|
 | %%mooncake-integration%% | Python 绑定层（pybind11 + C ABI） | 上层框架唯一能碰到的面 |
 | %%mooncake-common%% | 配置 / 环境变量 / etcd / k8s 封装 | **两条互不相通的配置通道**——「改了配置没生效」的答案就在这里 |
@@ -1232,7 +1232,7 @@ client 调 %%MountSegment%% 时（%%client_service.cpp:2142%%）先 %%transfer_e
         "　　└ **【控制面 RPC】** %%MasterClient::PutEnd(key, MEMORY)%%（mark_complete + 续租约）"
       ],
       "points": [
-        "**%%AllocatedBuffer::Descriptor{buffer_address, transport_endpoint}%%（%%allocator.cpp:32%%）就是「KV 值地址 → TE target」的桥梁**——store 层与 TE 层的**唯一接缝**",
+        "**%%AllocatedBuffer::Descriptor{buffer_address, transport_endpoint}%%（%%allocator.cpp:32%%）就是「KV 值地址 → TE target」的桥梁**——store 层与 TE 层的**唯一接口**",
         "**本地命中降级为 memcpy** 是个务实的优化：同机副本没必要走网络栈",
         "**两次控制面 RPC 夹一次数据面传输**是标准的三段式，TE 只在中间那段被用到",
         "「每 slice 一个 TransferRequest」说明 slice（≈16MB）是 store 与 TE 之间的粒度契约"
@@ -1280,7 +1280,7 @@ client 调 %%MountSegment%% 时（%%client_service.cpp:2142%%）先 %%transfer_e
         "SSD 侧三种 backend：file-per-key / bucket 聚合 / offset-log"
       ],
       "points": [
-        "**「租约时间近似 LRU」是个聪明的近似**：真正的 LRU 需要维护访问链表，而租约续期本身就隐含了「最近被访问」——复用已有信息，零额外成本",
+        "**「租约时间近似 LRU」是个聪明的近似**：严格的 LRU 需要维护访问链表，而租约续期本身就隐含了「最近被访问」——复用已有信息，零额外成本",
         "**pin 分两档（hard / soft）**给出了业务表达优先级的空间：系统内部的块用 hard-pin，VIP 前缀用 soft-pin",
         "**95% 才触发淘汰**说明系统倾向于「晚回收、大吞吐」而不是「频繁小回收」",
         "**%%offload_on_evict%% 是分层存储的关键开关**：淘汰不等于删除，可以先下沉到 SSD——这让 DRAM 池的容量问题变成延迟问题"
@@ -1539,11 +1539,11 @@ client 调 %%MountSegment%% 时（%%client_service.cpp:2142%%）先 %%transfer_e
    ================================================================ */
 window.WIKI_DETAILS.dynamo = {
   overview: `
-## 一句话定位
+## 定位
 
 Dynamo 是 NVIDIA 推出的**数据中心级分布式推理服务框架**。它关心的不是「单个实例怎么算得快」，而是「**几百上千张卡怎么协同着把吞吐做上去**」：请求该路由到哪个实例、prefill 与 decode 怎么分池、什么时候该扩容、KV 怎么在实例之间流转。
 
-一句话概括它的分工：**引擎负责算，Dynamo 负责编排算**。
+它的分工是：**引擎负责算，Dynamo 负责编排算**。
 
 ## 四个核心子系统
 
@@ -1562,7 +1562,7 @@ Dynamo 是 NVIDIA 推出的**数据中心级分布式推理服务框架**。它�
 
 ## 技术栈特点
 
-Dynamo 是 **Rust + Python 混合**的：控制面与路由这类对延迟和并发敏感的部分用 Rust（%%lib/%% 下大量 crate），与引擎的对接和业务流程用 Python。这种分层值得注意——**路由在请求关键路径上，用 Python 写会成为瓶颈**。
+Dynamo 是 **Rust + Python 混合**的：控制面与路由这类对延迟和并发敏感的部分用 Rust（%%lib/%% 下大量 crate），与引擎的对接和业务流程用 Python。这种分层有代价：**路由在请求关键路径上，用 Python 写会成为瓶颈**。
 
 ## 架构分层
 
@@ -1705,7 +1705,7 @@ Dynamo 是 **Rust + Python 混合**的：控制面与路由这类对延迟和并
    ================================================================ */
 window.WIKI_DETAILS['vllm-ascend'] = {
   overview: `
-## 一句话定位
+## 定位
 
 vLLM-Ascend 是 vLLM 在昇腾 NPU 上的官方插件。它保持 vLLM 的调度与显存管理骨架不变，把**算子、显存、通信、KV 通道**四类硬件相关实现替换成昇腾版本，并额外长出了一整套昇腾特色的 KV 能力：KV Pool、KV P2P、稀疏卸载。
 
@@ -1730,11 +1730,11 @@ vLLM-Ascend 是 vLLM 在昇腾 NPU 上的官方插件。它保持 vLLM 的调度
 
 %%AscendStoreConnector%% 是这里的枢纽：它实现 vLLM 的 %%KVConnectorBase_V1%% 接口，对内适配引擎，对外通过 %%backend/%% 适配不同 KV 存储产品。这意味着**换 KV 存储后端不需要改引擎**。
 
-## 三条接缝：插件到底改了什么
+## 三个接口：插件到底改了什么
 
 vLLM-Ascend 不重写宿主的调度器与分页，它只在三个地方接管：
 
-| 接缝 | 手法 | 落点 |
+| 接口 | 手法 | 落点 |
 |---|---|---|
 | **平台注册** | entry point（%%vllm.platform_plugins%%）被发现，覆写宿主 %%Platform%% 的虚方法 | %%platform.py%% |
 | **算子替换** | 名字进 %%CustomOp.register_oot%% 表、或 %%direct_register_custom_op%% 进 %%torch.ops.vllm%% | %%vllm_ascend/ops/%% |

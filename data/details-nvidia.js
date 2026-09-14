@@ -10,7 +10,7 @@ Object.assign(window.WIKI_DETAILS, {
    ================================================================ */
 cuda: {
   overview: `
-## 一句话定位
+## 定位
 
 CUDA 是 NVIDIA 的**异构计算平台与编程模型**。与 [CANN](#/c/cann) 在昇腾栈中的位置完全对应：它不参与四层的横向分层，而是**纵向穿透所有层**的地基。
 
@@ -27,7 +27,7 @@ CUDA 是 NVIDIA 的**异构计算平台与编程模型**。与 [CANN](#/c/cann) 
 | 互联 | NVLink / NVSwitch / NVSHMEM | HCCS / 灵衢 UB |
 | 直连访存 | GPUDirect RDMA / Storage | HIXL 零拷贝 / SDMA |
 
-> **最值得注意的一处结构差异**：CANN 里 GE 图引擎是框架接入的必经中心；而 NVIDIA 侧没有对应的单一中心——图优化散落在 TensorRT、TensorRT-LLM 与各家框架自己的编译路径（vLLM 的 %%torch.compile%%、%%cudagraph_dispatcher.py%%）中。
+> **一处关键结构差异**：CANN 里 GE 图引擎是框架接入的必经中心；而 NVIDIA 侧没有对应的单一中心——图优化散落在 TensorRT、TensorRT-LLM 与各家框架自己的编译路径（vLLM 的 %%torch.compile%%、%%cudagraph_dispatcher.py%%）中。
 > 这直接解释了为什么「在昇腾上适配新模型」与「在 NVIDIA 上适配新模型」的工作量分布很不一样。
 
 ## CUDA 在推理栈里决定了什么
@@ -123,7 +123,7 @@ CUDA 是 NVIDIA 的**异构计算平台与编程模型**。与 [CANN](#/c/cann) 
       points: [
         '**库生态的成熟度是 NV 栈最深的护城河**：新模型结构出现时，通常很快就有现成 kernel 可用，而不必自己写',
         '对照昇腾侧：vLLM-Ascend 需要自带 %%csrc/%% 自定义算子，正是因为库的覆盖度还在追赶',
-        'attention 后端可插拔（FlashAttention / FlashInfer / Triton / MLA）本质上是**把库生态的多样性收敛到一个接口后面**'
+        'attention 后端可插拔（FlashAttention / FlashInfer / Triton / MLA）实质是**把库生态的多样性收敛到一个接口后面**'
       ]
     },
     {
@@ -138,7 +138,7 @@ CUDA 是 NVIDIA 的**异构计算平台与编程模型**。与 [CANN](#/c/cann) 
       points: [
         '**集合通信与单边通信是两类不同的抽象**：并行训练的通信是所有 rank 一起参与的集合语义；KV 搬运是「A 直接写 B」的单边语义。用错会带来不必要的同步开销',
         'NCCL 对应昇腾的 HCCL，NVSHMEM 在定位上更接近昇腾的灵衢 UB 内存语义',
-        'KV 传输走哪条路（[NIXL](#/c/nixl) 的 RDMA / NVLink / GDS 后端）取决于拓扑与数据位置，这正是传输层要解决的择优问题'
+        'KV 传输走哪条路（[NIXL](#/c/nixl) 的 RDMA / NVLink / GDS 后端）取决于拓扑与数据位置，这是传输层要解决的择优问题'
       ]
     },
     {

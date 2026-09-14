@@ -10,7 +10,7 @@ Object.assign(window.WIKI_DETAILS, {
    ================================================================ */
 cann: {
   overview: `
-## 一句话定位
+## 定位
 
 CANN（Compute Architecture for Neural Networks）是华为昇腾的 **AI 异构计算架构**。它不属于四层中的任何一层——它是**四层共同站立的地基**。
 
@@ -27,7 +27,7 @@ CANN（Compute Architecture for Neural Networks）是华为昇腾的 **AI 异构
 | vLLM-Ascend 对 CANN 版本异常敏感 | 算子 ABI 与运行时接口随 CANN 版本演进，且 C++ ABI 被显式约束 |
 | 部署前要检查 %%hccn.conf%% 与设备节点 | 网络与设备由 CANN 的 Runtime 层管理，不是操作系统标准接口 |
 
-> 一句话：**不理解 CANN，就只能把昇腾上的性能问题归因于「玄学」。**
+> **不理解 CANN，就只能把昇腾上的性能问题归因于「玄学」。**
 
 ## 与 NVIDIA 生态的对应关系
 
@@ -201,7 +201,7 @@ CANN 不参与「调度 → 引擎 → 传输 → 存储」的横向分层，而
    ================================================================ */
 hixl: {
   overview: `
-## 一句话定位
+## 定位
 
 HIXL（**Huawei Xfer Library**）是昇腾的**单边通信库**，面向集群场景提供点对点数据传输。它是 CANN 生态里与 [NIXL](#/c/nixl) 对标的那一层，也是昇腾侧 KV 搬运与 PD 分离的底层通路。
 
@@ -330,7 +330,7 @@ HIXL（**Huawei Xfer Library**）是昇腾的**单边通信库**，面向集群�
         'vLLM-Ascend 侧对应 %%remote_h2d_transport_backend%%，默认值即 **HIXL**'
       ],
       points: [
-        '**这是「通用传输框架 + 厂商专用通路」的典型组合**：Mooncake 提供段管理、元数据、批量提交，HIXL 提供昇腾上真正的高速链路',
+        '**这是「通用传输框架 + 厂商专用通路」的典型组合**：Mooncake 提供段管理、元数据、批量提交，HIXL 提供昇腾上的高速链路',
         '排障时有个实用判据：**如果错误不是 Mooncake 报的，就很可能是 HIXL（ascend_direct）传输层问题**，此时应去收 plog',
         '与 MemFabric 的关系是**并列可替换**：vLLM-Ascend 把两者封装成同形的 Python 接口，上层 connector 无感切换'
       ]

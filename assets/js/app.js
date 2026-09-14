@@ -1034,6 +1034,11 @@
       sec.appendChild(el('h2', { class: 'flow-h2', id: 'leg-' + leg.id },
         esc(leg.title) +
         `<em class="leg-dir" data-d="${esc(leg.direction)}">${leg.direction === 'in' ? '入向' : '出向'}</em>`));
+      if (leg.lead) {
+        sec.appendChild(el('p', { class: 'flow-note flow-lead' },
+          window.md(leg.lead).html.replace(/^<p>|<\/p>$/g, '')));
+      }
+      if (leg.diagram) sec.appendChild(figCanvas(leg.diagram));
       const ol = el('ol', { class: 'leg-steps' });
       leg.steps.forEach(st => ol.appendChild(el('li', null, `
         <span class="ls-t">${window.md(st.t).html.replace(/^<p>|<\/p>$/g, '')}</span>
@@ -1044,12 +1049,26 @@
       wrap.appendChild(sec);
     });
 
+    (f.sections || []).forEach(s => {
+      wrap.appendChild(el('h2', { class: 'flow-h2', id: 'sec-' + s.id }, esc(s.title)));
+      if (s.lead) {
+        wrap.appendChild(el('p', { class: 'flow-note flow-lead' },
+          window.md(s.lead).html.replace(/^<p>|<\/p>$/g, '')));
+      }
+      if (s.diagram) wrap.appendChild(figCanvas(s.diagram));
+      if (s.html) {
+        const body = el('div', { class: 'flow-body' });
+        body.innerHTML = window.md(s.html).html;
+        wrap.appendChild(body);
+      }
+    });
+
     if (f.seams && f.seams.length) {
-      wrap.appendChild(el('h2', { class: 'flow-h2', id: 'seams' }, '接缝'));
+      wrap.appendChild(el('h2', { class: 'flow-h2', id: 'seams' }, '跨组件的接口'));
       wrap.appendChild(el('p', { class: 'flow-note' },
         '如果只记三样东西，记这张表——这几处接口决定了整条链路怎么组装。'));
       const t = el('table', { class: 'seam-table' });
-      t.innerHTML = `<thead><tr><th>接缝</th><th>从</th><th>到</th><th>位置</th><th>为什么重要</th></tr></thead>
+      t.innerHTML = `<thead><tr><th>接口</th><th>调用方</th><th>被调用方</th><th>位置</th><th>为什么重要</th></tr></thead>
         <tbody>${f.seams.map(x => `<tr>
           <td><b>${esc(x.name)}</b></td>
           <td>${esc(x.from)}</td><td>${esc(x.to)}</td>

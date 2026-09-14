@@ -25,7 +25,7 @@ window.WIKI_FLOWS = [
     '在普通的 dense 模型里，KV 就是 %%(K, V)%% 两块张量，搬运是直接的地址拷贝。' +
     '**在 DSA / 稀疏 KV 下这件事变了**：一个稀疏层的 KV 在 forward 时聚合成 **6 项**（A5 下 7 项），' +
     '而它从模型语义走到磁盘，**要经过四次形状变换**。' +
-    '**每一次变换都是一处可能出错的接缝。**',
+    '**每一次变换都是一处可能出错的地方。**',
 
   reading: [
     '先看**形状变换链**：注意每一层的「块大小」含义都不同——**这是全部复杂度的来源**。',
@@ -113,7 +113,7 @@ window.WIKI_FLOWS = [
         { t: '⑤ SSD raw bytes', a: 'LocalDisk / P2P / 远端', note: '到这一层已经没有形状，只有字节' }
       ],
       html: `
-### 一句话概括这次变化的本质
+### 这次变化的本质
 
 原始分析的最终判断值得直接引用：
 
@@ -163,7 +163,7 @@ scheduler 说「这段有 16 个 token」，但 NPU cache 里**只占 1 行**（
 **slot mapping 也就不同**——主 KV 可能按 C128 存，SWA 按 C4 存。
 **用一条 slot mapping 覆盖全部 plane 会写错位置。**
 
-**第 2 步的「过滤 -1」也值得注意**：与本站《LMCache-Ascend · NPUConnector》
+**第 2 步的「过滤 -1」**：与本站《LMCache-Ascend · NPUConnector》
 里引用的那句注释（%%slot_mapping%% 中前缀部分是 -1）是同一件事——
 **这里的 -1 代表"该位置不需要保存"**，过滤后生成 dense slots。
       `.trim()
@@ -192,11 +192,11 @@ scheduler 说「这段有 16 个 token」，但 NPU cache 里**只占 1 行**（
 
 > %%P2P 时可能先获得 ProxyMemoryObj%%
 
-**这正是本站《LMCache-Ascend · MemoryManager / KvFormat》里分析过的那个延迟求值对象。**
+**本站《LMCache-Ascend · MemoryManager / KvFormat》里分析过这个延迟求值对象。**
 它在这里的作用是：把「取数」推迟到 %%batched_to_gpu%%，**让远端取数与 NPU 散射重叠**。
 
 **所以 DSA 场景下这个对象的价值更大**——因为 plane 数量多了，
-**逐 plane 的取数如果串行执行会非常慢**，而延迟求值让它们可以流水化。
+**逐 plane 的取数如果串行执行会很慢**，而延迟求值让它们可以流水化。
 
 **这是两处分析在同一个对象上会合的第二个例子**
 （第一个是 %%NPUConnector._remote_batched_to_gpu%% 与 %%ProxyMemoryObj%% 的关系）。
@@ -419,7 +419,7 @@ scheduler 说「这段有 16 个 token」，但 NPU cache 里**只占 1 行**（
 | 谁定义 | LMCache 自己 | **直接复用 vLLM 的 block hash** |
 | 后果 | 可跨 tier 接续查找 | **与 vLLM 的新 KV 类型天然一致** |
 
-**所以两者其实是"自己造索引"与"复用引擎索引"的分歧**——
+**所以两者的分歧是「自己造索引」与「复用引擎索引」。**
 而这一分歧贯穿到后面每一节。
       `.trim()
     },
@@ -458,8 +458,8 @@ scheduler 说「这段有 16 个 token」，但 NPU cache 里**只占 1 行**（
 | **控制面 HA** | Mooncake | Mooncake 有 leader + oplog + snapshot；**LMCache 的 mp_coordinator 有持久化状态但无选主**，重启后由各组件自行恢复 |
 
 **前一条是正确性问题，后两条是能力缺失。**
-这解释了为什么原始文档的结论是「要 KV 管理平台能力选 LMCache，
-要分布式 KV 对象存储能力选 Mooncake」——**它们缺的不是同一类东西。**
+原始文档的结论是「要 KV 管理平台能力选 LMCache，要分布式 KV 对象存储能力选
+Mooncake」，原因就在这里：**两者缺的不是同一类东西。**
       `.trim()
     },
     {
@@ -524,7 +524,7 @@ P/D 分离时如果两侧的 TP 数不同，KV 需要**重排**才能落地—�
       why: 'B 路复用 vLLM 的 block hash，因此与引擎的新 KV 类型天然一致' },
     { name: 'mooncakestore:// adapter', from: 'LMCache', to: 'Mooncake',
       at: 'lmcache/v1/storage_backend/connector/mooncakestore_adapter.py',
-      why: '★ **路径 C 的接缝**——让 LMCache 的近端能力与 Mooncake 的远端能力组合起来' }
+      why: '★ **路径 C 的接口**——让 LMCache 的近端能力与 Mooncake 的远端能力组合起来' }
   ],
 
   related: ['lmcache-ascend', 'ascend-store-connector', 'mooncake', 'vllm-ascend', 'hixl']
@@ -549,9 +549,9 @@ P/D 分离时如果两侧的 TP 数不同，KV 需要**重排**才能落地—�
     'Master 的 RPC 从不携带 KV，它只回答「副本在哪」。',
 
   reading: [
-    '先看**总图**：上下两条带分别是控制面与数据面，它们之间只有一条细箭头相连——那是全链路唯一的接缝。',
+    '先看**总图**：上下两条带分别是控制面与数据面，它们之间只有一条细箭头相连——那是全链路唯一的接口。',
     '再看 **Save / Load 两条腿**：每条都是带 `file:line` 的编号调用链，跨模块的跳都标了出来。',
-    '最后看**接缝表**：如果只记三个符号，记那张表。'
+    '最后看**接口表**：如果只记三个符号，记那张表。'
   ],
 
   /* 手绘 SVG：控制面 / 数据面 分离 */
@@ -593,7 +593,7 @@ P/D 分离时如果两侧的 TP 数不同，KV 需要**重排**才能落地—�
   <line x1="584" y1="107" x2="600" y2="107" class="t-line" marker-end="url(#farr)"/>
   <line x1="864" y1="107" x2="880" y2="107" class="t-line" marker-end="url(#farr)"/>
 
-  <!-- ═══ 唯一接缝 ═══ -->
+  <!-- ═══ 唯一接口 ═══ -->
   <line x1="1012" y1="164" x2="1012" y2="212" stroke="var(--l3)" stroke-width="1.5"
         stroke-dasharray="5 4" marker-end="url(#farrk)"/>
   <rect x="856" y="172" width="300" height="30" rx="4" fill="var(--bg)"/>

@@ -298,12 +298,16 @@ function check(m, linkTargets) {
 
   // ⑮ lead 里声称的条数 vs 实际的块数：
   //     加了新块却忘了改 lead 里的数字，是"改一处忘改其余"的典型。
+  //     只认**明确在枚举**的写法：「下面 / 分 / 共 / 按 + N + 可数对象」。
+  //     早先只匹配裸的「N条」，会把「控制面上的每一条命令」误判成块计数；
+  //     改成「N+可数对象」之后又误伤了「各一块」「四条路径各有一张图」
+  //     这类正常句子，所以再收紧到必须带枚举引导词。
   const CN = { '一': 1, '二': 2, '三': 3, '四': 4, '五': 5,
                '六': 6, '七': 7, '八': 8, '九': 9, '十': 10 };
   const countClaims = [];
   secs.forEach(x => {
     if (!x.lead) return;
-    const m = String(x.lead).match(/([一二三四五六七八九十])条/);
+    const m = String(x.lead).match(/(?:下面|分为?|共|一共|按)([一二三四五六七八九十])(?:条腿|块|张图|个小节|步)/);
     if (!m) return;
     const claimed = CN[m[1]];
     const actual = (x.blocks && x.blocks.length) ? x.blocks.length : 0;

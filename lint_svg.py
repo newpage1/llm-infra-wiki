@@ -15,23 +15,51 @@ FILES = ['data/analyses.js', 'data/flows.js', 'data/catalog.js',
 def units(t):
     return sum(2 if ord(c) > 0x2e80 else 1 for c in t)
 
+
+# 字号要从 CSS 里认，不能一律按 13px 估。
+# 下面两个表抄自 assets/css/style.css 的 `.diagram .t-*` 与 `.topo-svg .t-*`。
+# 之前一律按 13px 算，而图里最常用的 t-mono 实际是 10.5px——虚报宽度约 24%，
+# 会把本来不压字的标签判成重叠。认不出的 class 仍退回 13.0（偏保守）。
+CLASS_FS = {
+    'diagram': {'t-title': 17.0, 't-title-sm': 13.5, 't-sub': 12.0, 't-mono': 10.5,
+                't-mono-c': 11.0, 't-band': 10.0, 't-chip': 11.0},
+    'topo-svg': {'t-title': 17.0, 't-sub': 12.5, 't-mono': 10.5, 't-mono-c': 11.5,
+                 't-kv': 14.0, 't-chip': 11.0, 't-cell': 13.0},
+}
+DEFAULT_FS = 13.0
+
+
+def font_size(attrs, scope):
+    m = re.search(r'font-size:([0-9.]+)px', attrs)
+    if m:
+        return float(m.group(1))
+    cm = re.search(r'class="([^"]*)"', attrs)
+    if cm:
+        for cls in cm.group(1).split():
+            for sc in (scope, 'diagram'):
+                if cls in CLASS_FS[sc]:
+                    return CLASS_FS[sc][cls]
+    return DEFAULT_FS
+
+
 def span(x, fs, t, anchor):
     w = units(t) * fs * 0.55
     return (x - w / 2, x + w / 2) if anchor == 'middle' else (x, x + w)
+
 
 def check(path):
     s = pathlib.Path(path).read_text(encoding='utf-8')
     issues = 0
     for sm in re.finditer(r'<svg\b[^>]*>(.*?)</svg>', s, re.S):
         svg = sm.group(1)
+        scope = 'topo-svg' if 'topo-svg' in s[sm.start():sm.start() + 200] else 'diagram'
         line0 = s[:sm.start()].count('\n') + 1
         items = []
         for m in re.finditer(r'<text ([^>]*)>(.*?)</text>', svg, re.S):
             a, txt = m.group(1), re.sub('<[^>]+>', '', m.group(2)).strip()
             gx = re.search(r'\bx="(-?[0-9.]+)"', a); gy = re.search(r'\by="(-?[0-9.]+)"', a)
             if not gx or not gy or not txt: continue
-            fs = re.search(r'font-size:([0-9.]+)px', a)
-            fs = float(fs.group(1)) if fs else 13.0
+            fs = font_size(a, scope)
             items.append((float(gx.group(1)), float(gy.group(1)), fs, txt,
                           'middle' if 'text-anchor="middle"' in a else 'start'))
         for i in range(len(items)):

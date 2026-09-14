@@ -27,6 +27,11 @@
     "vllm-ascend": {
       "url": "https://github.com/vllm-project/vllm-ascend.git",
       "rev": "f2f74a16"
+    },
+    "sglang": {
+      "url": "https://github.com/sgl-project/sglang.git",
+      "rev": "0bcd822377da7b5718e674eaf9c870d349424dd1",
+      "note": "release tag v0.5.19（2026-09-03）。引用一律写仓库根相对路径，例如 python/sglang/srt/managers/scheduler.py:123。"
     }
   }
 }

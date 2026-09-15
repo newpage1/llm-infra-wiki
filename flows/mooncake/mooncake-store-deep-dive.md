@@ -1,6 +1,7 @@
 ---
 title: Mooncake Store 模块深度解析
 author: MadaoRui
+direction: KV 存储与池化
 date: 2026-09-01
 tags: [Mooncake, Store, 分布式缓存]
 summary: TransferEngine 之上的分布式 KVCache 对象存储：把各节点贡献的 DRAM 与 SSD 拼成一个全局池，对外提供带多副本、租约、淘汰、分层落盘的 put/get。约 6 万行自有代码的走读。

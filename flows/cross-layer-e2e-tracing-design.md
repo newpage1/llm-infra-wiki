@@ -1,6 +1,7 @@
 ---
 title: 跨层端到端追踪设计：把观测契约钉在 vLLM 的两个稳定边界上
 author: MadaoRui
+direction: KV 全链路
 date: 2026-08-02
 tags: [可观测性, tracing, vLLM, LMCache, Mooncake]
 summary: vLLM / LMCache / Mooncake / 调度框架四层各自都有观测，却串不成一条链。这里给出一个不碰上游源码的接法：契约锚在不可变的 vLLM 边界上，上层靠 traceparent 透明接入，下层用 KV connector 包装任意后端。

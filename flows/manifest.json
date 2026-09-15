@@ -1,41 +1,48 @@
 {
-  "version": 1,
+  "version": 2,
+  "directions": [
+    {
+      "name": "KV 全链路",
+      "blurb": "一次 KV 的存与取，横跨哪几层、各段怎么接上"
+    },
+    {
+      "name": "传输与硬件后端",
+      "blurb": "Transfer Engine 与昇腾 / 鲲鹏 / UB 这些硬件通路"
+    },
+    {
+      "name": "KV 存储与池化",
+      "blurb": "分布式 KV 池、多级缓存、对象存储"
+    },
+    {
+      "name": "KV 量化",
+      "blurb": "把 KV 压小：分层量化与它的代价"
+    },
+    {
+      "name": "框架集成",
+      "blurb": "把 A 接进 B：方案设计与取舍"
+    },
+    {
+      "name": "性能与容量",
+      "blurb": "时延、吞吐、容量怎么估"
+    },
+    {
+      "name": "社区与生态",
+      "blurb": "PR 梳理、上游贡献、社区格局"
+    },
+    {
+      "name": "整体走读",
+      "blurb": "把一个项目从模块地图到热路径读一遍"
+    },
+    {
+      "name": "写作示例",
+      "blurb": "投稿样板，不是调研内容"
+    }
+  ],
   "flows": [
-    {
-      "slug": "huawei-pr-analysis-2026-09-09",
-      "group": "mooncake",
-      "title": "Mooncake 按现有模块的华为相关 PR 梳理",
-      "author": "MadaoRui",
-      "date": "2026-09-09",
-      "tags": [
-        "Mooncake",
-        "PR分析",
-        "华为",
-        "昇腾"
-      ],
-      "summary": "按技术栈关键词筛出 98 个候选 PR（高置信 53 + 弱置信 45），逐模块统计变更量与合入状态：已合并候选共 +35116 / -6996 行，占当前代码量 7.42%。",
-      "updated": "2026-09-15",
-      "file": "mooncake/huawei-pr-analysis-2026-09-09.md"
-    },
-    {
-      "slug": "mooncake-huawei-pr-analysis",
-      "group": "mooncake",
-      "title": "Mooncake 社区中华为系 PR 贡献分析",
-      "author": "MadaoRui",
-      "date": "2026-09-09",
-      "tags": [
-        "Mooncake",
-        "PR分析",
-        "华为",
-        "社区"
-      ],
-      "summary": "全仓 2779 个 PR 的模块归属统计，按「已合入 PR 是否触达该目录」算占比，看华为系的贡献落在 Mooncake 的哪些模块上。",
-      "updated": "2026-09-15",
-      "file": "mooncake/mooncake-huawei-pr-analysis.md"
-    },
     {
       "slug": "mooncake-load-save-kv-flows",
       "group": "mooncake",
+      "direction": "KV 全链路",
       "title": "Mooncake Load/Save KV 全流程解析（昇腾 NPU 栈视角）",
       "author": "MadaoRui",
       "date": "2026-09-03",
@@ -50,55 +57,9 @@
       "file": "mooncake/mooncake-load-save-kv-flows.md"
     },
     {
-      "slug": "mooncake-ascend-kunpeng-ub-transport-analysis",
-      "group": "mooncake",
-      "title": "Mooncake 华为系 Transport 深度解析：昇腾与鲲鹏 UB/URMA",
-      "author": "MadaoRui",
-      "date": "2026-09-01",
-      "tags": [
-        "Mooncake",
-        "传输引擎",
-        "昇腾",
-        "鲲鹏",
-        "URMA"
-      ],
-      "summary": "深读 transfer-engine 里除 RDMA 之外的国产硬件后端：昇腾四路（ascend_direct / hccl / heterogeneous_rdma / ubshmem）加鲲鹏 UB/URMA，逐条给编译开关与代码锚点，推测处明确标注。",
-      "updated": "2026-09-15",
-      "file": "mooncake/mooncake-ascend-kunpeng-ub-transport-analysis.md"
-    },
-    {
-      "slug": "mooncake-module-analysis",
-      "group": "mooncake",
-      "title": "Mooncake 代码模块解析：调用流程与设计理念",
-      "author": "MadaoRui",
-      "date": "2026-09-01",
-      "tags": [
-        "Mooncake",
-        "模块地图",
-        "调用链"
-      ],
-      "summary": "按「模块地图 → 核心抽象 → 端到端调用链 → 设计理念」建立对 Mooncake 的整体认知，以 RDMA 主力路径讲内核骨架，并点出网上旧文章里已经不存在的几个概念。",
-      "updated": "2026-09-15",
-      "file": "mooncake/mooncake-module-analysis.md"
-    },
-    {
-      "slug": "mooncake-store-deep-dive",
-      "group": "mooncake",
-      "title": "Mooncake Store 模块深度解析",
-      "author": "MadaoRui",
-      "date": "2026-09-01",
-      "tags": [
-        "Mooncake",
-        "Store",
-        "分布式缓存"
-      ],
-      "summary": "TransferEngine 之上的分布式 KVCache 对象存储：把各节点贡献的 DRAM 与 SSD 拼成一个全局池，对外提供带多副本、租约、淘汰、分层落盘的 put/get。约 6 万行自有代码的走读。",
-      "updated": "2026-09-15",
-      "file": "mooncake/mooncake-store-deep-dive.md"
-    },
-    {
       "slug": "cross-layer-e2e-tracing-design",
       "group": "",
+      "direction": "KV 全链路",
       "title": "跨层端到端追踪设计：把观测契约钉在 vLLM 的两个稳定边界上",
       "author": "MadaoRui",
       "date": "2026-08-02",
@@ -114,8 +75,43 @@
       "file": "cross-layer-e2e-tracing-design.md"
     },
     {
+      "slug": "mooncake-ascend-kunpeng-ub-transport-analysis",
+      "group": "mooncake",
+      "direction": "传输与硬件后端",
+      "title": "Mooncake 华为系 Transport 深度解析：昇腾与鲲鹏 UB/URMA",
+      "author": "MadaoRui",
+      "date": "2026-09-01",
+      "tags": [
+        "Mooncake",
+        "传输引擎",
+        "昇腾",
+        "鲲鹏",
+        "URMA"
+      ],
+      "summary": "深读 transfer-engine 里除 RDMA 之外的国产硬件后端：昇腾四路（ascend_direct / hccl / heterogeneous_rdma / ubshmem）加鲲鹏 UB/URMA，逐条给编译开关与代码锚点，推测处明确标注。",
+      "updated": "2026-09-15",
+      "file": "mooncake/mooncake-ascend-kunpeng-ub-transport-analysis.md"
+    },
+    {
+      "slug": "mooncake-store-deep-dive",
+      "group": "mooncake",
+      "direction": "KV 存储与池化",
+      "title": "Mooncake Store 模块深度解析",
+      "author": "MadaoRui",
+      "date": "2026-09-01",
+      "tags": [
+        "Mooncake",
+        "Store",
+        "分布式缓存"
+      ],
+      "summary": "TransferEngine 之上的分布式 KVCache 对象存储：把各节点贡献的 DRAM 与 SSD 拼成一个全局池，对外提供带多副本、租约、淘汰、分层落盘的 put/get。约 6 万行自有代码的走读。",
+      "updated": "2026-09-15",
+      "file": "mooncake/mooncake-store-deep-dive.md"
+    },
+    {
       "slug": "datasystem-code-walkthrough",
       "group": "lmcache-xllm",
+      "direction": "KV 存储与池化",
       "title": "openYuanrong datasystem 代码走读",
       "author": "MadaoRui",
       "date": "2026-08-02",
@@ -130,25 +126,9 @@
       "file": "lmcache-xllm/datasystem-code-walkthrough.md"
     },
     {
-      "slug": "glm52-pd-ttft-tpot",
-      "group": "",
-      "title": "GLM-5.2 集群级端到端推理时延估算（W8A8 + PD 分离）",
-      "author": "MadaoRui",
-      "date": "2026-08-02",
-      "tags": [
-        "时延",
-        "PD分离",
-        "量化",
-        "昇腾",
-        "GLM"
-      ],
-      "summary": "744B/40B MoE·MLA 在 W8A8、PD 分离、五级 KV 存储、90% 前缀命中下的全链路时延拆解：从请求进网关到首 token / 末 token，逐段算账，覆盖昇腾 950 PR 与 950 DT 两档硬件。",
-      "updated": "2026-09-15",
-      "file": "glm52-pd-ttft-tpot.md"
-    },
-    {
       "slug": "kv-layered-quant-backend-guide",
       "group": "",
+      "direction": "KV 量化",
       "title": "推理后端的 KV Cache 分层量化：架构设计与避坑指南",
       "author": "MadaoRui",
       "date": "2026-08-02",
@@ -163,24 +143,9 @@
       "file": "kv-layered-quant-backend-guide.md"
     },
     {
-      "slug": "lmcache-ascend-code-walkthrough",
-      "group": "lmcache-xllm",
-      "title": "LMCache + LMCache-Ascend 代码走读",
-      "author": "MadaoRui",
-      "date": "2026-08-02",
-      "tags": [
-        "LMCache",
-        "lmcache-ascend",
-        "昇腾",
-        "代码走读"
-      ],
-      "summary": "先讲上游 LMCache 的架构与热路径，再讲 lmcache-ascend 这个 monkey-patch 插件如何在其上做 NPU 适配，最后给出两者对比与合并后的热路径图。",
-      "updated": "2026-09-15",
-      "file": "lmcache-xllm/lmcache-ascend-code-walkthrough.md"
-    },
-    {
       "slug": "lmcache-ascend-xllm-hierarchy-design",
       "group": "lmcache-xllm",
+      "direction": "框架集成",
       "title": "方案 D：分层组合 —— Mooncake 管 PD 跨节点，LMCache 管节点内池化",
       "author": "MadaoRui",
       "date": "2026-08-02",
@@ -197,6 +162,7 @@
     {
       "slug": "lmcache-ascend-xllm-integration-design",
       "group": "lmcache-xllm",
+      "direction": "框架集成",
       "title": "方案 B 详细设计：为 xllm 新增 LMCache KV 传输后端",
       "author": "MadaoRui",
       "date": "2026-08-02",
@@ -213,6 +179,7 @@
     {
       "slug": "lmcache-ascend-xllm-native-layerwise-design",
       "group": "lmcache-xllm",
+      "direction": "框架集成",
       "title": "方案 N：xllm 原生逐层 KV 传输（不移植 lmcache 算子）",
       "author": "MadaoRui",
       "date": "2026-08-02",
@@ -227,8 +194,94 @@
       "file": "lmcache-xllm/lmcache-ascend-xllm-native-layerwise-design.md"
     },
     {
+      "slug": "glm52-pd-ttft-tpot",
+      "group": "",
+      "direction": "性能与容量",
+      "title": "GLM-5.2 集群级端到端推理时延估算（W8A8 + PD 分离）",
+      "author": "MadaoRui",
+      "date": "2026-08-02",
+      "tags": [
+        "时延",
+        "PD分离",
+        "量化",
+        "昇腾",
+        "GLM"
+      ],
+      "summary": "744B/40B MoE·MLA 在 W8A8、PD 分离、五级 KV 存储、90% 前缀命中下的全链路时延拆解：从请求进网关到首 token / 末 token，逐段算账，覆盖昇腾 950 PR 与 950 DT 两档硬件。",
+      "updated": "2026-09-15",
+      "file": "glm52-pd-ttft-tpot.md"
+    },
+    {
+      "slug": "huawei-pr-analysis-2026-09-09",
+      "group": "mooncake",
+      "direction": "社区与生态",
+      "title": "Mooncake 按现有模块的华为相关 PR 梳理",
+      "author": "MadaoRui",
+      "date": "2026-09-09",
+      "tags": [
+        "Mooncake",
+        "PR分析",
+        "华为",
+        "昇腾"
+      ],
+      "summary": "按技术栈关键词筛出 98 个候选 PR（高置信 53 + 弱置信 45），逐模块统计变更量与合入状态：已合并候选共 +35116 / -6996 行，占当前代码量 7.42%。",
+      "updated": "2026-09-15",
+      "file": "mooncake/huawei-pr-analysis-2026-09-09.md"
+    },
+    {
+      "slug": "mooncake-huawei-pr-analysis",
+      "group": "mooncake",
+      "direction": "社区与生态",
+      "title": "Mooncake 社区中华为系 PR 贡献分析",
+      "author": "MadaoRui",
+      "date": "2026-09-09",
+      "tags": [
+        "Mooncake",
+        "PR分析",
+        "华为",
+        "社区"
+      ],
+      "summary": "全仓 2779 个 PR 的模块归属统计，按「已合入 PR 是否触达该目录」算占比，看华为系的贡献落在 Mooncake 的哪些模块上。",
+      "updated": "2026-09-15",
+      "file": "mooncake/mooncake-huawei-pr-analysis.md"
+    },
+    {
+      "slug": "mooncake-module-analysis",
+      "group": "mooncake",
+      "direction": "整体走读",
+      "title": "Mooncake 代码模块解析：调用流程与设计理念",
+      "author": "MadaoRui",
+      "date": "2026-09-01",
+      "tags": [
+        "Mooncake",
+        "模块地图",
+        "调用链"
+      ],
+      "summary": "按「模块地图 → 核心抽象 → 端到端调用链 → 设计理念」建立对 Mooncake 的整体认知，以 RDMA 主力路径讲内核骨架，并点出网上旧文章里已经不存在的几个概念。",
+      "updated": "2026-09-15",
+      "file": "mooncake/mooncake-module-analysis.md"
+    },
+    {
+      "slug": "lmcache-ascend-code-walkthrough",
+      "group": "lmcache-xllm",
+      "direction": "整体走读",
+      "title": "LMCache + LMCache-Ascend 代码走读",
+      "author": "MadaoRui",
+      "date": "2026-08-02",
+      "tags": [
+        "LMCache",
+        "lmcache-ascend",
+        "昇腾",
+        "代码走读"
+      ],
+      "summary": "先讲上游 LMCache 的架构与热路径，再讲 lmcache-ascend 这个 monkey-patch 插件如何在其上做 NPU 适配，最后给出两者对比与合并后的热路径图。",
+      "updated": "2026-09-15",
+      "file": "lmcache-xllm/lmcache-ascend-code-walkthrough.md"
+    },
+    {
       "slug": "mooncake-code-walkthrough",
       "group": "lmcache-xllm",
+      "direction": "整体走读",
       "title": "Mooncake 代码走读",
       "author": "MadaoRui",
       "date": "2026-08-02",
@@ -244,6 +297,7 @@
     {
       "slug": "writing-example-with-diagram",
       "group": "",
+      "direction": "写作示例",
       "title": "写作示例：带一张手绘图的联动分析怎么写",
       "author": "示例",
       "date": "2026-01-01",

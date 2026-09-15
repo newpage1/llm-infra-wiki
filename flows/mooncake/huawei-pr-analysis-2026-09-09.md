@@ -1,6 +1,7 @@
 ---
 title: Mooncake 按现有模块的华为相关 PR 梳理
 author: MadaoRui
+direction: 社区与生态
 date: 2026-09-09
 tags: [Mooncake, PR分析, 华为, 昇腾]
 summary: 按技术栈关键词筛出 98 个候选 PR（高置信 53 + 弱置信 45），逐模块统计变更量与合入状态：已合并候选共 +35116 / -6996 行，占当前代码量 7.42%。

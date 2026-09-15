@@ -1,6 +1,7 @@
 ---
 title: openYuanrong datasystem 代码走读
 author: MadaoRui
+direction: KV 存储与池化
 date: 2026-08-02
 tags: [datasystem, openYuanrong, 代码走读, 多级缓存]
 summary: openYuanrong 的「数据系统」子系统 v0.8.1 代码级走读：一个异构分布式多级缓存，把集群的 HBM/DRAM/SSD 拼成近计算缓存。它与 Mooncake 是两个独立项目，连仓内的 transfer_engine 都是自研实现。

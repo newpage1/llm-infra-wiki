@@ -1,6 +1,7 @@
 ---
 title: Mooncake 社区中华为系 PR 贡献分析
 author: MadaoRui
+direction: 社区与生态
 date: 2026-09-09
 tags: [Mooncake, PR分析, 华为, 社区]
 summary: 全仓 2779 个 PR 的模块归属统计，按「已合入 PR 是否触达该目录」算占比，看华为系的贡献落在 Mooncake 的哪些模块上。

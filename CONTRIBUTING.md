@@ -18,6 +18,8 @@ $EDITOR flows/你的标题.md
 node tools/build_flows.js --lint     # 只校验 front-matter
 ```
 
+`direction`（二级分类）**必填**，列表页按它分段；填错 `--lint` 会列出全部合法值。
+
 写进正文的 `路径:行号` **照样会被核对**（`tools/check_flows.js` 会把越界的行号挑出来），
 所以标了行号就得真去看过那一行。除此之外——体裁、长度、有没有结论，都随你。
 

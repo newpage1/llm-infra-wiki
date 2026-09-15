@@ -1,6 +1,7 @@
 ---
 title: Mooncake Load/Save KV 全流程解析（昇腾 NPU 栈视角）
 author: MadaoRui
+direction: KV 全链路
 date: 2026-09-03
 tags: [Mooncake, vLLM-Ascend, 昇腾, 存取全链路]
 summary: 一次 KV 的存与取，从 vLLM-Ascend 的各连接器一路走到内核数据面：mooncake 侧走 protocol="ascend" 与 fabric mem，GPU 栈的差异压缩到对照表里，只作迁移参考。

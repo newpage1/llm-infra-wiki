@@ -1,6 +1,7 @@
 ---
 title: 推理后端的 KV Cache 分层量化：架构设计与避坑指南
 author: MadaoRui
+direction: KV 量化
 date: 2026-08-02
 tags: [KV量化, 分层量化, PD分离, 综述]
 summary: PD 分离与跨卡场景下对 KV 做分层量化（per-layer / per-channel 在 c8 / c6 / c4 间选档），同时服务省显存与压传输两个目标。综合 CacheGen、KVTuner、UltraQuant、FlowKV 等 7 篇工作，并记下初版被查证推翻的三个结论。

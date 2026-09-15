@@ -1,6 +1,7 @@
 ---
 title: GLM-5.2 集群级端到端推理时延估算（W8A8 + PD 分离）
 author: MadaoRui
+direction: 性能与容量
 date: 2026-08-02
 tags: [时延, PD分离, 量化, 昇腾, GLM]
 summary: 744B/40B MoE·MLA 在 W8A8、PD 分离、五级 KV 存储、90% 前缀命中下的全链路时延拆解：从请求进网关到首 token / 末 token，逐段算账，覆盖昇腾 950 PR 与 950 DT 两档硬件。

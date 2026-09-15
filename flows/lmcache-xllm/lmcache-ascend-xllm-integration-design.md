@@ -1,6 +1,7 @@
 ---
 title: 方案 B 详细设计：为 xllm 新增 LMCache KV 传输后端
 author: MadaoRui
+direction: 框架集成
 date: 2026-08-02
 tags: [xllm, LMCache, 方案设计, C-ABI]
 summary: 在 xllm 的 KVCacheTransferFactory 里加第三个分支，经一个 C ABI 桥接库复用 LMCache 全栈（层级缓存、前缀命中、CacheBlend、PD 分离），对上层一行配置切换。

@@ -21,7 +21,24 @@ const ROOT = path.resolve(__dirname, '..');
 const DIR = path.join(ROOT, 'flows');
 const OUT = path.join(DIR, 'manifest.json');
 
-const REQUIRED = ['title', 'author', 'date', 'summary'];
+const REQUIRED = ['title', 'author', 'date', 'summary', 'direction'];
+
+/* 二级分类：一篇分析属于哪个**技术方向**。
+   这里是唯一来源——生成器按它校验 front-matter，也按这个顺序写进清单，
+   列表页照单渲染分段，不在页面里再抄一份（抄了就会两边漂）。
+   顺序即展示顺序；`写作示例` 放最后。 */
+const DIRECTIONS = [
+  ['KV 全链路', '一次 KV 的存与取，横跨哪几层、各段怎么接上'],
+  ['传输与硬件后端', 'Transfer Engine 与昇腾 / 鲲鹏 / UB 这些硬件通路'],
+  ['KV 存储与池化', '分布式 KV 池、多级缓存、对象存储'],
+  ['KV 量化', '把 KV 压小：分层量化与它的代价'],
+  ['框架集成', '把 A 接进 B：方案设计与取舍'],
+  ['性能与容量', '时延、吞吐、容量怎么估'],
+  ['社区与生态', 'PR 梳理、上游贡献、社区格局'],
+  ['整体走读', '把一个项目从模块地图到热路径读一遍'],
+  ['写作示例', '投稿样板，不是调研内容'],
+];
+const DIR_NAMES = DIRECTIONS.map(d => d[0]);
 
 /** 解析 front-matter。只支持 `key: value` 与 `tags: [a, b]`，不引入 YAML 依赖。 */
 function parseFrontMatter(text, file) {
@@ -86,6 +103,11 @@ function collect() {
     if (err) { problems.push(`${rel}：${err}`); continue; }
     const missing = REQUIRED.filter(k => !data[k]);
     if (missing.length) { problems.push(`${rel}：front-matter 缺 ${missing.join(' / ')}`); continue; }
+    if (!DIR_NAMES.includes(String(data.direction))) {
+      problems.push(`${rel}：direction 写的是「${data.direction}」，` +
+        `只能是这 ${DIR_NAMES.length} 个之一：${DIR_NAMES.join(' / ')}`);
+      continue;
+    }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(data.date))) {
       problems.push(`${rel}：date 要写 YYYY-MM-DD，现在是「${data.date}」`);
       continue;
@@ -97,6 +119,7 @@ function collect() {
     flows.push({
       slug,
       group,
+      direction: String(data.direction),
       title: String(data.title),
       author: String(data.author),
       date: String(data.date),
@@ -106,8 +129,12 @@ function collect() {
       file: rel,          // 相对 flows/ 的路径，app.js 直接拿它去 fetch
     });
   }
-  // 日期倒序；同日期按 slug，保证顺序稳定（内容不变则字节不变）
-  flows.sort((a, b) => (b.date.localeCompare(a.date)) || a.slug.localeCompare(b.slug));
+  // 先按方向（照 DIRECTIONS 的顺序），方向内日期倒序，同日期按 slug——
+  // 顺序完全确定，内容不变则字节不变
+  const rank = new Map(DIR_NAMES.map((n, i) => [n, i]));
+  flows.sort((a, b) =>
+    (rank.get(a.direction) - rank.get(b.direction)) ||
+    b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug));
   return { flows, problems };
 }
 
@@ -127,7 +154,12 @@ function main() {
     return 0;
   }
 
-  const manifest = { version: 1, flows };
+  // 方向清单随清单一起下发，列表页就不必自己维护一份顺序
+  const manifest = {
+    version: 2,
+    directions: DIRECTIONS.map(([name, blurb]) => ({ name, blurb })),
+    flows,
+  };
   const text = JSON.stringify(manifest, null, 2) + '\n';
 
   const old = fs.existsSync(OUT) ? fs.readFileSync(OUT, 'utf8') : null;
@@ -142,8 +174,8 @@ function main() {
   fs.writeFileSync(OUT, text);
   console.log(`✅ 已写入 flows/manifest.json（${flows.length} 篇）`);
   for (const f of flows) {
-    console.log(`   ${f.date}  ${(f.group ? f.group + '/' : '') + f.slug}`.padEnd(46) +
-      `${f.author}  ${f.title}`);
+    console.log(`   ${f.date}  ${f.direction.padEnd(14)}` +
+      `${(f.group ? f.group + '/' : '') + f.slug}`.padEnd(50) + f.title);
   }
   return 0;
 }

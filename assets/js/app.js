@@ -955,15 +955,15 @@
      由 CI 扫目录重建。为什么走 fetch 而不是像其它页那样嵌进 data/*.js：
      这类内容是跨组件的联动分析，让写的人去改 7.7MB 的 analyses.js 门槛太高——
      加一个 md、提 PR 就行。 */
-  let FLOWS = null;
+  let FLOWS = null;      // { directions, flows }——方向表从清单来，页面不自己维护
   let svgSeq = 0;        // 内联 SVG 的 id 前缀，避免同页多张图撞 id
 
   function fetchFlowList() {
     if (FLOWS) return Promise.resolve(FLOWS);
     return fetch('flows/manifest.json', { cache: 'no-cache' })
       .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then(j => (FLOWS = (j && j.flows) || []))
-      .catch(() => (FLOWS = []));
+      .then(j => (FLOWS = { directions: (j && j.directions) || [], flows: (j && j.flows) || [] }))
+      .catch(() => (FLOWS = { directions: [], flows: [] }));
   }
 
   /* window.md() 不认识 front-matter——会渲染成 <hr> 加一串粘连的
@@ -1040,7 +1040,8 @@
     });
   }
 
-  /* 分组（子目录名）也当一枚标签显示，读者一眼看得出这批东西属于哪一块 */
+  /* 标签：子目录名（项目）在前，作者写的 tags 在后。
+     技术方向（二级分类）不混进来——它是分段标题，不用重复成一枚小标签。 */
   function flowTags(f) {
     const tags = f.group ? [f.group].concat(f.tags || []) : (f.tags || []);
     return tags.map(t => `<span class="flow-tag">${esc(t)}</span>`).join('');
@@ -1063,27 +1064,47 @@
         <code>flows/_template.md</code> 写），提 PR 即可，清单由 CI 重建。
       </p>
     `));
-    const box = el('div', { class: 'flow-grid' });
+    const box = el('div');
     wrap.appendChild(box);
     view.replaceChildren(wrap);
     document.title = '联动分析 · LLM Infra Wiki';
     window.scrollTo({ top: 0 });
 
-    fetchFlowList().then(list => {
-      if (!list.length) {
+    fetchFlowList().then(({ directions, flows }) => {
+      if (!flows.length) {
         box.appendChild(el('p', { class: 'flow-note' },
           '还没有内容。清单由 `node tools/build_flows.js` 生成，' +
           '如果 flows/ 下已经有 md 却看不到，说明清单没重建。'));
         return;
       }
-      list.forEach(f => {
-        const a = el('a', { class: 'flow-card', href: '#/f/' + f.slug });
-        a.innerHTML = `
-          <em>${esc(f.date)} · ${esc(f.author)}</em>
-          <b>${esc(f.title)}</b>
-          <div class="fc-parts">${flowTags(f)}</div>
-          <p>${window.md(f.summary || '').html.replace(/^<p>|<\/p>$/g, '')}</p>`;
-        box.appendChild(a);
+      /* 按技术方向分段。方向表与顺序都来自清单（build_flows.js 里那份是唯一来源），
+         所以这里不写死任何分类名；清单里出现而方向表没兜住的方向，补在最后。 */
+      const order = directions.map(d => d.name);
+      const blurb = new Map(directions.map(d => [d.name, d.blurb || '']));
+      const seen = [...new Set(flows.map(f => f.direction).filter(Boolean))];
+      seen.sort((a, b) => {
+        const ia = order.indexOf(a), ib = order.indexOf(b);
+        return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib);
+      });
+
+      seen.forEach(dir => {
+        const mine = flows.filter(f => f.direction === dir);
+        const sec = el('section', { class: 'flow-sec' });
+        sec.appendChild(el('header', { class: 'flow-sec-head' }, `
+          <h2>${esc(dir)}<span class="flow-sec-n">${mine.length}</span></h2>
+          ${blurb.get(dir) ? `<p>${esc(blurb.get(dir))}</p>` : ''}`));
+        const grid = el('div', { class: 'flow-grid' });
+        mine.forEach(f => {
+          const a = el('a', { class: 'flow-card', href: '#/f/' + f.slug });
+          a.innerHTML = `
+            <em>${esc(f.date)} · ${esc(f.author)}</em>
+            <b>${esc(f.title)}</b>
+            <div class="fc-parts">${flowTags(f)}</div>
+            <p>${window.md(f.summary || '').html.replace(/^<p>|<\/p>$/g, '')}</p>`;
+          grid.appendChild(a);
+        });
+        sec.appendChild(grid);
+        box.appendChild(sec);
       });
     });
   }
@@ -1099,8 +1120,8 @@
     view.replaceChildren(wrap);
     window.scrollTo({ top: 0 });
 
-    fetchFlowList().then(list => {
-      const meta = list.find(x => x.slug === slug);
+    fetchFlowList().then(({ directions, flows }) => {
+      const meta = flows.find(x => x.slug === slug);
       document.title = (meta ? meta.title : slug) + ' · LLM Infra Wiki';
       if (meta) crumb.textContent = meta.title;
 
@@ -1113,7 +1134,8 @@
           if (meta) {
             body.appendChild(el('header', null, `
               <h1>${esc(meta.title)}</h1>
-              <p class="flow-sub">${esc(meta.date)} · ${esc(meta.author)}</p>
+              <p class="flow-sub">${esc(meta.date)} · ${esc(meta.author)}${
+                meta.direction ? ' · ' + esc(meta.direction) : ''}</p>
               <div class="fc-parts">${flowTags(meta)}</div>`));
           }
           const art = el('div', { class: 'flow-art' });

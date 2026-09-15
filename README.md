@@ -84,7 +84,9 @@ $EDITOR flows/你的标题.md
 node tools/build_flows.js --lint     # 只校验 front-matter，两秒出结果
 ```
 
-想分组就把文件放进一层子目录（如 `flows/mooncake/`），目录名会当标签显示。
+`direction` 是**二级分类**（列表页按它分段），可选值见
+[`flows/_template.md`](flows/_template.md)，权威清单在 `tools/build_flows.js` 里。
+想按项目分组就把文件放进一层子目录（如 `flows/mooncake/`），目录名会当标签显示。
 
 开头必须有 front-matter：
 
@@ -93,6 +95,7 @@ node tools/build_flows.js --lint     # 只校验 front-matter，两秒出结果
 title: KV 回落的三条通路：谁在什么时候把 KV 送回去
 author: 你的名字
 date: 2026-09-15
+direction: KV 全链路
 tags: [Mooncake, LMCache, 昇腾]
 summary: 一句话说清这篇讲了什么，会显示在列表页卡片上。
 ---

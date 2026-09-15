@@ -262,14 +262,28 @@ schema 就得为它们同时让路；而内容量又不足以撑起和六个深�
 
 ```
 flows/
-  kv-return-paths.md          直接放根目录 = 不分组
-  mooncake/                  一层子目录 = 一个分组，目录名当标签显示
+  kv-return-paths.md          直接放根目录 = 不按项目分组
+  mooncake/                  一层子目录 = 一个项目分组，目录名当标签显示
     mooncake-load-save-kv-flows.md
   lmcache-xllm/
     lmcache-ascend-code-walkthrough.md
   _template.md                下划线开头的不进清单
   manifest.json               CI 生成，不要手改
 ```
+
+**两级分类，各管一件事**：
+
+| 级别 | 从哪来 | 管什么 | 长什么样 |
+|---|---|---|---|
+| 一级（项目） | 子目录名 | 这批东西属于哪个项目 | 卡片上的一枚标签 |
+| 二级（技术方向） | front-matter 的 `direction` | 这篇在问什么技术问题 | 列表页的**分段标题** |
+
+两个轴正交：`mooncake/mooncake-load-save-kv-flows.md` 在「mooncake」这个项目分组里，
+同时属于「KV 全链路」这个技术方向。
+
+方向清单（含顺序与那句说明）**只写一份**，在 `tools/build_flows.js` 的 `DIRECTIONS`：
+生成器按它校验 front-matter（写错直接报错），再把它写进 `flows/manifest.json`，
+列表页照单渲染分段——页面里不抄第二份，抄了就会两边漂。
 
 正文支持普通 markdown 加本站的两个约定：行内代码用 `%%…%%`，
 围栏必须带语言标记（ASCII 图写 `text`）。**原始 HTML 会被转义**，

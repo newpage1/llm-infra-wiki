@@ -1,7 +1,6 @@
 ---
 title: Mooncake 华为系 Transport 深度解析：昇腾与鲲鹏 UB/URMA
 author: MadaoRui
-direction: 传输与硬件后端
 date: 2026-09-01
 tags: [Mooncake, 传输引擎, 昇腾, 鲲鹏, URMA]
 summary: 深读 transfer-engine 里除 RDMA 之外的国产硬件后端：昇腾四路（ascend_direct / hccl / heterogeneous_rdma / ubshmem）加鲲鹏 UB/URMA，逐条给编译开关与代码锚点，推测处明确标注。

@@ -1,7 +1,6 @@
 ---
 title: Mooncake 代码模块解析：调用流程与设计理念
 author: MadaoRui
-direction: 整体走读
 date: 2026-09-01
 tags: [Mooncake, 模块地图, 调用链]
 summary: 按「模块地图 → 核心抽象 → 端到端调用链 → 设计理念」建立对 Mooncake 的整体认知，以 RDMA 主力路径讲内核骨架，并点出网上旧文章里已经不存在的几个概念。

@@ -1,7 +1,6 @@
 ---
 title: 方案 D：分层组合 —— Mooncake 管 PD 跨节点，LMCache 管节点内池化
 author: MadaoRui
-direction: 框架集成
 date: 2026-08-02
 tags: [xllm, LMCache, Mooncake, 方案设计]
 summary: 不替换 Mooncake，也不动任何已验证路径：把 LMCache 接到 xllm 已有的 HierarchyKVCacheTransfer 机制上做「节点内 KV 池化层」，与 Mooncake 的跨节点搬运正交并存，各司其职。

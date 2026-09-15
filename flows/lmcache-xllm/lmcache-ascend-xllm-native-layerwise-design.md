@@ -1,7 +1,6 @@
 ---
 title: 方案 N：xllm 原生逐层 KV 传输（不移植 lmcache 算子）
 author: MadaoRui
-direction: 框架集成
 date: 2026-08-02
 tags: [xllm, 逐层传输, 昇腾, 方案设计]
 summary: 方案 B 与方案 D 的最小闭环前置：暂不移植 AscendC 的 scatter/gather kernel、不引入跨语言桥接，仅用 xllm 原生的 aclrtMemcpyBatch 加 device-side event overlap，先把逐层传输与 attention 重叠跑通。

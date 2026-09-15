@@ -75,9 +75,10 @@ cd llm-infra-wiki
 
 不等同于深度分析页：**深度分析跟一个仓库走，联动分析跟一次操作走**。
 在 `flows/` 下加一个 `.md` 就行，不用改任何 `.js`，**连 front-matter 都不用写**——
-CI 会从正文与 git 历史推出 title / author / date / summary 写回 md，
-再重建 `flows/manifest.json` 并一起提交（见
+CI 会从 md 本身与 git 历史里读出 title / author / date / summary，
+重建 `flows/manifest.json` 并提交（见
 [`.github/workflows/flows.yml`](.github/workflows/flows.yml)）。
+**它只读，不会改动你的 md。**
 
 ```bash
 cp flows/_template.md flows/你的标题.md
@@ -85,18 +86,16 @@ $EDITOR flows/你的标题.md
 node tools/build_flows.js --lint     # 只校验 front-matter，两秒出结果
 ```
 
-唯一需要自己决定的是 `direction`（**二级分类**，列表页按它分段）——这个推不出来，
-是内容判断。可选值见 [`flows/_template.md`](flows/_template.md)，权威清单在
-`tools/build_flows.js` 里；一时没想好也可以先不写，CI 会归到「待分类」，你改一个词就挪走。
-
 想按项目分组就把文件放进一层子目录（如 `flows/mooncake/`），目录名会当标签显示。
+
+front-matter **完全可选**：哪一项想自己定（比如摘要想自己写），就只写那一行覆盖掉，
+不需要写全，也不用记格式。
 
 front-matter **可以一个字都不写**。想让标题、作者、日期、摘要按自己的意思来，
 就只写要覆盖的那几行：
 
 ```markdown
 ---
-direction: KV 全链路
 summary: 一句话说清这篇讲了什么，会显示在列表页卡片上。
 ---
 ```

@@ -18,9 +18,8 @@ $EDITOR flows/你的标题.md
 node tools/build_flows.js --lint     # 只校验 front-matter
 ```
 
-front-matter **不用写**：title / author / date / summary 由 CI 从正文与 git 历史推出来写回文件，
-清单也是自动的。唯一需要你决定的是 `direction`（二级分类，列表页按它分段）——
-这个推不出来；一时没想好可以先不写，CI 会归到「待分类」，你改一个词就挪走。
+front-matter **不用写**：title / author / date / summary 由 CI 从 md 本身与 git 历史里读出来，
+清单也是自动的。工具**只读**，不会改动你的 md。
 
 写进正文的 `路径:行号` **照样会被核对**（`tools/check_flows.js` 会把越界的行号挑出来），
 所以标了行号就得真去看过那一行。除此之外——体裁、长度、有没有结论，都随你。

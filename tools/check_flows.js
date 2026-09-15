@@ -152,7 +152,7 @@ if (fs.existsSync(MF)) {
     else {
       const seen = new Set();
       for (const n of mf.flows) {
-        if (!n || !n.slug || !n.title || !n.author || !n.date || !n.file || !n.direction) {
+        if (!n || !n.slug || !n.title || !n.author || !n.date || !n.file) {
           problems.push(`manifest.json 有条目缺字段：${JSON.stringify(n && n.slug || n)}`);
           continue;
         }

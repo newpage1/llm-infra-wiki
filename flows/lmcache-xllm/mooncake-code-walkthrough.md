@@ -1,7 +1,6 @@
 ---
 title: Mooncake 代码走读
 author: MadaoRui
-direction: 整体走读
 date: 2026-08-02
 tags: [Mooncake, 代码走读, 传输引擎]
 summary: 覆盖 Mooncake 全部子模块的代码级走读，重点深读 transfer-engine：多协议传输、分布式 KVCache 池、P2P Store 三层各自的关键类、函数签名与端到端调用链。

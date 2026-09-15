@@ -1,7 +1,6 @@
 ---
 title: LMCache + LMCache-Ascend 代码走读
 author: MadaoRui
-direction: 整体走读
 date: 2026-08-02
 tags: [LMCache, lmcache-ascend, 昇腾, 代码走读]
 summary: 先讲上游 LMCache 的架构与热路径，再讲 lmcache-ascend 这个 monkey-patch 插件如何在其上做 NPU 适配，最后给出两者对比与合并后的热路径图。

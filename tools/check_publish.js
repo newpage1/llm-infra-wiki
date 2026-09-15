@@ -112,6 +112,38 @@ ANALYSES.forEach(a => {
     });
     if (!m.designSymbols || !m.designSymbols.length) noSymbol.push(`${a.id}/${m.id}`);
   });
+  /* ②.b `html` / `lead` 的**形状**：必须是 markdown 字符串。
+     两个真实踩过的坑（此前没有任何检查能发现，页面上线后才看出来）：
+       · 写成数组——渲染器拿 String() 一过，各段被**逗号**连接且 HTML 被转义；
+       · 直接塞预渲染 HTML（<p>/<h3>/<table>）——渲染器逐字转义，读者看到 `<p>` 字面标签；
+       · SVG 写进 html——绕过 figCanvas，丢掉图号与全屏缩放。 */
+  const shape = (obj, where) => {
+    for (const k of ['html', 'lead']) {
+      const v = obj && obj[k];
+      if (v === undefined) continue;
+      if (typeof v !== 'string') {
+        errs.push(`② ${where}.${k} 不是字符串（${Array.isArray(v) ? 'array' : typeof v}）`
+          + `——渲染器会用 String() 连接并转义，读者看到逗号与字面标签`);
+        continue;
+      }
+      if (/^\s*<svg/.test(v)) {
+        errs.push(`② ${where}.${k} 以 <svg> 开头——SVG 应放 svg 字段（走 figCanvas），否则没有图号与缩放`);
+        continue;
+      }
+      const blk = v.match(/<(p|h[1-6]|table|thead|tbody|ul|ol|div)\b/i);
+      if (blk) {
+        errs.push(`② ${where}.${k} 里有预渲染 HTML 标签 <${blk[1]}>`
+          + `——渲染器会转义成字面文本，应写成 markdown`);
+      }
+    }
+  };
+  (a.modules || []).forEach(m => {
+    (m.sections || []).forEach(s => {
+      shape(s, `${a.id}/${m.id}/${s.id}`);
+      (s.blocks || []).forEach((b, i) => shape(b, `${a.id}/${m.id}/${s.id}.blocks[${i}]`));
+    });
+  });
+
   // ② / ④ 逐字符串：SVG 单独判，其余跑真渲染器
   for (const [p, text] of walk(a)) {
     if (/\.svg$/.test(p)) {

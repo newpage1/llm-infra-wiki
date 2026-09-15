@@ -1,0 +1,260 @@
+{
+  "version": 1,
+  "flows": [
+    {
+      "slug": "huawei-pr-analysis-2026-09-09",
+      "group": "mooncake",
+      "title": "Mooncake 按现有模块的华为相关 PR 梳理",
+      "author": "MadaoRui",
+      "date": "2026-09-09",
+      "tags": [
+        "Mooncake",
+        "PR分析",
+        "华为",
+        "昇腾"
+      ],
+      "summary": "按技术栈关键词筛出 98 个候选 PR（高置信 53 + 弱置信 45），逐模块统计变更量与合入状态：已合并候选共 +35116 / -6996 行，占当前代码量 7.42%。",
+      "updated": "2026-09-15",
+      "file": "mooncake/huawei-pr-analysis-2026-09-09.md"
+    },
+    {
+      "slug": "mooncake-huawei-pr-analysis",
+      "group": "mooncake",
+      "title": "Mooncake 社区中华为系 PR 贡献分析",
+      "author": "MadaoRui",
+      "date": "2026-09-09",
+      "tags": [
+        "Mooncake",
+        "PR分析",
+        "华为",
+        "社区"
+      ],
+      "summary": "全仓 2779 个 PR 的模块归属统计，按「已合入 PR 是否触达该目录」算占比，看华为系的贡献落在 Mooncake 的哪些模块上。",
+      "updated": "2026-09-15",
+      "file": "mooncake/mooncake-huawei-pr-analysis.md"
+    },
+    {
+      "slug": "mooncake-load-save-kv-flows",
+      "group": "mooncake",
+      "title": "Mooncake Load/Save KV 全流程解析（昇腾 NPU 栈视角）",
+      "author": "MadaoRui",
+      "date": "2026-09-03",
+      "tags": [
+        "Mooncake",
+        "vLLM-Ascend",
+        "昇腾",
+        "存取全链路"
+      ],
+      "summary": "一次 KV 的存与取，从 vLLM-Ascend 的各连接器一路走到内核数据面：mooncake 侧走 protocol=\"ascend\" 与 fabric mem，GPU 栈的差异压缩到对照表里，只作迁移参考。",
+      "updated": "2026-09-15",
+      "file": "mooncake/mooncake-load-save-kv-flows.md"
+    },
+    {
+      "slug": "mooncake-ascend-kunpeng-ub-transport-analysis",
+      "group": "mooncake",
+      "title": "Mooncake 华为系 Transport 深度解析：昇腾与鲲鹏 UB/URMA",
+      "author": "MadaoRui",
+      "date": "2026-09-01",
+      "tags": [
+        "Mooncake",
+        "传输引擎",
+        "昇腾",
+        "鲲鹏",
+        "URMA"
+      ],
+      "summary": "深读 transfer-engine 里除 RDMA 之外的国产硬件后端：昇腾四路（ascend_direct / hccl / heterogeneous_rdma / ubshmem）加鲲鹏 UB/URMA，逐条给编译开关与代码锚点，推测处明确标注。",
+      "updated": "2026-09-15",
+      "file": "mooncake/mooncake-ascend-kunpeng-ub-transport-analysis.md"
+    },
+    {
+      "slug": "mooncake-module-analysis",
+      "group": "mooncake",
+      "title": "Mooncake 代码模块解析：调用流程与设计理念",
+      "author": "MadaoRui",
+      "date": "2026-09-01",
+      "tags": [
+        "Mooncake",
+        "模块地图",
+        "调用链"
+      ],
+      "summary": "按「模块地图 → 核心抽象 → 端到端调用链 → 设计理念」建立对 Mooncake 的整体认知，以 RDMA 主力路径讲内核骨架，并点出网上旧文章里已经不存在的几个概念。",
+      "updated": "2026-09-15",
+      "file": "mooncake/mooncake-module-analysis.md"
+    },
+    {
+      "slug": "mooncake-store-deep-dive",
+      "group": "mooncake",
+      "title": "Mooncake Store 模块深度解析",
+      "author": "MadaoRui",
+      "date": "2026-09-01",
+      "tags": [
+        "Mooncake",
+        "Store",
+        "分布式缓存"
+      ],
+      "summary": "TransferEngine 之上的分布式 KVCache 对象存储：把各节点贡献的 DRAM 与 SSD 拼成一个全局池，对外提供带多副本、租约、淘汰、分层落盘的 put/get。约 6 万行自有代码的走读。",
+      "updated": "2026-09-15",
+      "file": "mooncake/mooncake-store-deep-dive.md"
+    },
+    {
+      "slug": "cross-layer-e2e-tracing-design",
+      "group": "",
+      "title": "跨层端到端追踪设计：把观测契约钉在 vLLM 的两个稳定边界上",
+      "author": "MadaoRui",
+      "date": "2026-08-02",
+      "tags": [
+        "可观测性",
+        "tracing",
+        "vLLM",
+        "LMCache",
+        "Mooncake"
+      ],
+      "summary": "vLLM / LMCache / Mooncake / 调度框架四层各自都有观测，却串不成一条链。这里给出一个不碰上游源码的接法：契约锚在不可变的 vLLM 边界上，上层靠 traceparent 透明接入，下层用 KV connector 包装任意后端。",
+      "updated": "2026-09-15",
+      "file": "cross-layer-e2e-tracing-design.md"
+    },
+    {
+      "slug": "datasystem-code-walkthrough",
+      "group": "lmcache-xllm",
+      "title": "openYuanrong datasystem 代码走读",
+      "author": "MadaoRui",
+      "date": "2026-08-02",
+      "tags": [
+        "datasystem",
+        "openYuanrong",
+        "代码走读",
+        "多级缓存"
+      ],
+      "summary": "openYuanrong 的「数据系统」子系统 v0.8.1 代码级走读：一个异构分布式多级缓存，把集群的 HBM/DRAM/SSD 拼成近计算缓存。它与 Mooncake 是两个独立项目，连仓内的 transfer_engine 都是自研实现。",
+      "updated": "2026-09-15",
+      "file": "lmcache-xllm/datasystem-code-walkthrough.md"
+    },
+    {
+      "slug": "glm52-pd-ttft-tpot",
+      "group": "",
+      "title": "GLM-5.2 集群级端到端推理时延估算（W8A8 + PD 分离）",
+      "author": "MadaoRui",
+      "date": "2026-08-02",
+      "tags": [
+        "时延",
+        "PD分离",
+        "量化",
+        "昇腾",
+        "GLM"
+      ],
+      "summary": "744B/40B MoE·MLA 在 W8A8、PD 分离、五级 KV 存储、90% 前缀命中下的全链路时延拆解：从请求进网关到首 token / 末 token，逐段算账，覆盖昇腾 950 PR 与 950 DT 两档硬件。",
+      "updated": "2026-09-15",
+      "file": "glm52-pd-ttft-tpot.md"
+    },
+    {
+      "slug": "kv-layered-quant-backend-guide",
+      "group": "",
+      "title": "推理后端的 KV Cache 分层量化：架构设计与避坑指南",
+      "author": "MadaoRui",
+      "date": "2026-08-02",
+      "tags": [
+        "KV量化",
+        "分层量化",
+        "PD分离",
+        "综述"
+      ],
+      "summary": "PD 分离与跨卡场景下对 KV 做分层量化（per-layer / per-channel 在 c8 / c6 / c4 间选档），同时服务省显存与压传输两个目标。综合 CacheGen、KVTuner、UltraQuant、FlowKV 等 7 篇工作，并记下初版被查证推翻的三个结论。",
+      "updated": "2026-09-15",
+      "file": "kv-layered-quant-backend-guide.md"
+    },
+    {
+      "slug": "lmcache-ascend-code-walkthrough",
+      "group": "lmcache-xllm",
+      "title": "LMCache + LMCache-Ascend 代码走读",
+      "author": "MadaoRui",
+      "date": "2026-08-02",
+      "tags": [
+        "LMCache",
+        "lmcache-ascend",
+        "昇腾",
+        "代码走读"
+      ],
+      "summary": "先讲上游 LMCache 的架构与热路径，再讲 lmcache-ascend 这个 monkey-patch 插件如何在其上做 NPU 适配，最后给出两者对比与合并后的热路径图。",
+      "updated": "2026-09-15",
+      "file": "lmcache-xllm/lmcache-ascend-code-walkthrough.md"
+    },
+    {
+      "slug": "lmcache-ascend-xllm-hierarchy-design",
+      "group": "lmcache-xllm",
+      "title": "方案 D：分层组合 —— Mooncake 管 PD 跨节点，LMCache 管节点内池化",
+      "author": "MadaoRui",
+      "date": "2026-08-02",
+      "tags": [
+        "xllm",
+        "LMCache",
+        "Mooncake",
+        "方案设计"
+      ],
+      "summary": "不替换 Mooncake，也不动任何已验证路径：把 LMCache 接到 xllm 已有的 HierarchyKVCacheTransfer 机制上做「节点内 KV 池化层」，与 Mooncake 的跨节点搬运正交并存，各司其职。",
+      "updated": "2026-09-15",
+      "file": "lmcache-xllm/lmcache-ascend-xllm-hierarchy-design.md"
+    },
+    {
+      "slug": "lmcache-ascend-xllm-integration-design",
+      "group": "lmcache-xllm",
+      "title": "方案 B 详细设计：为 xllm 新增 LMCache KV 传输后端",
+      "author": "MadaoRui",
+      "date": "2026-08-02",
+      "tags": [
+        "xllm",
+        "LMCache",
+        "方案设计",
+        "C-ABI"
+      ],
+      "summary": "在 xllm 的 KVCacheTransferFactory 里加第三个分支，经一个 C ABI 桥接库复用 LMCache 全栈（层级缓存、前缀命中、CacheBlend、PD 分离），对上层一行配置切换。",
+      "updated": "2026-09-15",
+      "file": "lmcache-xllm/lmcache-ascend-xllm-integration-design.md"
+    },
+    {
+      "slug": "lmcache-ascend-xllm-native-layerwise-design",
+      "group": "lmcache-xllm",
+      "title": "方案 N：xllm 原生逐层 KV 传输（不移植 lmcache 算子）",
+      "author": "MadaoRui",
+      "date": "2026-08-02",
+      "tags": [
+        "xllm",
+        "逐层传输",
+        "昇腾",
+        "方案设计"
+      ],
+      "summary": "方案 B 与方案 D 的最小闭环前置：暂不移植 AscendC 的 scatter/gather kernel、不引入跨语言桥接，仅用 xllm 原生的 aclrtMemcpyBatch 加 device-side event overlap，先把逐层传输与 attention 重叠跑通。",
+      "updated": "2026-09-15",
+      "file": "lmcache-xllm/lmcache-ascend-xllm-native-layerwise-design.md"
+    },
+    {
+      "slug": "mooncake-code-walkthrough",
+      "group": "lmcache-xllm",
+      "title": "Mooncake 代码走读",
+      "author": "MadaoRui",
+      "date": "2026-08-02",
+      "tags": [
+        "Mooncake",
+        "代码走读",
+        "传输引擎"
+      ],
+      "summary": "覆盖 Mooncake 全部子模块的代码级走读，重点深读 transfer-engine：多协议传输、分布式 KVCache 池、P2P Store 三层各自的关键类、函数签名与端到端调用链。",
+      "updated": "2026-09-15",
+      "file": "lmcache-xllm/mooncake-code-walkthrough.md"
+    },
+    {
+      "slug": "writing-example-with-diagram",
+      "group": "",
+      "title": "写作示例：带一张手绘图的联动分析怎么写",
+      "author": "示例",
+      "date": "2026-01-01",
+      "tags": [
+        "示例",
+        "写作规范",
+        "SVG"
+      ],
+      "summary": "这不是一篇调研，是给出「投稿长什么样」的样板：一份三列对比表、一张手绘 SVG、一段真实的路径锚点、和一个诚实的待验证小节。看版式照抄即可。",
+      "updated": "2026-09-15",
+      "file": "writing-example-with-diagram.md"
+    }
+  ]
+}

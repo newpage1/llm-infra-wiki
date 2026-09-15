@@ -87,7 +87,7 @@ function buildLinkTargets(file) {
   load('components.js', () => {
     (global.WIKI_COMPONENTS || []).forEach(c => ids.add('#/c/' + c.id));
   });
-  ids.add('#/'); ids.add('#/n'); ids.add('#/about');
+  ids.add('#/'); ids.add('#/flows'); ids.add('#/about');
   return ids;
 }
 

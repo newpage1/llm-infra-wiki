@@ -1,27 +1,27 @@
-name: notes
+name: flows
 
-# 方案 B：同事只往 `notes/` 里丢一个 md，**不用管清单**。这里扫目录、重建
-# `notes/manifest.json`，然后由机器人把它提交回 main。
+# 方案 B：写的人只往 `flows/` 里丢一个 md，**不用管清单**。这里扫目录、重建
+# `flows/manifest.json`，然后由机器人把它提交回 main。
 #
 # 为什么必须有人干这件事：站点是纯静态的，没有后端，GitHub Pages 不会列目录。
-# 列表页要显示「有哪些笔记」，只能靠一个事先生成好的清单文件。
+# 列表页要显示「有哪些联动分析」，只能靠一个事先生成好的清单文件。
 #
 # 三个必须知道的坑：
 #   1. main 上如果开了分支保护（禁止直接推），这个 job 会失败。要么给
-#      github-actions[bot] 开白名单，要么退回到「本地跑 build_notes.js 一起提 PR」。
+#      github-actions[bot] 开白名单，要么退回到「本地跑 build_flows.js 一起提 PR」。
 #   2. 用 `GITHUB_TOKEN` 推出去的提交**不会**触发别的 workflow（GitHub 防递归）。
-#      所以机器人这次提交既不会重跑 verify.yml，也不会再触发 notes.yml 自己——
+#      所以机器人这次提交既不会重跑 verify.yml，也不会再触发 flows.yml 自己——
 #      死循环不会发生，但「清单对不对」也就没人替这里把关了。所以下面在提交**之前**
 #      先跑一遍 `--check` 自检，用这一步的结论说话。
-#   3. 万一某次推送失败（保护规则、并发），清单会停在旧状态：新笔记在列表页看不见，
+#   3. 万一某次推送失败（保护规则、并发），清单会停在旧状态：新文章在列表页看不见，
 #      而且不报错。所以除了 push 触发，还挂了一周一次的定时兜底。
 
 on:
   push:
     branches: [main]
     paths:
-      - 'notes/**'
-      - 'tools/build_notes.js'
+      - 'flows/**'
+      - 'tools/build_flows.js'
   schedule:
     # 每周一 04:00 UTC：清单万一漏了（某次推送失败），下次定时自己补上
     - cron: '0 4 * * 1'
@@ -31,7 +31,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: notes-manifest
+  group: flows-manifest
   cancel-in-progress: false
 
 jobs:
@@ -50,25 +50,25 @@ jobs:
           node-version: '20'
 
       - name: 重建清单
-        run: node tools/build_notes.js
+        run: node tools/build_flows.js
 
       - name: 自检（确认重建后清单就是最新的）
-        run: node tools/build_notes.js --check
+        run: node tools/build_flows.js --check
 
       - name: 有变化就提交
         run: |
           set -euo pipefail
-          if git diff --quiet -- notes/manifest.json; then
+          if git diff --quiet -- flows/manifest.json; then
             echo "清单没有变化，不用提交"
             exit 0
           fi
           git config user.name  'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add notes/manifest.json
+          git add flows/manifest.json
           git commit -F - <<'MSG'
-          notes: 重建笔记清单
+          flows: 重建联动分析清单
 
-          由 .github/workflows/notes.yml 扫描 notes/*.md 自动生成，请勿手改。
+          由 .github/workflows/flows.yml 扫描 flows/ 下的 md 自动生成，请勿手改。
           MSG
           # 并发推送时先 rebase 再推，失败重试几次
           for i in 1 2 3; do

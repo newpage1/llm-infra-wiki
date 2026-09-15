@@ -950,46 +950,51 @@
     }
   }
 
-  /* ── 笔记板块 ─────────────────────────────────────────────
-     内容来自仓库里的 `notes/*.md`，清单（notes/manifest.json）由 CI 扫目录重建。
-     为什么走 fetch 而不是像其它页那样嵌进 data/*.js：这类内容是同事随手写的
-     调研笔记，让他们去改 7.7MB 的 analyses.js 门槛太高——加一个 md、提 PR 就行。 */
-  let NOTES = null;
+  /* ── 联动分析板块 ─────────────────────────────────────────
+     内容来自仓库里的 `flows/`（含一级分组子目录），清单（flows/manifest.json）
+     由 CI 扫目录重建。为什么走 fetch 而不是像其它页那样嵌进 data/*.js：
+     这类内容是跨组件的联动分析，让写的人去改 7.7MB 的 analyses.js 门槛太高——
+     加一个 md、提 PR 就行。 */
+  let FLOWS = null;
   let svgSeq = 0;        // 内联 SVG 的 id 前缀，避免同页多张图撞 id
 
-  function fetchNoteList() {
-    if (NOTES) return Promise.resolve(NOTES);
-    return fetch('notes/manifest.json', { cache: 'no-cache' })
+  function fetchFlowList() {
+    if (FLOWS) return Promise.resolve(FLOWS);
+    return fetch('flows/manifest.json', { cache: 'no-cache' })
       .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then(j => (NOTES = (j && j.notes) || []))
-      .catch(() => (NOTES = []));
+      .then(j => (FLOWS = (j && j.flows) || []))
+      .catch(() => (FLOWS = []));
   }
 
   /* window.md() 不认识 front-matter——会渲染成 <hr> 加一串粘连的
-     「title: X author: Y」，所以读进来先剥掉。 */
+     「title: X author: Y」，所以读进来先剥掉。
+     正文开头那个 `# 标题` 也一并去掉：标题由 front-matter 渲染成 h1，
+     留着就会出现两个一模一样的大标题。 */
   function stripFrontMatter(text) {
-    if (!/^---\r?\n/.test(text)) return text;
-    const end = text.indexOf('\n---', 3);
-    if (end < 0) return text;
-    return text.slice(text.indexOf('\n', end + 1) + 1).replace(/^\s*\n/, '');
+    let body = text;
+    if (/^---\r?\n/.test(body)) {
+      const end = body.indexOf('\n---', 3);
+      if (end >= 0) body = body.slice(body.indexOf('\n', end + 1) + 1);
+    }
+    return body.replace(/^\s*\n/, '').replace(/^#\s+[^\n]*\n+/, '');
   }
 
-  /* md 里的 `![](x.svg)` 是相对 `notes/` 的，但页面地址是 `#/n/<slug>`，
-     根目录下没有 x.svg。渲染后统一把相对路径补成 `notes/`。 */
-  function fixNotePaths(root) {
+  /* md 里的相对路径是相对那篇 md 所在目录的（可能在 `flows/<组>/` 下），
+     但页面地址是 `#/f/<slug>`。渲染后统一按「清单里的 file」推出前缀补上。 */
+  function fixFlowPaths(root, base) {
     root.querySelectorAll('img[src]').forEach(img => {
       const s = img.getAttribute('src');
       if (/^(https?:|data:|\/|#)/.test(s)) return;
-      img.setAttribute('src', 'notes/' + s.replace(/^\.\//, ''));
+      img.setAttribute('src', base + s.replace(/^\.\//, ''));
     });
     root.querySelectorAll('a[href]').forEach(a => {
       const h = a.getAttribute('href');
       if (/^(https?:|mailto:|#)/.test(h)) return;
       if (/\.md$/.test(h)) {                       // 指向另一个 md → 走站内路由
-        a.setAttribute('href', '#/n/' + h.replace(/^\.?\/?/, '').replace(/\.md$/, ''));
+        a.setAttribute('href', '#/f/' + path.basename(h).replace(/\.md$/, ''));
         return;
       }
-      a.setAttribute('href', 'notes/' + h.replace(/^\.\//, ''));
+      a.setAttribute('href', base + h.replace(/^\.\//, ''));
       a.setAttribute('target', '_blank');
       a.setAttribute('rel', 'noopener');
     });
@@ -999,7 +1004,7 @@
      `.diagram .t-mono` 这类规则取字号与颜色。这些在**外部 `<img>`** 里一概拿不到——
      自定义属性不解析（方框退成黑块），页面样式也不作用于图片文档。
      所以把 svg 取回来内联进 DOM，顺带把 `<script>` 与事件属性摘掉。 */
-  function inlineNoteSvgs(root) {
+  function inlineFlowSvgs(root) {
     root.querySelectorAll('img[src$=".svg"], img[src*=".svg?"]').forEach(img => {
       const src = img.getAttribute('src');
       fetch(src)
@@ -1015,7 +1020,7 @@
                      .split(`url(#${id})`).join(`url(#${uid}${id})`);
           }
           const box = document.createElement('div');
-          box.className = 'note-fig';
+          box.className = 'flow-fig';
           box.innerHTML = xml;
           const svg = box.querySelector('svg');
           if (!svg) throw 0;
@@ -1035,54 +1040,58 @@
     });
   }
 
-  function noteTags(n) {
-    return (n.tags || []).map(t => `<span class="note-tag">${esc(t)}</span>`).join('');
+  /* 分组（子目录名）也当一枚标签显示，读者一眼看得出这批东西属于哪一块 */
+  function flowTags(f) {
+    const tags = f.group ? [f.group].concat(f.tags || []) : (f.tags || []);
+    return tags.map(t => `<span class="flow-tag">${esc(t)}</span>`).join('');
   }
 
-  function renderNoteList() {
-    const wrap = el('div', { class: 'wrap notes fade-in' });
-    wrap.appendChild(el('header', { class: 'notes-head' }, `
-      <p class="eyebrow">Notes · 调研笔记</p>
-      <h1>同事写的调研与分析</h1>
+  function renderFlowList() {
+    const wrap = el('div', { class: 'wrap flows fade-in' });
+    wrap.appendChild(el('header', { class: 'flows-head' }, `
+      <p class="eyebrow">Flows · 联动分析</p>
+      <h1>跨组件的联动分析</h1>
       <p class="lede">
-        这里放自由形式的调研笔记：横向对比、源码走读的中间结论、还没定论的观察。
-        它<b>不要求</b>按深度分析页那套章节与锚点规范来写——但写了的
-        <code>路径:行号</code> 会被自动校验，所以请真的去那一行看过。
+        深度分析页跟着<b>一个仓库</b>走；这里跟着<b>一次操作</b>走——一次 KV 的存与取、
+        一条 KV 回落通路、一个新模型带来的 KV 形态变化，横跨哪几个项目、各段怎么接上、
+        在哪一层变形。体裁不限：全链路走读、方案对比、时延估算、PR 与社区梳理都收。
       </p>
       <p class="lede" style="margin-top:10px">
-        想投一篇？在 <code>notes/</code> 下加一个 <code>.md</code>（照着
-        <code>notes/_template.md</code> 写），提 PR 即可，清单由 CI 重建。
+        正文是普通的 markdown，<b>不要求</b>深度分析页那套八节骨架。
+        写进正文的 <code>路径:行号</code> 会被自动校验，所以标了行号就得真去那一行看过。
+        想加一篇？在 <code>flows/</code> 下放一个 <code>.md</code>（照着
+        <code>flows/_template.md</code> 写），提 PR 即可，清单由 CI 重建。
       </p>
     `));
-    const box = el('div', { class: 'note-grid' });
+    const box = el('div', { class: 'flow-grid' });
     wrap.appendChild(box);
     view.replaceChildren(wrap);
-    document.title = '调研笔记 · LLM Infra Wiki';
+    document.title = '联动分析 · LLM Infra Wiki';
     window.scrollTo({ top: 0 });
 
-    fetchNoteList().then(list => {
+    fetchFlowList().then(list => {
       if (!list.length) {
         box.appendChild(el('p', { class: 'flow-note' },
-          '还没有笔记。清单由 `node tools/build_notes.js` 生成，' +
-          '如果 notes/ 下已经有 md 却看不到，说明清单没重建。'));
+          '还没有内容。清单由 `node tools/build_flows.js` 生成，' +
+          '如果 flows/ 下已经有 md 却看不到，说明清单没重建。'));
         return;
       }
-      list.forEach(n => {
-        const a = el('a', { class: 'note-card', href: '#/n/' + n.slug });
+      list.forEach(f => {
+        const a = el('a', { class: 'flow-card', href: '#/f/' + f.slug });
         a.innerHTML = `
-          <em>${esc(n.date)} · ${esc(n.author)}</em>
-          <b>${esc(n.title)}</b>
-          <div class="nc-parts">${noteTags(n)}</div>
-          <p>${window.md(n.summary || '').html.replace(/^<p>|<\/p>$/g, '')}</p>`;
+          <em>${esc(f.date)} · ${esc(f.author)}</em>
+          <b>${esc(f.title)}</b>
+          <div class="fc-parts">${flowTags(f)}</div>
+          <p>${window.md(f.summary || '').html.replace(/^<p>|<\/p>$/g, '')}</p>`;
         box.appendChild(a);
       });
     });
   }
 
-  function renderNote(slug) {
-    const wrap = el('div', { class: 'wrap about fade-in' });
+  function renderFlow(slug) {
+    const wrap = el('div', { class: 'wrap about flow-page fade-in' });
     const crumb = el('span', null, esc(slug));
-    const nav = el('nav', { class: 'crumbs' }, '<a href="#/n">调研笔记</a><span>/</span>');
+    const nav = el('nav', { class: 'crumbs' }, '<a href="#/flows">联动分析</a><span>/</span>');
     nav.appendChild(crumb);
     wrap.appendChild(nav);
     const body = el('div');
@@ -1090,32 +1099,35 @@
     view.replaceChildren(wrap);
     window.scrollTo({ top: 0 });
 
-    fetchNoteList().then(list => {
+    fetchFlowList().then(list => {
       const meta = list.find(x => x.slug === slug);
       document.title = (meta ? meta.title : slug) + ' · LLM Infra Wiki';
       if (meta) crumb.textContent = meta.title;
 
-      fetch('notes/' + slug + '.md', { cache: 'no-cache' })
+      // 正文相对路径要相对「这篇 md 所在的目录」解析，所以用清单里的 file
+      const file = meta ? meta.file : slug + '.md';
+      const base = 'flows/' + (file.includes('/') ? file.replace(/[^/]+$/, '') : '');
+      fetch('flows/' + file, { cache: 'no-cache' })
         .then(r => (r.ok ? r.text() : Promise.reject(r.status)))
         .then(text => {
           if (meta) {
             body.appendChild(el('header', null, `
               <h1>${esc(meta.title)}</h1>
               <p class="flow-sub">${esc(meta.date)} · ${esc(meta.author)}</p>
-              <div class="nc-parts">${noteTags(meta)}</div>`));
+              <div class="fc-parts">${flowTags(meta)}</div>`));
           }
-          const art = el('div', { class: 'note-art' });
+          const art = el('div', { class: 'flow-art' });
           art.innerHTML = window.md(stripFrontMatter(text)).html;
-          fixNotePaths(art);
+          fixFlowPaths(art, base);
           body.appendChild(art);
           wrapTables(wrap);
-          inlineNoteSvgs(art);
+          inlineFlowSvgs(art);
         })
         .catch(() => {
-          body.appendChild(el('h1', null, '没有这篇笔记'));
+          body.appendChild(el('h1', null, '没有这一篇'));
           body.appendChild(el('p', null,
-            `notes/${esc(slug)}.md 取不到。` +
-            '<a href="#/n">返回列表</a>'));
+            `flows/${esc(file)} 取不到。` +
+            '<a href="#/flows">返回列表</a>'));
         });
     });
   }
@@ -1384,8 +1396,8 @@ L4 构造键 → 写入落存 → 登记索引
       renderAnalysis(parts[1], modId, sec);
       on('home');
     }
-    else if (parts[0] === 'n' && parts[1]) { renderNote(parts[1]); on('notes'); }
-    else if (parts[0] === 'n') { renderNoteList(); on('notes'); }
+    else if (parts[0] === 'f' && parts[1]) { renderFlow(parts[1]); on('flows'); }
+    else if (parts[0] === 'flows') { renderFlowList(); on('flows'); }
     else if (parts[0] === 'about') { renderAbout(); on('about'); }
     else if (parts[0] === 'l' && parts[1]) {
       renderHome();

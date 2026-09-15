@@ -244,45 +244,45 @@ body::before{
   padding-left:11px;border-left:2px solid var(--line);
 }
 
-/* ==================================================== notes */
-/* 调研笔记：列表页（.notes*）与正文里的流程块（.flow-*，模块页也在用） */
+/* ==================================================== flows */
+/* 联动分析：列表页（.flows* / .flow-card / .fc-parts）与正文里的流程块（.flow-*，模块页也在用） */
 /* 只设纵向内边距，避免覆盖 .wrap 的水平 padding */
-.notes{padding-top:44px;padding-bottom:80px}
-.notes-head h1{
+.flows{padding-top:44px;padding-bottom:80px}
+.flows-head h1{
   font-family:var(--font-display);font-size:clamp(26px,3.4vw,38px);
   font-weight:700;margin:10px 0 14px;line-height:1.25;color:var(--ink);
 }
-.notes-head .lede{max-width:74ch}
+.flows-head .lede{max-width:74ch}
 
-.note-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(380px,100%),1fr));gap:16px;margin-top:32px}
-.note-card{
+.flow-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(380px,100%),1fr));gap:16px;margin-top:32px}
+.flow-card{
   display:flex;flex-direction:column;gap:8px;padding:22px 24px;min-width:0;box-sizing:border-box;
   border:1px solid var(--line);border-top:3px solid var(--l3);border-radius:var(--radius);
   background:var(--panel);text-decoration:none;transition:.18s;
 }
-.note-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--l3-dim)}
-.note-card>em{
+.flow-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--l3-dim)}
+.flow-card>em{
   font-style:normal;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.16em;
   text-transform:uppercase;color:var(--l3);
 }
-.note-card>b{font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--ink)}
-.nc-parts{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 2px}
-.nc-parts span{
+.flow-card>b{font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--ink)}
+.fc-parts{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 2px}
+.fc-parts span{
   font-family:var(--font-mono);font-size:10px;color:var(--pc);
   border:1px solid var(--pc);border-radius:3px;padding:2px 7px;
   background:color-mix(in srgb,var(--pc) 7%,transparent);
 }
-.note-card p{font-size:12.5px;color:var(--ink-2);line-height:1.7;margin:0}
-/* 笔记标签：与正文里参与者标签同一个排布容器，但颜色走中性 */
-/* 笔记正文里的图。SVG 会被 app.js 取回来内联（外部 <img> 拿不到 var(--…)），
+.flow-card p{font-size:12.5px;color:var(--ink-2);line-height:1.7;margin:0}
+
+/* 联动分析正文里的图。SVG 会被 app.js 取回来内联（外部 <img> 拿不到 var(--…)），
    内联后的 .diagram 自带 width:100%；这里只管它和位图的上下留白。 */
-.note-fig{margin:22px 0;overflow-x:auto}
-.note-fig .diagram{margin:0}
-.note-art img{
+.flow-fig{margin:22px 0;overflow-x:auto}
+.flow-fig .diagram{margin:0}
+.flow-art img{
   display:block;width:100%;height:auto;max-width:100%;margin:22px 0;
   border-radius:var(--radius);
 }
-.note-tag{
+.flow-tag{
   font-family:var(--font-mono);font-size:10px;color:var(--muted);
   border:1px solid var(--line-2);border-radius:3px;padding:2px 7px;
   background:var(--wash);
@@ -1089,25 +1089,25 @@ body::before{
    只画横线会让多列的行难以横向对齐，看起来像浮空的文字。
    横向滚动交由外层 .tw 处理，所以这里不用 display:block。
    .prose 用于组件页，.an-body 用于深度分析页 —— 两处必须一致。 */
-.prose table, .an-body table{
+.prose table, .an-body table, .flow-page table{
   width:100%;border-collapse:collapse;margin:0 0 22px;font-size:13px;
   border:1px solid var(--line-2);
 }
-.prose th, .an-body th{
+.prose th, .an-body th, .flow-page th{
   text-align:left;font-family:var(--font-mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
   color:var(--muted);padding:9px 13px;white-space:nowrap;
   background:var(--wash);
   border:1px solid var(--line-2);
 }
-.prose td, .an-body td{
+.prose td, .an-body td, .flow-page td{
   padding:10px 13px;vertical-align:top;
   border:1px solid var(--line);
 }
 /* 表格里的代码 token 不许在中间折行——台账表第一列是路径，
    折成 "cache_engine.p / y" 就读不出来了。表格外层已有 .tw 横向滚动容器。 */
-.prose td code, .an-body td code{white-space:nowrap}
-.prose thead th, .an-body thead th{border-bottom:1px solid var(--line-2)}
-.prose tr:hover td, .an-body tr:hover td{background:var(--panel-2)}
+.prose td code, .an-body td code, .flow-page td code{white-space:nowrap}
+.prose thead th, .an-body thead th, .flow-page thead th{border-bottom:1px solid var(--line-2)}
+.prose tr:hover td, .an-body tr:hover td, .flow-page tr:hover td{background:var(--panel-2)}
 /* 表头之下第一行用较重的上边线，与表头分开 */
 .prose tbody tr:first-child td, .an-body tbody tr:first-child td{border-top:1px solid var(--line-2)}
 .prose hr{border:0;border-top:1px solid var(--line);margin:34px 0}
@@ -1182,6 +1182,10 @@ body::before{
 
 /* --------------------------------------------------------- about */
 .about{padding:52px 0 90px;max-width:900px}
+/* 联动分析详情页复用 .about 的正文排版，但放宽一档：
+   这些长文以多列表格为主（连接器 × 传输方向 × 控制面…），900px 会把列挤成一条。 */
+.flow-page{max-width:1120px}
+.flow-page h1{font-size:clamp(26px,3.4vw,38px)}
 .about h1{font-family:var(--font-display);font-size:clamp(28px,4vw,42px);margin:0 0 20px;font-weight:700;color:var(--ink)}
 
 /* --------------------------------------------------------- footer */

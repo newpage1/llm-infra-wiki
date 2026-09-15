@@ -7,8 +7,8 @@
  *
  * 路由（见 assets/js/app.js 的 router）：
  *   #/                     首页
- *   #/n                    调研笔记列表
- *   #/n/<slug>             笔记详情（目标来自 notes/manifest.json）
+ *   #/flows                联动分析列表
+ *   #/f/<slug>             联动分析详情（目标来自 flows/manifest.json）
  *   #/c/<componentId>      组件详情
  *   #/a/<pageId>                        分析页首页
  *   #/a/<pageId>/<moduleId>             模块页
@@ -41,13 +41,12 @@ for (const a of W.WIKI_ANALYSES || []) {
 }
 const components = new Set(Object.keys(W.WIKI_DETAILS || {}));
 const catalogIds = new Set(W.WIKI_ALL_IDS || []);
-/* 笔记的目标不在 data/*.js 里，而是 notes/manifest.json 里的 slug */
-const notesDir = path.join(ROOT, 'notes');
-const noteSlugs = new Set();
+/* 联动分析的目标不在 data/*.js 里，而是 flows/manifest.json 里的 slug */
+const flowSlugs = new Set();
 try {
-  const man = JSON.parse(fs.readFileSync(path.join(notesDir, 'manifest.json'), 'utf8'));
-  (man.notes || []).forEach(n => noteSlugs.add(n.slug));
-} catch (e) { /* 还没有笔记 */ }
+  const man = JSON.parse(fs.readFileSync(path.join(ROOT, 'flows', 'manifest.json'), 'utf8'));
+  (man.flows || []).forEach(f => flowSlugs.add(f.slug));
+} catch (e) { /* 还没有内容 */ }
 
 function collectStrings(n, out = []) {
   if (n && typeof n === 'object') for (const k of Object.keys(n)) collectStrings(n[k], out);
@@ -72,9 +71,9 @@ const LINK = /#\/[A-Za-z0-9/_\-.]*/g;
 function why(u) {
   const parts = u.replace(/^#\//, '').split('/').filter(x => x !== '');
   if (!parts.length) return null;                       // #/ 首页
-  if (parts[0] === 'n') {
-    if (!parts[1]) return null;                       // 列表页
-    return noteSlugs.has(parts[1]) ? null : `没有这篇笔记：${parts[1]}`;
+  if (parts[0] === 'flows') return null;               // 列表页
+  if (parts[0] === 'f') {
+    return flowSlugs.has(parts[1]) ? null : `没有这一篇：${parts[1]}`;
   }
   if (parts[0] === 'c') return (components.has(parts[1]) || catalogIds.has(parts[1]))
     ? null : `没有这个组件：${parts[1]}`;

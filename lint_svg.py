@@ -14,7 +14,7 @@ FILES = ['data/analyses.js', 'data/catalog.js',
 
 # 笔记里的图是**独立 SVG 文件**（不在 data/*.js 里），也要一起查重叠。
 import glob
-FILES += sorted(glob.glob('notes/*.svg'))
+FILES += sorted(glob.glob('flows/**/*.svg', recursive=True))
 
 def units(t):
     return sum(2 if ord(c) > 0x2e80 else 1 for c in t)

@@ -46,9 +46,9 @@ run "lint_svg.py" python3 lint_svg.py
 hdr "⑤ 站内链接（按路由解一遍，看目标是否存在）"
 run "check_links.js" node tools/check_links.js
 
-hdr "⑥ 调研笔记（front-matter / 图片 / 锚点）"
-run "build_notes --lint" node tools/build_notes.js --lint
-run "check_notes.js"     node tools/check_notes.js
+hdr "⑥ 联动分析（front-matter / 图片 / 锚点）"
+run "build_flows --lint" node tools/build_flows.js --lint
+run "check_flows.js"     node tools/check_flows.js
 
 if [[ $FAIL -eq 0 ]]; then
   printf '\n\033[32m全部通过\033[0m（离线校验）\n'

@@ -15,13 +15,21 @@
       .replace(/"/g, '&quot;');
   }
 
+  /* 标题锚点用 **GitHub 那套规则**，不是自己发明一套。
+     原因：`flows/` 下的长文都带目录，目录链接是作者按 GitHub 的习惯写的；
+     同一份 md 在站内和 GitHub 上都要能点开，两边的 id 就必须一致。
+     规则（等价于 github-slugger）：转小写、去掉非「字母/数字/组合标记/连字符/空格」的
+     字符、再把空格换成连字符。注意标点是**删掉**而不是换成连字符——
+     所以 `1. 标题` → `1-标题`、`a/b` → `ab`、`「引号」` → `引号`。 */
   function slug(s, used) {
-    let base = String(s).toLowerCase()
+    let base = String(s)
       .replace(/<[^>]+>/g, '')
-      .replace(/[^\w\u4e00-\u9fa5]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'sec';
-    let id = base, n = 2;
-    while (used[id]) { id = base + '-' + n++; }
+      .trim()
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}\p{M}\-_ ]/gu, '')
+      .replace(/ /g, '-') || 'sec';
+    let id = base, n = 1;
+    while (used[id]) { id = base + '-' + n++; }   // 重名时第二个叫 xxx-1
     used[id] = true;
     return id;
   }

@@ -66,37 +66,40 @@ cd llm-infra-wiki
 | 深度分析页（关键模块、总体设计） | `data/analyses.js` |
 | 组件的整体介绍与模块走读 | `data/details.js`（及其 `details-{ascend,nvidia,outline}.js`） |
 | 分层、组件编目、「特点速览」 | `data/catalog.js` |
-| 跨组件链路、横向对比、调研中间结论 | `notes/*.md`（自由形式，见下） |
+| 跨组件的联动分析（全链路 / 方案对比 / 时延估算） | `flows/*.md`（自由形式，见下） |
 | 版式与交互 | `assets/css/style.css`、`assets/js/app.js` |
 
 `data/` 下全是纯数据，`assets/js/` 只负责渲染——**改内容不需要碰渲染代码**。
 
-### 2. 只想写一篇调研笔记（可选）
+### 2. 只想写一篇联动分析（可选）
 
-不等同于深度分析页。**在 `notes/` 下加一个 `.md` 就行**，不用改任何 `.js`，
-也不用管清单——CI 会扫目录重建 `notes/manifest.json` 并提交（见
-[`.github/workflows/notes.yml`](.github/workflows/notes.yml)）。
+不等同于深度分析页：**深度分析跟一个仓库走，联动分析跟一次操作走**。
+在 `flows/` 下加一个 `.md` 就行，不用改任何 `.js`，也不用管清单——
+CI 会扫目录重建 `flows/manifest.json` 并提交（见
+[`.github/workflows/flows.yml`](.github/workflows/flows.yml)）。
 
 ```bash
-cp notes/_template.md notes/你的标题.md
-$EDITOR notes/你的标题.md
-node tools/build_notes.js --lint     # 只校验 front-matter，两秒出结果
+cp flows/_template.md flows/你的标题.md
+$EDITOR flows/你的标题.md
+node tools/build_flows.js --lint     # 只校验 front-matter，两秒出结果
 ```
+
+想分组就把文件放进一层子目录（如 `flows/mooncake/`），目录名会当标签显示。
 
 开头必须有 front-matter：
 
 ```markdown
 ---
-title: 前缀索引的三种实现对比
-author: 张三
+title: KV 回落的三条通路：谁在什么时候把 KV 送回去
+author: 你的名字
 date: 2026-09-15
-tags: [sglang, lmcache, prefix-cache]
+tags: [Mooncake, LMCache, 昇腾]
 summary: 一句话说清这篇讲了什么，会显示在列表页卡片上。
 ---
 ```
 
-正文随便写，但两类东西会被校验：`![](x.svg)` 引的图必须真在 `notes/` 下，
-`路径:行号` 必须真落在那一行。图放 `notes/` 旁边一起提上来即可。
+正文随便写，但两类东西会被校验：`![](x.svg)` 引的图必须真在 md 旁边，
+`路径:行号` 必须真落在那一行。
 
 ### 3. 改完必须跑校验
 
@@ -108,7 +111,7 @@ bash tools/verify.sh
 
 它检查六件事：内容用**真实渲染器**跑一遍（抓"写对了但页面会漏字"）、每个分析页的结构
 （8 小节顺序、`%%` 配对、图数）、总体设计图与模块的认领关系、文风指标有没有退化、
-手绘 SVG 的文字重叠、站内链接能不能解到目标，以及 `notes/` 下的笔记
+手绘 SVG 的文字重叠、站内链接能不能解到目标，以及 `flows/` 下的联动分析
 （front-matter 齐不齐、图在不在、`路径:行号` 有没有越界）。
 
 ### 4. 改了行号或代码围栏，还要跑完整校验
@@ -204,8 +207,9 @@ llm-infra-wiki/
 │   ├── analyses.js             # 深度分析页（最重的内容）
 │   ├── details*.js             # 组件详情页
 │   └── SKILL-code-arch-analysis.md   # 源码分析方法论
-├── notes/                      # 调研笔记：同事直接提 .md，清单由 CI 生成
+├── flows/                      # 联动分析：直接提 .md，清单由 CI 生成
 │   ├── _template.md            # 照着这个写（下划线开头的文件不进清单）
+│   ├── mooncake/ lmcache-xllm/ # 一层子目录 = 一个分组，目录名当标签
 │   └── manifest.json           # 自动生成，不要手改
 ├── diagrams/                   # PlantUML 源与渲染出的 SVG
 ├── authoring/                  # 写内容的人看这三份

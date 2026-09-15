@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 430" class="diagram" role="img"
+     aria-label="三种前缀索引在同一条前缀上的查找路径对照">
+  <defs>
+    <marker id="npa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 z" fill="#d5c7b0"/>
+    </marker>
+  </defs>
+
+  <text x="20" y="24" class="t-band" fill="var(--l2)">同一条前缀 · 三种索引的查找路径</text>
+
+  <!-- ① vLLM 块哈希 -->
+  <rect x="20" y="44" width="380" height="360" rx="10"
+        fill="var(--l1)" fill-opacity=".05" stroke="var(--line)"/>
+  <text x="40" y="72" class="t-title-sm">vLLM · 块哈希</text>
+  <text x="40" y="96" class="t-mono" style="fill:var(--muted)">哈希表：块哈希 → 块号</text>
+
+  <rect x="40" y="116" width="340" height="34" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="56" y="139" class="t-mono">块 0 · 16 token</text>
+  <rect x="40" y="158" width="340" height="34" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="56" y="181" class="t-mono">块 1 · 16 token</text>
+  <rect x="40" y="200" width="220" height="34" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="56" y="223" class="t-mono">块 2 · 只用了 10 token</text>
+
+  <text x="40" y="266" class="t-mono" style="fill:var(--muted)">后 6 个 token 的 KV 空着，也不能被别的请求复用</text>
+  <line x1="40" y1="284" x2="360" y2="284" stroke="var(--line)"/>
+  <text x="40" y="308" class="t-mono">命中长度 = 块大小 × 命中块数</text>
+  <text x="40" y="332" class="t-mono" style="fill:var(--l3)">块对齐是硬约束</text>
+  <text x="40" y="362" class="t-mono" style="fill:var(--muted)">查一次是 O(1)；哈希要带前驱，</text>
+  <text x="40" y="382" class="t-mono" style="fill:var(--muted)">改一个块会让后面的键全失效</text>
+
+  <!-- ② SGLang Radix 树 -->
+  <rect x="410" y="44" width="380" height="360" rx="10"
+        fill="var(--l3)" fill-opacity=".05" stroke="var(--line)"/>
+  <text x="430" y="72" class="t-title-sm">SGLang · Radix 树</text>
+  <text x="430" y="96" class="t-mono" style="fill:var(--muted)">树：节点持有 key 片段</text>
+
+  <rect x="430" y="116" width="340" height="34" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="446" y="139" class="t-mono">根</text>
+  <line x1="600" y1="150" x2="600" y2="164" stroke="var(--line)" marker-end="url(#npa)"/>
+  <rect x="430" y="164" width="340" height="34" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="446" y="187" class="t-mono">节点 A · 22 token</text>
+  <line x1="600" y1="198" x2="600" y2="212" stroke="var(--line)" marker-end="url(#npa)"/>
+  <rect x="430" y="212" width="340" height="34" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="446" y="235" class="t-mono">节点 B · 10 token（可与兄弟共享前 22）</text>
+
+  <text x="430" y="278" class="t-mono" style="fill:var(--muted)">命中可以停在节点中间——那一处必须分裂</text>
+  <line x1="430" y1="296" x2="750" y2="296" stroke="var(--line)"/>
+  <text x="430" y="320" class="t-mono">命中长度 = 沿途节点长度之和（任意值）</text>
+  <text x="430" y="344" class="t-mono" style="fill:var(--l3)">代价：每节点一份引用计数</text>
+  <text x="430" y="374" class="t-mono" style="fill:var(--muted)">树的大小随「不同前缀条数」增长，</text>
+  <text x="430" y="394" class="t-mono" style="fill:var(--muted)">不随 token 数增长</text>
+
+  <!-- ③ LMCache 链式哈希 -->
+  <rect x="800" y="44" width="380" height="360" rx="10"
+        fill="var(--l4)" fill-opacity=".05" stroke="var(--line)"/>
+  <text x="820" y="72" class="t-title-sm">LMCache · 链式 chunk 哈希</text>
+  <text x="820" y="96" class="t-mono" style="fill:var(--muted)">哈希表：chunk 哈希 → 对象</text>
+
+  <rect x="820" y="116" width="340" height="34" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="836" y="139" class="t-mono">chunk 0 → h0</text>
+  <line x1="990" y1="150" x2="990" y2="164" stroke="var(--line)" marker-end="url(#npa)"/>
+  <rect x="820" y="164" width="340" height="34" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="836" y="187" class="t-mono">chunk 1 → h(h0, tokens)</text>
+  <line x1="990" y1="198" x2="990" y2="212" stroke="var(--line)" marker-end="url(#npa)"/>
+  <rect x="820" y="212" width="340" height="34" rx="6" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="836" y="235" class="t-mono">chunk 2 → h(h1, tokens)</text>
+
+  <text x="820" y="278" class="t-mono" style="fill:var(--muted)">必须从 chunk 0 逐段查：第一段不中，后面全不中</text>
+  <line x1="820" y1="296" x2="1140" y2="296" stroke="var(--line)"/>
+  <text x="820" y="320" class="t-mono">命中长度 = chunk 大小 × 连续命中段数</text>
+  <text x="820" y="344" class="t-mono" style="fill:var(--l3)">键可跨进程、跨机器共享</text>
+  <text x="820" y="374" class="t-mono" style="fill:var(--muted)">跳过中间某段做复用，做不到</text>
+</svg>

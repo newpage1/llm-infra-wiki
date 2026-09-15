@@ -7,6 +7,23 @@
 
 ---
 
+## 只想写一篇笔记？
+
+深度分析那套八节骨架、`%%` 标记、手绘 SVG、锚点规范，**笔记都不要求**。
+
+```bash
+cp notes/_template.md notes/你的标题.md
+$EDITOR notes/你的标题.md
+node tools/build_notes.js --lint     # 只校验 front-matter
+```
+
+写进正文的 `路径:行号` **照样会被核对**（`tools/check_notes.js` 会把越界的行号挑出来），
+所以标了行号就得真去看过那一行。除此之外——体裁、长度、有没有结论，都随你。
+
+其他交给 CI：`notes/manifest.json` 由机器人重建并提交，你不用碰。
+
+---
+
 ## 内容口径
 
 这四条是这个站点区别于「又一份翻译稿」的地方。写之前先读一遍。
@@ -49,5 +66,6 @@
 2. 改了 `路径:行号` 或代码围栏 → 跑过 `bash tools/verify-anchors.sh <分析页>`
 3. 改了 `assets/` 下的静态资源 → 跑过 `python3 bump.py`
 4. 新增或改写关键模块 → 读过 [`authoring/MODULE-SPEC.md`](authoring/MODULE-SPEC.md)
+5. 加了一篇笔记 → `notes/` 下的图也一起提交了（外链图会被校验拦下）
 
 各份规范的分工见 README 的「文档在哪」一节。

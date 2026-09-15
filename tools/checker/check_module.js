@@ -62,7 +62,7 @@ function figs(sec) {
 }
 
 /* 站内链接：每个 #/... 都要能落到真实目标上。
-   目标集合来自同一份数据文件（analyses）以及同目录的 flows / components。 */
+   目标集合来自同一份数据文件（analyses）以及同目录的 components。 */
 function buildLinkTargets(file) {
   const pathx = require('path');
   const fsx = require('fs');
@@ -84,16 +84,10 @@ function buildLinkTargets(file) {
       if (sec.id) ids.add('#/a/' + a.id + '/s/' + sec.id);
     });
   });
-  load('flows.js', () => {
-    (global.WIKI_FLOWS || []).forEach(f => {
-      ids.add('#/f/' + f.id);
-      (f.sections || []).forEach(sec => { if (sec.id) ids.add('#/f/' + f.id + '/s/' + sec.id); });
-    });
-  });
   load('components.js', () => {
     (global.WIKI_COMPONENTS || []).forEach(c => ids.add('#/c/' + c.id));
   });
-  ids.add('#/'); ids.add('#/flows'); ids.add('#/about');
+  ids.add('#/'); ids.add('#/n'); ids.add('#/about');
   return ids;
 }
 

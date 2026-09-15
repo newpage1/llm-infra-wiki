@@ -244,36 +244,49 @@ body::before{
   padding-left:11px;border-left:2px solid var(--line);
 }
 
-/* ==================================================== flows */
-/* 联动分析：跨组件链路列表与详情 */
+/* ==================================================== notes */
+/* 调研笔记：列表页（.notes*）与正文里的流程块（.flow-*，模块页也在用） */
 /* 只设纵向内边距，避免覆盖 .wrap 的水平 padding */
-.flows,.flowpage{padding-top:44px;padding-bottom:80px}
-.flows-head h1{
+.notes{padding-top:44px;padding-bottom:80px}
+.notes-head h1{
   font-family:var(--font-display);font-size:clamp(26px,3.4vw,38px);
   font-weight:700;margin:10px 0 14px;line-height:1.25;color:var(--ink);
 }
-.flows-head .lede{max-width:74ch}
+.notes-head .lede{max-width:74ch}
 
-.flow-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(380px,100%),1fr));gap:16px;margin-top:32px}
-.flow-card{
+.note-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(380px,100%),1fr));gap:16px;margin-top:32px}
+.note-card{
   display:flex;flex-direction:column;gap:8px;padding:22px 24px;min-width:0;box-sizing:border-box;
   border:1px solid var(--line);border-top:3px solid var(--l3);border-radius:var(--radius);
   background:var(--panel);text-decoration:none;transition:.18s;
 }
-.flow-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--l3-dim)}
-.flow-card>em{
+.note-card:hover{transform:translateY(-2px);box-shadow:var(--shadow);border-color:var(--l3-dim)}
+.note-card>em{
   font-style:normal;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.16em;
   text-transform:uppercase;color:var(--l3);
 }
-.flow-card>b{font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--ink)}
-.fc-sub{font-size:12.5px;color:var(--muted)}
-.fc-parts{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 2px}
-.fc-parts span{
+.note-card>b{font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--ink)}
+.nc-parts{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 2px}
+.nc-parts span{
   font-family:var(--font-mono);font-size:10px;color:var(--pc);
   border:1px solid var(--pc);border-radius:3px;padding:2px 7px;
   background:color-mix(in srgb,var(--pc) 7%,transparent);
 }
-.flow-card p{font-size:12.5px;color:var(--ink-2);line-height:1.7;margin:0}
+.note-card p{font-size:12.5px;color:var(--ink-2);line-height:1.7;margin:0}
+/* 笔记标签：与正文里参与者标签同一个排布容器，但颜色走中性 */
+/* 笔记正文里的图。SVG 会被 app.js 取回来内联（外部 <img> 拿不到 var(--…)），
+   内联后的 .diagram 自带 width:100%；这里只管它和位图的上下留白。 */
+.note-fig{margin:22px 0;overflow-x:auto}
+.note-fig .diagram{margin:0}
+.note-art img{
+  display:block;width:100%;height:auto;max-width:100%;margin:22px 0;
+  border-radius:var(--radius);
+}
+.note-tag{
+  font-family:var(--font-mono);font-size:10px;color:var(--muted);
+  border:1px solid var(--line-2);border-radius:3px;padding:2px 7px;
+  background:var(--wash);
+}
 
 /* 详情页 */
 .crumbs{display:flex;gap:9px;font-family:var(--font-mono);font-size:10.5px;color:var(--muted);margin-bottom:16px}
@@ -285,31 +298,16 @@ body::before{
   margin:0 0 8px;color:var(--ink);line-height:1.25;
 }
 .flow-sub{font-size:14px;color:var(--muted);margin:0 0 16px}
-.flow-parts{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
-.fp{
-  font-family:var(--font-mono);font-size:11px;color:var(--pc);text-decoration:none;
-  border:1px solid var(--pc);border-radius:4px;padding:4px 11px;
-  background:color-mix(in srgb,var(--pc) 7%,transparent);transition:.16s;
-}
-.fp:hover{background:color-mix(in srgb,var(--pc) 15%,transparent)}
-.flow-revs{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:18px}
-.flow-revs span{font-family:var(--font-mono);font-size:10.5px;color:var(--muted)}
-.flow-revs em{font-style:normal;color:var(--ink-2)}
 .flow-summary{
   font-size:14px;color:var(--ink-2);line-height:1.75;max-width:82ch;
   padding-left:14px;border-left:2px solid var(--l3);margin:0;
 }
 .flow-summary b{color:var(--ink)}
 
-.flow-reading{
-  margin:26px 0 8px;padding:18px 22px;border-radius:var(--radius);
-  background:var(--bg-2);border:1px solid var(--line);
-}
 .flow-reading>b{
   display:block;font-family:var(--font-mono);font-size:10px;letter-spacing:.18em;
   text-transform:uppercase;color:var(--muted);margin-bottom:10px;
 }
-.flow-reading ol{margin:0;padding-left:20px}
 .flow-reading li{font-size:13px;color:var(--ink-2);line-height:1.75;margin-bottom:5px}
 
 .flow-h2{
@@ -340,7 +338,6 @@ body::before{
 .diagram .t-chip{font-family:var(--font-mono);font-size:11px;font-weight:600;text-anchor:middle}
 .diagram .t-line{stroke:#d5c7b0;stroke-width:1.5}
 
-.flow-leg{margin-top:8px}
 /* 步骤列表按表格处理：外框 + 行分隔线。
    只画横线会和正文糊在一起，行与行的归属不明确。 */
 .leg-steps{
@@ -370,43 +367,25 @@ body::before{
 
 .flow-note{font-size:12.5px;color:var(--muted);line-height:1.7;margin:0 0 14px;max-width:88ch}
 /* 每条腿 / 每个小节自己的图，先看图再读步骤 */
-.flow-lead{color:var(--ink-2);font-size:13px;margin-bottom:10px}
-.flow-leg .fig,.flowpage>.fig{margin:0 0 18px}
-.flow-body{font-size:13.5px;line-height:1.85;color:var(--ink-2);max-width:96ch}
 .flow-body h3{
   font-family:var(--font-mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
   color:var(--l3);font-weight:500;margin:22px 0 10px;
 }
-.flow-body h4{font-size:13px;color:var(--ink);margin:18px 0 8px;font-weight:600}
 .flow-body p{margin:0 0 12px}
-.flow-body ul,.flow-body ol{margin:0 0 12px;padding-left:20px}
 .flow-body li{margin:0 0 6px}
-.flow-body table{width:100%;border-collapse:collapse;font-size:12.5px;margin:0 0 16px;
-  border:1px solid var(--line-2)}
 .flow-body th{text-align:left;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--muted);font-weight:500;padding:8px 12px;background:var(--wash);
   border-bottom:1px solid var(--line-2)}
-.flow-body td{padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
 .flow-body tr:last-child td{border-bottom:0}
-.flow-body code{font-family:var(--font-mono);font-size:11.5px;background:var(--wash);
-  padding:1px 5px;border-radius:3px}
 .flow-body pre{background:var(--wash);border:1px solid var(--line-2);border-radius:4px;
   padding:12px 14px;overflow-x:auto;margin:0 0 16px}
-.flow-body pre code{background:none;padding:0;font-size:11.5px;line-height:1.65}
-.seam-table{
-  width:100%;border-collapse:collapse;font-size:12.5px;
-  border:1px solid var(--line-2);
-}
 .seam-table th{
   text-align:left;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--muted);font-weight:500;
   padding:8px 12px;background:var(--wash);
   border:1px solid var(--line-2);
 }
-.seam-table td{padding:11px 12px;vertical-align:top;color:var(--ink-2);line-height:1.6;
-  border:1px solid var(--line)}
 .seam-table td b{color:var(--ink);font-family:var(--font-mono);font-size:11.5px}
-.seam-table code{font-family:var(--font-mono);font-size:10px;color:var(--muted)}
 
 .rel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
 .rel{

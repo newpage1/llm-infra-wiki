@@ -950,152 +950,174 @@
     }
   }
 
-  /* ============================================================
-     联动分析：跨组件链路（不属于任何单个组件页）
-     ============================================================ */
-  function renderFlowList() {
-    const FL = window.WIKI_FLOWS || [];
-    const wrap = el('div', { class: 'wrap flows fade-in' });
-    wrap.appendChild(el('header', { class: 'flows-head' }, `
-      <p class="eyebrow">Cross-component · 联动分析</p>
-      <h1>一次操作，横跨几个项目</h1>
-      <p class="lede">
-        当一条链路穿过推理引擎、传输库与存储系统时，它不属于其中任何一个组件页——
-        放在任何一边都会让读者找不到，也必然与其它参与方脱节。
-        这里单独成集，描述的是<strong>组件之间的接缝</strong>。
-      </p>
-    `));
+  /* ── 笔记板块 ─────────────────────────────────────────────
+     内容来自仓库里的 `notes/*.md`，清单（notes/manifest.json）由 CI 扫目录重建。
+     为什么走 fetch 而不是像其它页那样嵌进 data/*.js：这类内容是同事随手写的
+     调研笔记，让他们去改 7.7MB 的 analyses.js 门槛太高——加一个 md、提 PR 就行。 */
+  let NOTES = null;
+  let svgSeq = 0;        // 内联 SVG 的 id 前缀，避免同页多张图撞 id
 
-    const grid = el('div', { class: 'flow-grid' });
-    FL.forEach(f => {
-      const a = el('a', { class: 'flow-card', href: '#/f/' + f.id });
-      const parts = (f.participants || []).map(pid => {
-        const c = BY[pid]; if (!c) return '';
-        const L = layerInfoOf(c);
-        return `<span style="--pc:${L.color}">${esc(c.name)}</span>`;
-      }).join('');
-      a.innerHTML = `
-        <em>${esc(f.kind)}</em>
-        <b>${esc(f.title)}</b>
-        <span class="fc-sub">${esc(f.subtitle)}</span>
-        <div class="fc-parts">${parts}</div>
-        <p>${window.md(f.summary || '').html.replace(/^<p>|<\/p>$/g, '')}</p>`;
-      grid.appendChild(a);
-    });
-    wrap.appendChild(grid);
-    view.replaceChildren(wrap);
-    document.title = '联动分析 · LLM Infra Wiki';
-    window.scrollTo({ top: 0 });
+  function fetchNoteList() {
+    if (NOTES) return Promise.resolve(NOTES);
+    return fetch('notes/manifest.json', { cache: 'no-cache' })
+      .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then(j => (NOTES = (j && j.notes) || []))
+      .catch(() => (NOTES = []));
   }
 
-  function renderFlow(id) {
-    const f = (window.WIKI_FLOWS || []).find(x => x.id === id);
-    if (!f) {
-      view.replaceChildren(el('div', { class: 'wrap about' },
-        '<h1>未找到该链路</h1><p><a href="#/flows">返回列表</a></p>'));
-      return;
-    }
-    const wrap = el('div', { class: "wrap flowpage fade-in" });
+  /* window.md() 不认识 front-matter——会渲染成 <hr> 加一串粘连的
+     「title: X author: Y」，所以读进来先剥掉。 */
+  function stripFrontMatter(text) {
+    if (!/^---\r?\n/.test(text)) return text;
+    const end = text.indexOf('\n---', 3);
+    if (end < 0) return text;
+    return text.slice(text.indexOf('\n', end + 1) + 1).replace(/^\s*\n/, '');
+  }
 
-    const parts = (f.participants || []).map(pid => {
-      const c = BY[pid]; if (!c) return '';
-      const L = layerInfoOf(c);
-      return `<a class="fp" href="#/c/${pid}" style="--pc:${L.color}">${esc(c.name)}</a>`;
-    }).join('');
-    wrap.appendChild(el('nav', { class: 'crumbs' },
-      '<a href="#/flows">联动分析</a><span>/</span><span>' + esc(f.title) + '</span>'));
-    wrap.appendChild(el('header', { class: 'flow-head' }, `
-      <h1>${esc(f.title)}</h1>
-      <p class="flow-sub">${esc(f.subtitle)}</p>
-      <div class="flow-parts">${parts}</div>
-      <div class="flow-revs">
-        ${(f.revisions || []).map(r => `<span><em>${esc(r.name)}</em> @ ${esc(r.rev)}</span>`).join('')}
-      </div>
-      <p class="flow-summary">${window.md(f.summary || '').html.replace(/^<p>|<\/p>$/g, '')}</p>
+  /* md 里的 `![](x.svg)` 是相对 `notes/` 的，但页面地址是 `#/n/<slug>`，
+     根目录下没有 x.svg。渲染后统一把相对路径补成 `notes/`。 */
+  function fixNotePaths(root) {
+    root.querySelectorAll('img[src]').forEach(img => {
+      const s = img.getAttribute('src');
+      if (/^(https?:|data:|\/|#)/.test(s)) return;
+      img.setAttribute('src', 'notes/' + s.replace(/^\.\//, ''));
+    });
+    root.querySelectorAll('a[href]').forEach(a => {
+      const h = a.getAttribute('href');
+      if (/^(https?:|mailto:|#)/.test(h)) return;
+      if (/\.md$/.test(h)) {                       // 指向另一个 md → 走站内路由
+        a.setAttribute('href', '#/n/' + h.replace(/^\.?\/?/, '').replace(/\.md$/, ''));
+        return;
+      }
+      a.setAttribute('href', 'notes/' + h.replace(/^\.\//, ''));
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener');
+    });
+  }
+
+  /* 站点的图都是「内联 SVG + 页面 CSS」画的：方框填 `var(--panel)`、文字靠
+     `.diagram .t-mono` 这类规则取字号与颜色。这些在**外部 `<img>`** 里一概拿不到——
+     自定义属性不解析（方框退成黑块），页面样式也不作用于图片文档。
+     所以把 svg 取回来内联进 DOM，顺带把 `<script>` 与事件属性摘掉。 */
+  function inlineNoteSvgs(root) {
+    root.querySelectorAll('img[src$=".svg"], img[src*=".svg?"]').forEach(img => {
+      const src = img.getAttribute('src');
+      fetch(src)
+        .then(r => (r.ok ? r.text() : Promise.reject(r.status)))
+        .then(txt => {
+          const uid = 'nsvg' + (++svgSeq) + '-';
+          // 同页可能有多张图，`marker` / `clipPath` 的 id 会互相抢；用 id="X" 与
+          // url(#X) 一起改名。用 split/join 而不是正则，省得转义 id 里的特殊字符。
+          const ids = [...txt.matchAll(/\sid="([^"]+)"/g)].map(m => m[1]);
+          let xml = txt;
+          for (const id of ids) {
+            xml = xml.split(`id="${id}"`).join(`id="${uid}${id}"`)
+                     .split(`url(#${id})`).join(`url(#${uid}${id})`);
+          }
+          const box = document.createElement('div');
+          box.className = 'note-fig';
+          box.innerHTML = xml;
+          const svg = box.querySelector('svg');
+          if (!svg) throw 0;
+          box.querySelectorAll('script, foreignObject').forEach(n => n.remove());
+          box.querySelectorAll('*').forEach(n => {
+            [...n.attributes].forEach(a => { if (/^on/i.test(a.name)) n.removeAttribute(a.name); });
+          });
+          // 页面样式挂在 .diagram 上，补上它；alt 转成无障碍标签
+          if (!svg.classList.contains('diagram')) svg.classList.add('diagram');
+          svg.setAttribute('role', 'img');
+          const alt = img.getAttribute('alt');
+          if (alt) svg.setAttribute('aria-label', alt);
+          img.replaceWith(box);
+          wrapTables(root);
+        })
+        .catch(() => { /* 取不到就留着 <img>，读者至少能看到 alt 文字 */ });
+    });
+  }
+
+  function noteTags(n) {
+    return (n.tags || []).map(t => `<span class="note-tag">${esc(t)}</span>`).join('');
+  }
+
+  function renderNoteList() {
+    const wrap = el('div', { class: 'wrap notes fade-in' });
+    wrap.appendChild(el('header', { class: 'notes-head' }, `
+      <p class="eyebrow">Notes · 调研笔记</p>
+      <h1>同事写的调研与分析</h1>
+      <p class="lede">
+        这里放自由形式的调研笔记：横向对比、源码走读的中间结论、还没定论的观察。
+        它<b>不要求</b>按深度分析页那套章节与锚点规范来写——但写了的
+        <code>路径:行号</code> 会被自动校验，所以请真的去那一行看过。
+      </p>
+      <p class="lede" style="margin-top:10px">
+        想投一篇？在 <code>notes/</code> 下加一个 <code>.md</code>（照着
+        <code>notes/_template.md</code> 写），提 PR 即可，清单由 CI 重建。
+      </p>
     `));
-
-    if (f.reading && f.reading.length) {
-      const box = el('div', { class: 'flow-reading' });
-      box.appendChild(el('b', null, '怎么读这篇'));
-      const ol = el('ol');
-      f.reading.forEach(x => ol.appendChild(el('li', null,
-        window.md(x).html.replace(/^<p>|<\/p>$/g, ''))));
-      box.appendChild(ol);
-      wrap.appendChild(box);
-    }
-
-    if (f.diagram) {
-      wrap.appendChild(el('h2', { class: 'flow-h2', id: 'topology' }, '总图'));
-      wrap.appendChild(figCanvas(f.diagram));
-    }
-
-    (f.legs || []).forEach(leg => {
-      const sec = el('section', { class: 'flow-leg' });
-      sec.appendChild(el('h2', { class: 'flow-h2', id: 'leg-' + leg.id },
-        esc(leg.title) +
-        `<em class="leg-dir" data-d="${esc(leg.direction)}">${leg.direction === 'in' ? '入向' : '出向'}</em>`));
-      if (leg.lead) {
-        sec.appendChild(el('p', { class: 'flow-note flow-lead' },
-          window.md(leg.lead).html.replace(/^<p>|<\/p>$/g, '')));
-      }
-      if (leg.diagram) sec.appendChild(figCanvas(leg.diagram));
-      const ol = el('ol', { class: 'leg-steps' });
-      leg.steps.forEach(st => ol.appendChild(el('li', null, `
-        <span class="ls-t">${window.md(st.t).html.replace(/^<p>|<\/p>$/g, '')}</span>
-        <code class="ls-a">${esc(st.a)}</code>
-        ${st.note ? `<span class="ls-n">${window.md(st.note).html.replace(/^<p>|<\/p>$/g, '')}</span>` : ''}
-      `)));
-      sec.appendChild(ol);
-      wrap.appendChild(sec);
-    });
-
-    (f.sections || []).forEach(s => {
-      wrap.appendChild(el('h2', { class: 'flow-h2', id: 'sec-' + s.id }, esc(s.title)));
-      if (s.lead) {
-        wrap.appendChild(el('p', { class: 'flow-note flow-lead' },
-          window.md(s.lead).html.replace(/^<p>|<\/p>$/g, '')));
-      }
-      if (s.diagram) wrap.appendChild(figCanvas(s.diagram));
-      if (s.html) {
-        const body = el('div', { class: 'flow-body' });
-        body.innerHTML = window.md(s.html).html;
-        wrap.appendChild(body);
-      }
-    });
-
-    if (f.seams && f.seams.length) {
-      wrap.appendChild(el('h2', { class: 'flow-h2', id: 'seams' }, '跨组件的接口'));
-      wrap.appendChild(el('p', { class: 'flow-note' },
-        '如果只记三样东西，记这张表——这几处接口决定了整条链路怎么组装。'));
-      const t = el('table', { class: 'seam-table' });
-      t.innerHTML = `<thead><tr><th>接口</th><th>调用方</th><th>被调用方</th><th>位置</th><th>为什么重要</th></tr></thead>
-        <tbody>${f.seams.map(x => `<tr>
-          <td><b>${esc(x.name)}</b></td>
-          <td>${esc(x.from)}</td><td>${esc(x.to)}</td>
-          <td><code>${esc(x.at)}</code></td>
-          <td>${window.md(x.why).html.replace(/^<p>|<\/p>$/g, '')}</td>
-        </tr>`).join('')}</tbody>`;
-      wrap.appendChild(el('div', { class: 'tw' }, null));
-      wrap.lastChild.appendChild(t);
-      wrap.lastChild.classList.add('tw-wide');
-    }
-
-    const rel = (f.related || []).filter(r => BY[r]);
-    if (rel.length) {
-      wrap.appendChild(el('h2', { class: 'flow-h2' }, '涉及的组件'));
-      const g = el('div', { class: 'rel-grid' });
-      rel.forEach(rid => {
-        const c = BY[rid], L = layerInfoOf(c);
-        g.appendChild(el('a', { class: 'rel', href: '#/c/' + rid, style: `--rc:${L.color}` },
-          `<em>${esc(L.num)} ${esc(L.name)}</em><b>${esc(c.name)}</b><span>${esc(c.role)}</span>`));
-      });
-      wrap.appendChild(g);
-    }
-
-    wrapTables(wrap);
+    const box = el('div', { class: 'note-grid' });
+    wrap.appendChild(box);
     view.replaceChildren(wrap);
-    document.title = f.title + ' · LLM Infra Wiki';
+    document.title = '调研笔记 · LLM Infra Wiki';
     window.scrollTo({ top: 0 });
+
+    fetchNoteList().then(list => {
+      if (!list.length) {
+        box.appendChild(el('p', { class: 'flow-note' },
+          '还没有笔记。清单由 `node tools/build_notes.js` 生成，' +
+          '如果 notes/ 下已经有 md 却看不到，说明清单没重建。'));
+        return;
+      }
+      list.forEach(n => {
+        const a = el('a', { class: 'note-card', href: '#/n/' + n.slug });
+        a.innerHTML = `
+          <em>${esc(n.date)} · ${esc(n.author)}</em>
+          <b>${esc(n.title)}</b>
+          <div class="nc-parts">${noteTags(n)}</div>
+          <p>${window.md(n.summary || '').html.replace(/^<p>|<\/p>$/g, '')}</p>`;
+        box.appendChild(a);
+      });
+    });
+  }
+
+  function renderNote(slug) {
+    const wrap = el('div', { class: 'wrap about fade-in' });
+    const crumb = el('span', null, esc(slug));
+    const nav = el('nav', { class: 'crumbs' }, '<a href="#/n">调研笔记</a><span>/</span>');
+    nav.appendChild(crumb);
+    wrap.appendChild(nav);
+    const body = el('div');
+    wrap.appendChild(body);
+    view.replaceChildren(wrap);
+    window.scrollTo({ top: 0 });
+
+    fetchNoteList().then(list => {
+      const meta = list.find(x => x.slug === slug);
+      document.title = (meta ? meta.title : slug) + ' · LLM Infra Wiki';
+      if (meta) crumb.textContent = meta.title;
+
+      fetch('notes/' + slug + '.md', { cache: 'no-cache' })
+        .then(r => (r.ok ? r.text() : Promise.reject(r.status)))
+        .then(text => {
+          if (meta) {
+            body.appendChild(el('header', null, `
+              <h1>${esc(meta.title)}</h1>
+              <p class="flow-sub">${esc(meta.date)} · ${esc(meta.author)}</p>
+              <div class="nc-parts">${noteTags(meta)}</div>`));
+          }
+          const art = el('div', { class: 'note-art' });
+          art.innerHTML = window.md(stripFrontMatter(text)).html;
+          fixNotePaths(art);
+          body.appendChild(art);
+          wrapTables(wrap);
+          inlineNoteSvgs(art);
+        })
+        .catch(() => {
+          body.appendChild(el('h1', null, '没有这篇笔记'));
+          body.appendChild(el('p', null,
+            `notes/${esc(slug)}.md 取不到。` +
+            '<a href="#/n">返回列表</a>'));
+        });
+    });
   }
 
   function renderAbout() {
@@ -1362,8 +1384,8 @@ L4 构造键 → 写入落存 → 登记索引
       renderAnalysis(parts[1], modId, sec);
       on('home');
     }
-    else if (parts[0] === 'flows') { renderFlowList(); on('flows'); }
-    else if (parts[0] === 'f' && parts[1]) { renderFlow(parts[1]); on('flows'); }
+    else if (parts[0] === 'n' && parts[1]) { renderNote(parts[1]); on('notes'); }
+    else if (parts[0] === 'n') { renderNoteList(); on('notes'); }
     else if (parts[0] === 'about') { renderAbout(); on('about'); }
     else if (parts[0] === 'l' && parts[1]) {
       renderHome();

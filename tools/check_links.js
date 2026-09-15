@@ -7,8 +7,8 @@
  *
  * 路由（见 assets/js/app.js 的 router）：
  *   #/                     首页
- *   #/flows                联动分析列表
- *   #/f/<flowId>           联动分析详情
+ *   #/n                    调研笔记列表
+ *   #/n/<slug>             笔记详情（目标来自 notes/manifest.json）
  *   #/c/<componentId>      组件详情
  *   #/a/<pageId>                        分析页首页
  *   #/a/<pageId>/<moduleId>             模块页
@@ -25,7 +25,7 @@ const path = require('path');
 const ROOT = path.resolve(__dirname, '..');
 global.window = {};
 for (const f of ['catalog.js', 'analyses.js', 'details.js', 'details-ascend.js',
-                 'details-nvidia.js', 'details-outline.js', 'flows.js']) {
+                 'details-nvidia.js', 'details-outline.js']) {
   delete require.cache[require.resolve(path.join(ROOT, 'data', f))];
   require(path.join(ROOT, 'data', f));
 }
@@ -41,7 +41,13 @@ for (const a of W.WIKI_ANALYSES || []) {
 }
 const components = new Set(Object.keys(W.WIKI_DETAILS || {}));
 const catalogIds = new Set(W.WIKI_ALL_IDS || []);
-const flows = new Set((W.WIKI_FLOWS || []).map(f => f.id));
+/* 笔记的目标不在 data/*.js 里，而是 notes/manifest.json 里的 slug */
+const notesDir = path.join(ROOT, 'notes');
+const noteSlugs = new Set();
+try {
+  const man = JSON.parse(fs.readFileSync(path.join(notesDir, 'manifest.json'), 'utf8'));
+  (man.notes || []).forEach(n => noteSlugs.add(n.slug));
+} catch (e) { /* 还没有笔记 */ }
 
 function collectStrings(n, out = []) {
   if (n && typeof n === 'object') for (const k of Object.keys(n)) collectStrings(n[k], out);
@@ -57,7 +63,6 @@ const SOURCES = [
   ['data/details-ascend.js', W.WIKI_DETAILS],
   ['data/details-nvidia.js', W.WIKI_DETAILS],
   ['data/details-outline.js', W.WIKI_DETAILS],
-  ['data/flows.js', W.WIKI_FLOWS],
   ['data/catalog.js', [W.WIKI_LAYERS, W.WIKI_COMPONENTS, W.WIKI_SUBSTRATES,
                        W.WIKI_STACKS, W.WIKI_INTERACTIONS, W.WIKI_FLOW]],
 ];
@@ -67,8 +72,10 @@ const LINK = /#\/[A-Za-z0-9/_\-.]*/g;
 function why(u) {
   const parts = u.replace(/^#\//, '').split('/').filter(x => x !== '');
   if (!parts.length) return null;                       // #/ 首页
-  if (parts[0] === 'flows') return null;
-  if (parts[0] === 'f') return flows.has(parts[1]) ? null : `没有这条联动分析：${parts[1]}`;
+  if (parts[0] === 'n') {
+    if (!parts[1]) return null;                       // 列表页
+    return noteSlugs.has(parts[1]) ? null : `没有这篇笔记：${parts[1]}`;
+  }
   if (parts[0] === 'c') return (components.has(parts[1]) || catalogIds.has(parts[1]))
     ? null : `没有这个组件：${parts[1]}`;
   if (parts[0] !== 'a') return `未知路由段：${parts[0]}`;

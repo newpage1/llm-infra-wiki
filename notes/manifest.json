@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "notes": [
+    {
+      "slug": "prefix-index-comparison",
+      "title": "三种前缀索引的取舍：块哈希、Radix 树、链式哈希",
+      "author": "示例",
+      "date": "2026-09-15",
+      "tags": [
+        "调研",
+        "KV",
+        "前缀复用"
+      ],
+      "summary": "横向对比 vLLM 的块哈希、SGLang 的 token 级 Radix 树、LMCache 的链式 chunk 哈希三种前缀索引结构，说清各自把复杂度放在了哪一步，以及什么负载下会先撑不住。",
+      "updated": "2026-09-15",
+      "file": "prefix-index-comparison.md"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 name: 建议新增内容
-description: 新增一个组件、一条跨组件链路，或某个模块的深度分析
+description: 新增一个组件、一篇调研笔记，或某个模块的深度分析
 title: "[建议] "
 labels: ["enhancement"]
 body:
@@ -10,7 +10,7 @@ body:
       options:
         - 一个新组件的深度分析页
         - 在已有分析页里补一个关键模块
-        - 一条跨组件的链路（flows）
+        - 一篇调研笔记（跨组件链路 / 横向对比 / 中间结论）
         - 一个组件的详情页
     validations:
       required: true

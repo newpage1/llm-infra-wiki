@@ -66,12 +66,39 @@ cd llm-infra-wiki
 | 深度分析页（关键模块、总体设计） | `data/analyses.js` |
 | 组件的整体介绍与模块走读 | `data/details.js`（及其 `details-{ascend,nvidia,outline}.js`） |
 | 分层、组件编目、「特点速览」 | `data/catalog.js` |
-| 跨组件链路 | `data/flows.js` |
+| 跨组件链路、横向对比、调研中间结论 | `notes/*.md`（自由形式，见下） |
 | 版式与交互 | `assets/css/style.css`、`assets/js/app.js` |
 
 `data/` 下全是纯数据，`assets/js/` 只负责渲染——**改内容不需要碰渲染代码**。
 
-### 2. 改完必须跑校验
+### 2. 只想写一篇调研笔记（可选）
+
+不等同于深度分析页。**在 `notes/` 下加一个 `.md` 就行**，不用改任何 `.js`，
+也不用管清单——CI 会扫目录重建 `notes/manifest.json` 并提交（见
+[`.github/workflows/notes.yml`](.github/workflows/notes.yml)）。
+
+```bash
+cp notes/_template.md notes/你的标题.md
+$EDITOR notes/你的标题.md
+node tools/build_notes.js --lint     # 只校验 front-matter，两秒出结果
+```
+
+开头必须有 front-matter：
+
+```markdown
+---
+title: 前缀索引的三种实现对比
+author: 张三
+date: 2026-09-15
+tags: [sglang, lmcache, prefix-cache]
+summary: 一句话说清这篇讲了什么，会显示在列表页卡片上。
+---
+```
+
+正文随便写，但两类东西会被校验：`![](x.svg)` 引的图必须真在 `notes/` 下，
+`路径:行号` 必须真落在那一行。图放 `notes/` 旁边一起提上来即可。
+
+### 3. 改完必须跑校验
 
 ```bash
 bash tools/verify.sh
@@ -79,10 +106,12 @@ bash tools/verify.sh
 
 **目标一律是「0 个错误，0 个提示」。** CI 跑的就是这一条，红了合不进去。
 
-它检查四件事：内容用**真实渲染器**跑一遍（抓"写对了但页面会漏字"）、每个分析页的结构
-（8 小节顺序、`%%` 配对、图数）、总体设计图与模块的认领关系、手绘 SVG 的文字重叠。
+它检查六件事：内容用**真实渲染器**跑一遍（抓"写对了但页面会漏字"）、每个分析页的结构
+（8 小节顺序、`%%` 配对、图数）、总体设计图与模块的认领关系、文风指标有没有退化、
+手绘 SVG 的文字重叠、站内链接能不能解到目标，以及 `notes/` 下的笔记
+（front-matter 齐不齐、图在不在、`路径:行号` 有没有越界）。
 
-### 3. 改了行号或代码围栏，还要跑完整校验
+### 4. 改了行号或代码围栏，还要跑完整校验
 
 ```bash
 bash tools/verify-anchors.sh            # 自动 clone 被分析的仓库到 .anchor-cache/
@@ -94,7 +123,7 @@ bash tools/verify-anchors.sh mooncake   # 只查一页
 
 > `lmcache-ascend` 的基线是**本地合成提交**，上游没有这个 SHA，完整校验会自动跳过并说明原因。
 
-### 4. 提 PR
+### 5. 提 PR
 
 按 [PR 模板](.github/PULL_REQUEST_TEMPLATE.md) 填。**不熟悉 git 也能改**——GitHub 网页版
 可以直接编辑文件并提交 PR，手机上也能操作，适合改错别字、换行号这一类小改动。
@@ -174,8 +203,10 @@ llm-infra-wiki/
 │   ├── catalog.js              # 分层 + 组件编目
 │   ├── analyses.js             # 深度分析页（最重的内容）
 │   ├── details*.js             # 组件详情页
-│   ├── flows.js                # 跨组件链路
 │   └── SKILL-code-arch-analysis.md   # 源码分析方法论
+├── notes/                      # 调研笔记：同事直接提 .md，清单由 CI 生成
+│   ├── _template.md            # 照着这个写（下划线开头的文件不进清单）
+│   └── manifest.json           # 自动生成，不要手改
 ├── diagrams/                   # PlantUML 源与渲染出的 SVG
 ├── authoring/                  # 写内容的人看这三份
 ├── docs/                       # 设计笔记与部署说明

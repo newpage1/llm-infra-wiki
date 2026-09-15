@@ -21,14 +21,15 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 global.window = {};
-/* 三处正文都要数。曾经只数 analyses.js，于是 details.js / flows.js 里的行话
+/* 分析页与组件详情页都要数。曾经只数 analyses.js，于是 details.js 里的行话
    （例如「接缝」）从来没进过指标，--guard 也拦不住——这是工具的盲区，不是内容的。
-   WIKI_ANALYSES 是隔离改写用的临时单页副本；设了就只量它，别把全站混进来。 */
+   WIKI_ANALYSES 是隔离改写用的临时单页副本；设了就只量它，别把全站混进来。
+   （原先还数 flows.js，联动分析那一块拆掉后就不再需要了。） */
 const ISOLATED = process.env.WIKI_ANALYSES;
 const FILES = ISOLATED
   ? [ISOLATED]
   : ['analyses.js', 'details.js', 'details-ascend.js',
-     'details-nvidia.js', 'details-outline.js', 'flows.js']
+     'details-nvidia.js', 'details-outline.js']
       .map(f => path.join(ROOT, 'data', f));
 for (const f of FILES) require(f);
 
@@ -66,7 +67,7 @@ function collectFields(node, out = []) {
     for (const k of Object.keys(node)) {
       const v = node[k];
       if (typeof v === 'string') {
-        // a/why/from/to/name 是 flows 与 details 的锚点与表头字段：本身没有措辞，
+        // a/why/from/to/name 是详情页表格的锚点与表头字段：本身没有措辞，
         // 但带着路径:行号，收进来锚点总数才完整（prose() 会把路径剥掉）。
         if (['summary', 'modulesLead', 'lead', 'html', 'title', 'subtitle', 'h3',
              'caption', 'note', 't', 'group', 'a', 'why', 'from', 'to', 'name',
@@ -117,16 +118,12 @@ for (const a of ANALYSES) {
   per[a.id]._modules = mods;
 }
 
-/* 组件详情页与联动分析页同样在读者面前，指标必须一起算。
+/* 组件详情页同样在读者面前，指标必须一起算。
    per 的键加前缀，免得和同名的分析页（例如 vllm）互相覆盖。 */
 if (!ISOLATED) {
   for (const [cid, d] of Object.entries(global.window.WIKI_DETAILS || {})) {
     merge(total, merge(per['详情:' + cid] = per['详情:' + cid] || {},
       audit(collectFields(d).join('\n'))));
-  }
-  for (const f of (global.window.WIKI_FLOWS || [])) {
-    merge(total, merge(per['联动:' + f.id] = per['联动:' + f.id] || {},
-      audit(collectFields(f).join('\n'))));
   }
 }
 

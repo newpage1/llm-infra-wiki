@@ -9,8 +9,12 @@
 """
 import re, sys, pathlib
 
-FILES = ['data/analyses.js', 'data/flows.js', 'data/catalog.js',
+FILES = ['data/analyses.js', 'data/catalog.js',
          'data/details.js', 'data/details-ascend.js', 'data/details-nvidia.js', 'data/details-outline.js']
+
+# 笔记里的图是**独立 SVG 文件**（不在 data/*.js 里），也要一起查重叠。
+import glob
+FILES += sorted(glob.glob('notes/*.svg'))
 
 def units(t):
     return sum(2 if ord(c) > 0x2e80 else 1 for c in t)

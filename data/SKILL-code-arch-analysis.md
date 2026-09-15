@@ -298,7 +298,8 @@ concepts/     术语表
 guides/       任务向："怎么改 X"
 ```
 
-**本站**：`#/` 全景 · `#/a/<id>` 深度分析 · `#/a/<id>/<mid>` 模块页 · `#/flows` 联动分析。
+**本站**：`#/` 全景 · `#/a/<id>` 深度分析 · `#/a/<id>/<mid>` 模块页 · `#/n` 调研笔记
+（跨组件的链路、横向对比、中间结论都写在这里，见仓库的 `notes/`）。
 
 **模块页的原文规定**：
 
@@ -326,7 +327,7 @@ guides/       任务向："怎么改 X"
 | 内容 | 该放哪 | 依据 |
 |---|---|---|
 | **设计决策** | **`architecture/` 页**（本站的深度分析页） | 业界：architecture 页含 "the **design decisions** behind them"；**模块页规定里没有它** |
-| **失效模式** | **`flows/` 页** | 业界：flows 页 "add a **Failure modes** section per flow" |
+| **失效模式** | **`flows/` 页**（本站没有独立 flows 页，写成 `notes/` 下的一篇笔记） | 业界：flows 页 "add a **Failure modes** section per flow" |
 
 **为什么"设计决策"不该进模块页**：
 分析者读的是代码，作者的取舍**无法从代码确证**；

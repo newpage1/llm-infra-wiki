@@ -1,0 +1,75 @@
+name: notes
+
+# 方案 B：同事只往 `notes/` 里丢一个 md，**不用管清单**。这里扫目录、重建
+# `notes/manifest.json`，然后由机器人把它提交回 main。
+#
+# 为什么必须有人干这件事：站点是纯静态的，没有后端，GitHub Pages 不会列目录。
+# 列表页要显示「有哪些笔记」，只能靠一个事先生成好的清单文件。
+#
+# 两个必须知道的坑：
+#   1. main 上如果开了分支保护（禁止直接推），这个 job 会失败。要么给
+#      github-actions[bot] 开白名单，要么退回到「本地跑 build_notes.js 一起提 PR」。
+#   2. 提交信息里不带 [skip ci]，所以 verify.yml 会在机器人这次提交上再跑一遍——
+#      这是故意的：清单本身也被 check_notes.js 校验（JSON 合法、条目指向真实文件）。
+#      死循环不会发生：下一轮 notes.yml 被下面的 actor 判断挡掉。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'notes/**'
+      - 'tools/build_notes.js'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: notes-manifest
+  cancel-in-progress: false
+
+jobs:
+  manifest:
+    # 机器人自己的提交不再触发（也是防死循环的那道闸）
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # 用 GITHUB_TOKEN 推回本仓库，配合上面的 contents: write
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+
+      - name: 重建清单
+        run: node tools/build_notes.js
+
+      - name: 自检（确认重建后清单就是最新的）
+        run: node tools/build_notes.js --check
+
+      - name: 有变化就提交
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- notes/manifest.json; then
+            echo "清单没有变化，不用提交"
+            exit 0
+          fi
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add notes/manifest.json
+          git commit -F - <<'MSG'
+          notes: 重建笔记清单
+
+          由 .github/workflows/notes.yml 扫描 notes/*.md 自动生成，请勿手改。
+          MSG
+          # 并发推送时先 rebase 再推，失败重试几次
+          for i in 1 2 3; do
+            if git pull --rebase --autostash origin main && git push; then
+              echo "已提交"; exit 0
+            fi
+            echo "第 $i 次推送失败，5 秒后重试"; sleep 5
+          done
+          echo "推送失败——检查 main 是否开了分支保护" >&2
+          exit 1

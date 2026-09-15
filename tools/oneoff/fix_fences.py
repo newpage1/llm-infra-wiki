@@ -47,7 +47,7 @@ def fix(path):
 
 
 if __name__ == '__main__':
-    files = sys.argv[1:] or ['data/analyses.js', 'data/flows.js']
+    files = sys.argv[1:] or ['data/analyses.js']
     ts = tb = 0
     for f in files:
         if not pathlib.Path(f).exists():

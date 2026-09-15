@@ -14,6 +14,18 @@
       "summary": "横向对比 vLLM 的块哈希、SGLang 的 token 级 Radix 树、LMCache 的链式 chunk 哈希三种前缀索引结构，说清各自把复杂度放在了哪一步，以及什么负载下会先撑不住。",
       "updated": "2026-09-15",
       "file": "prefix-index-comparison.md"
+    },
+    {
+      "slug": "tmp-ci-test",
+      "title": "临时笔记（验证 CI 重建清单）",
+      "author": "测试",
+      "date": "2026-09-15",
+      "tags": [
+        "测试"
+      ],
+      "summary": "这篇只用来验证 notes.yml 会不会自动把清单提交回来，验完即删。",
+      "updated": "2026-09-15",
+      "file": "tmp-ci-test.md"
     }
   ]
 }

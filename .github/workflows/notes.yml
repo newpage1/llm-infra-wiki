@@ -6,12 +6,15 @@ name: notes
 # 为什么必须有人干这件事：站点是纯静态的，没有后端，GitHub Pages 不会列目录。
 # 列表页要显示「有哪些笔记」，只能靠一个事先生成好的清单文件。
 #
-# 两个必须知道的坑：
+# 三个必须知道的坑：
 #   1. main 上如果开了分支保护（禁止直接推），这个 job 会失败。要么给
 #      github-actions[bot] 开白名单，要么退回到「本地跑 build_notes.js 一起提 PR」。
-#   2. 提交信息里不带 [skip ci]，所以 verify.yml 会在机器人这次提交上再跑一遍——
-#      这是故意的：清单本身也被 check_notes.js 校验（JSON 合法、条目指向真实文件）。
-#      死循环不会发生：下一轮 notes.yml 被下面的 actor 判断挡掉。
+#   2. 用 `GITHUB_TOKEN` 推出去的提交**不会**触发别的 workflow（GitHub 防递归）。
+#      所以机器人这次提交既不会重跑 verify.yml，也不会再触发 notes.yml 自己——
+#      死循环不会发生，但「清单对不对」也就没人替这里把关了。所以下面在提交**之前**
+#      先跑一遍 `--check` 自检，用这一步的结论说话。
+#   3. 万一某次推送失败（保护规则、并发），清单会停在旧状态：新笔记在列表页看不见，
+#      而且不报错。所以除了 push 触发，还挂了一周一次的定时兜底。
 
 on:
   push:
@@ -19,6 +22,9 @@ on:
     paths:
       - 'notes/**'
       - 'tools/build_notes.js'
+  schedule:
+    # 每周一 04:00 UTC：清单万一漏了（某次推送失败），下次定时自己补上
+    - cron: '0 4 * * 1'
   workflow_dispatch:
 
 permissions:

@@ -135,10 +135,14 @@ for (const rel of files) {
 }
 
 /* 5) 清单自身的完整性。
- * 不等价于「清单是最新的」——main 上的 CI 负责重建（方案 B），PR 上清单落后于
- * 目录是正常状态。这里只挡「清单里有指向空气的条目」：那种条目在列表页就是一张
- * 点不开的卡片，而重建前的清单正好容易留下这种残渣（同事删了笔记、改了 slug）。 */
+ * 注意这里**不报**「清单落后于目录」——main 上的 CI 负责重建（方案 B），
+ * PR 上清单落后是正常状态：**删掉或改名一篇之后，清单必然还指着旧文件**，
+ * 报成错误就会让一个完全正当的 PR 红掉（实测踩过）。
+ * 所以缺文件只提示，交给 main 上那次重建收尾。
+ * 真正该硬报的是「清单本身坏了」：JSON 不合法、条目缺字段、slug 重复——
+ * 那些要么是手改了清单，要么是生成器坏了。 */
 const MF = path.join(DIR, 'manifest.json');
+const stale = [];
 if (fs.existsSync(MF)) {
   let mf = null;
   try { mf = JSON.parse(fs.readFileSync(MF, 'utf8')); }
@@ -153,7 +157,7 @@ if (fs.existsSync(MF)) {
           continue;
         }
         if (!fs.existsSync(path.join(DIR, n.file))) {
-          problems.push(`manifest.json 指向不存在的文件 → ${n.file}`);
+          stale.push(n.file);
         }
         if (seen.has(n.slug)) problems.push(`manifest.json 里 slug 重复 → ${n.slug}`);
         seen.add(n.slug);
@@ -162,6 +166,12 @@ if (fs.existsSync(MF)) {
   }
 } else if (files.length) {
   problems.push('有分析但没有 flows/manifest.json——跑 `node tools/build_flows.js` 生成');
+}
+
+if (stale.length) {
+  warns.push(`清单里有 ${stale.length} 条指向已不存在的文件（${stale.slice(0, 3).join('、')}` +
+    `${stale.length > 3 ? ' 等' : ''}）——合进 main 后由 CI 重建清单，` +
+    '如果是删掉或改名了一篇，忽略这条');
 }
 
 console.log(`联动分析 ${files.length} 篇 · 页内目录锚点 ${tocLinks} 个 · 路径锚点 ${anchors} 个` +

@@ -278,6 +278,12 @@ flows/
 | 一级（项目） | 子目录名 | 这批东西属于哪个项目 | 卡片上的一枚标签 |
 | 二级（技术方向） | front-matter 的 `direction` | 这篇在问什么技术问题 | 列表页的**分段标题** |
 
+**front-matter 是可选的**：写的人只管正文，`title / author / date / summary`
+由生成器从正文（第一个 `# 标题`、第一段）与 git 历史（添加该文件那次提交的作者与日期）
+推出来**写回 md**，再进清单。写了的那几行以写的为准——这是覆盖，不是必填。
+推不出来的只有 `direction`（分类是内容判断），缺了先归到「待分类」，
+列表页会把它单列一段并提示怎么挪走。
+
 两个轴正交：`mooncake/mooncake-load-save-kv-flows.md` 在「mooncake」这个项目分组里，
 同时属于「KV 全链路」这个技术方向。
 
@@ -288,6 +294,16 @@ flows/
 正文支持普通 markdown 加本站的两个约定：行内代码用 `%%…%%`，
 围栏必须带语言标记（ASCII 图写 `text`）。**原始 HTML 会被转义**，
 因为 `markdown.js` 是先 `esc()` 再解析的。
+
+### 机器人会改 md，不只改清单
+
+`flows.yml` 在 `flows/**` 有 push 时，除了重建清单，还会把补出来的 front-matter
+写回 md 本身，两者在同一个机器人提交里。所以：
+
+- `actions/checkout` 要 `fetch-depth: 0`——推 author / date 得看到「添加这个文件」
+  的那次提交，浅克隆只有最新一条，日期会退化成「最后一次改动」。
+- `git add flows/` 而不是只加 `manifest.json`。
+- `--lint` **绝不写文件**（PR 上跑的就是它），只有默认模式才写。
 
 ### 列表页怎么知道有哪些文章
 

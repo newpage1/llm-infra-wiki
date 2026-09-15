@@ -34,6 +34,10 @@
       "blurb": "把一个项目从模块地图到热路径读一遍"
     },
     {
+      "name": "待分类",
+      "blurb": "还没归类。把 md 里那行 direction 改成一个方向名就挪走了"
+    },
+    {
       "name": "写作示例",
       "blurb": "投稿样板，不是调研内容"
     }
@@ -293,6 +297,18 @@
       "summary": "覆盖 Mooncake 全部子模块的代码级走读，重点深读 transfer-engine：多协议传输、分布式 KVCache 池、P2P Store 三层各自的关键类、函数签名与端到端调用链。",
       "updated": "2026-09-15",
       "file": "lmcache-xllm/mooncake-code-walkthrough.md"
+    },
+    {
+      "slug": "test-bare2",
+      "group": "lmcache-xllm",
+      "direction": "待分类",
+      "title": "bot 能不能自己补 front-matter",
+      "author": "MadaoRui",
+      "date": "2026-09-15",
+      "tags": [],
+      "summary": "这一段应当被当成摘要。",
+      "updated": "2026-09-15",
+      "file": "lmcache-xllm/test-bare2.md"
     },
     {
       "slug": "writing-example-with-diagram",

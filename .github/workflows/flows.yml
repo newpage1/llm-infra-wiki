@@ -1,7 +1,9 @@
 name: flows
 
-# 方案 B：写的人只往 `flows/` 里丢一个 md，**不用管清单**。这里扫目录、重建
-# `flows/manifest.json`，然后由机器人把它提交回 main。
+# 方案 B：写的人只往 `flows/` 里丢一个 md，**正文之外什么都不用管**。这里做两件事：
+#   1. 把缺的 front-matter 字段从「文件本身 + git 历史」推出来，**写回 md**；
+#   2. 扫目录重建 `flows/manifest.json`。
+# 然后由机器人把 md 与清单一起提交回 main。
 #
 # 为什么必须有人干这件事：站点是纯静态的，没有后端，GitHub Pages 不会列目录。
 # 列表页要显示「有哪些联动分析」，只能靠一个事先生成好的清单文件。
@@ -44,12 +46,15 @@ jobs:
         with:
           # 用 GITHUB_TOKEN 推回本仓库，配合上面的 contents: write
           token: ${{ secrets.GITHUB_TOKEN }}
+          # 要推 author / date 就得看到「添加这个文件」的那次提交，
+          # 浅克隆只有最新一条，推出来的日期会变成「最后一次改动」
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
           node-version: '20'
 
-      - name: 重建清单
+      - name: 补 front-matter 并重建清单
         run: node tools/build_flows.js
 
       - name: 自检（确认重建后清单就是最新的）
@@ -58,17 +63,20 @@ jobs:
       - name: 有变化就提交
         run: |
           set -euo pipefail
-          if git diff --quiet -- flows/manifest.json; then
-            echo "清单没有变化，不用提交"
+          # md 与清单都要提交：前者是补出来的 front-matter，后者是列表页要读的
+          if git diff --quiet -- flows/; then
+            echo "没有变化，不用提交"
             exit 0
           fi
           git config user.name  'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add flows/manifest.json
+          git add flows/
           git commit -F - <<'MSG'
-          flows: 重建联动分析清单
+          flows: 补 front-matter 并重建清单
 
-          由 .github/workflows/flows.yml 扫描 flows/ 下的 md 自动生成，请勿手改。
+          由 .github/workflows/flows.yml 扫描 flows/ 下的 md 生成：
+          从正文与 git 历史推出 title / author / date / summary，并重建清单。
+          只补缺的字段，已经写了的不会动；清单请勿手改。
           MSG
           # 并发推送时先 rebase 再推，失败重试几次
           for i in 1 2 3; do

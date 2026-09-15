@@ -74,8 +74,9 @@ cd llm-infra-wiki
 ### 2. 只想写一篇联动分析（可选）
 
 不等同于深度分析页：**深度分析跟一个仓库走，联动分析跟一次操作走**。
-在 `flows/` 下加一个 `.md` 就行，不用改任何 `.js`，也不用管清单——
-CI 会扫目录重建 `flows/manifest.json` 并提交（见
+在 `flows/` 下加一个 `.md` 就行，不用改任何 `.js`，**连 front-matter 都不用写**——
+CI 会从正文与 git 历史推出 title / author / date / summary 写回 md，
+再重建 `flows/manifest.json` 并一起提交（见
 [`.github/workflows/flows.yml`](.github/workflows/flows.yml)）。
 
 ```bash
@@ -84,19 +85,18 @@ $EDITOR flows/你的标题.md
 node tools/build_flows.js --lint     # 只校验 front-matter，两秒出结果
 ```
 
-`direction` 是**二级分类**（列表页按它分段），可选值见
-[`flows/_template.md`](flows/_template.md)，权威清单在 `tools/build_flows.js` 里。
+唯一需要自己决定的是 `direction`（**二级分类**，列表页按它分段）——这个推不出来，
+是内容判断。可选值见 [`flows/_template.md`](flows/_template.md)，权威清单在
+`tools/build_flows.js` 里；一时没想好也可以先不写，CI 会归到「待分类」，你改一个词就挪走。
+
 想按项目分组就把文件放进一层子目录（如 `flows/mooncake/`），目录名会当标签显示。
 
-开头必须有 front-matter：
+front-matter **可以一个字都不写**。想让标题、作者、日期、摘要按自己的意思来，
+就只写要覆盖的那几行：
 
 ```markdown
 ---
-title: KV 回落的三条通路：谁在什么时候把 KV 送回去
-author: 你的名字
-date: 2026-09-15
 direction: KV 全链路
-tags: [Mooncake, LMCache, 昇腾]
 summary: 一句话说清这篇讲了什么，会显示在列表页卡片上。
 ---
 ```
@@ -115,7 +115,7 @@ bash tools/verify.sh
 它检查六件事：内容用**真实渲染器**跑一遍（抓"写对了但页面会漏字"）、每个分析页的结构
 （8 小节顺序、`%%` 配对、图数）、总体设计图与模块的认领关系、文风指标有没有退化、
 手绘 SVG 的文字重叠、站内链接能不能解到目标，以及 `flows/` 下的联动分析
-（front-matter 齐不齐、图在不在、`路径:行号` 有没有越界）。
+（front-matter 写了的话合不合规、图在不在、目录锚点对不对得上、`路径:行号` 有没有越界）。
 
 ### 4. 改了行号或代码围栏，还要跑完整校验
 

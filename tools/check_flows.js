@@ -57,10 +57,10 @@ try {
   execFileSync('node', [path.join(__dirname, 'build_flows.js'), '--lint'],
     { cwd: ROOT, encoding: 'utf8', stdio: 'pipe' });
 } catch (e) {
-  // 把子进程的「❌ flows/ 里有格式问题：」表头去掉，只留具体条目
+  // 把子进程的「❌ flows/ 里有问题：」表头去掉，只留具体条目
   String((e.stdout || '') + (e.stderr || '')).split('\n')
     .map(l => l.trim()).filter(Boolean)
-    .filter(l => !/^❌ flows\/ 里有格式问题/.test(l))
+    .filter(l => !/^❌ flows\/ 里有问题/.test(l))
     .forEach(l => problems.push(l.replace(/^❌\s*/, '')));
 }
 

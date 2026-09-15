@@ -2,6 +2,17 @@
   "version": 1,
   "flows": [
     {
+      "slug": "test-extract",
+      "group": "mooncake",
+      "title": "完全没有 front-matter 的 md",
+      "author": "MadaoRui",
+      "date": "2026-09-16",
+      "tags": [],
+      "summary": "这一段应当被当成摘要。",
+      "updated": "2026-09-16",
+      "file": "mooncake/test-extract.md"
+    },
+    {
       "slug": "huawei-pr-analysis-2026-09-09",
       "group": "mooncake",
       "title": "Mooncake 按现有模块的华为相关 PR 梳理",

@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 516" class="diagram" role="img"
+     aria-label="一次请求的三个阶段首尾相接：① rendezvous 请求先到 D、② prefill 传输（P 唯一参与的窗口）、③ decode（P 已退场）；下方是请求先到 D 的四条理由">
+  <defs>
+    <marker id="tpa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 z" fill="var(--line-2)"/>
+    </marker>
+  </defs>
+
+  <text x="20" y="26" class="t-band" fill="var(--l2)">为什么请求先到 D · 三个阶段首尾相接</text>
+  <text x="1180" y="26" class="t-mono" text-anchor="end" style="fill:var(--muted)"><tspan font-weight="600">[源码]</tspan> 阶段① 见 2.1 rendezvous；阶段②③ 见第 2 节逐层流水与第 4 节 sparse decode</text>
+
+  <!-- 阶段① -->
+  <rect x="20" y="60" width="360" height="220" rx="10" fill="var(--l4)" fill-opacity=".05" stroke="var(--line)"/>
+  <rect x="20" y="60" width="3" height="220" fill="var(--l4)"/>
+  <text x="40" y="92" class="t-band" fill="var(--l4)">阶段① RENDEZVOUS</text>
+  <text x="40" y="136" class="t-mono" style="fill:var(--ink-2)">请求到 D</text>
+  <text x="40" y="164" class="t-mono" style="fill:var(--ink-2)">D 匹配自己的 host 池前缀</text>
+  <text x="40" y="192" class="t-mono" style="fill:var(--ink-2)">只把缺的部分标为要算</text>
+  <text x="40" y="224" class="t-mono" style="fill:var(--muted)">D 的 block id 留在这里，不出节点</text>
+
+  <!-- 阶段② -->
+  <rect x="420" y="60" width="360" height="220" rx="10" fill="var(--l3)" fill-opacity=".05" stroke="var(--line)"/>
+  <rect x="420" y="60" width="3" height="220" fill="var(--l3)"/>
+  <text x="440" y="92" class="t-band" fill="var(--l3)">阶段② PREFILL 传输</text>
+  <rect x="648" y="74" width="116" height="22" rx="11" fill="var(--wash)" stroke="var(--line-2)"/>
+  <text x="658" y="89" class="t-mono" style="fill:var(--l3)">P 唯一参与的窗口</text>
+  <text x="440" y="136" class="t-mono" style="fill:var(--ink-2)">P 逐层算</text>
+  <text x="440" y="164" class="t-mono" style="fill:var(--ink-2)">D 逐层拉进自己的 host 池</text>
+  <text x="440" y="192" class="t-mono" style="fill:var(--ink-2)">（拉的是缺口部分的 KV）</text>
+  <text x="440" y="224" class="t-mono" style="fill:var(--muted)">P 每算完一层就发一层，与下一层计算重叠</text>
+
+  <!-- 阶段③ -->
+  <rect x="820" y="60" width="360" height="220" rx="10" fill="var(--l1)" fill-opacity=".05" stroke="var(--line)"/>
+  <rect x="820" y="60" width="3" height="220" fill="var(--l1)"/>
+  <text x="840" y="92" class="t-band" fill="var(--l1)">阶段③ DECODE（P 已退场）</text>
+  <text x="840" y="136" class="t-mono" style="fill:var(--ink-2)">D 自己算新 token K/V</text>
+  <text x="840" y="164" class="t-mono" style="fill:var(--ink-2)">直接 D2H 写进自己的 host 池</text>
+  <text x="840" y="192" class="t-mono" style="fill:var(--ink-2)">top-k miss 时才 H2D 回 NPU</text>
+  <text x="840" y="224" class="t-mono" style="fill:var(--muted)">decode 期间没有任何 P→D 拉取</text>
+
+  <!-- 阶段之间的单向箭头 -->
+  <line x1="384" y1="170" x2="414" y2="170" class="t-line" marker-end="url(#tpa)"/>
+  <line x1="784" y1="170" x2="814" y2="170" class="t-line" marker-end="url(#tpa)"/>
+
+  <!-- 四条理由 -->
+  <rect x="20" y="310" width="1160" height="186" rx="10" fill="var(--l4)" fill-opacity=".045" stroke="var(--line)"/>
+  <rect x="20" y="310" width="3" height="186" fill="var(--l4)"/>
+  <text x="44" y="338" class="t-band" fill="var(--l4)">为什么请求先到 D · 按重要性排的四条理由</text>
+  <text x="44" y="366" class="t-mono">① 谁持有 KV 缓存，谁做前缀匹配：完整 main KV 的池子在 D 的 host 内存里，只有 D 能回答「这段 prompt 我已有多少 KV」</text>
+  <text x="44" y="386" class="t-mono">② Pull 模型要求「先有目的地，再发布源」：D 先分好 main 块和 indexer 块才有地方拉；先到 P 就退化回 push 模型</text>
+  <text x="44" y="406" class="t-mono">③ D 是请求的「户主」：吐 token、流式返回、abort / 重试都归 D；P 只是被雇来算一次 prefill 的临时工</text>
+  <text x="44" y="426" class="t-mono">④ Proxy 的准入控制以 D 容量为中心：decode 是长活，瓶颈在 D 侧并发数；先选 D 再找 P，调度才以瓶颈为中心</text>
+  <text x="44" y="450" class="t-mono" style="fill:var(--muted)">「增量拉取」的准确含义：D 命中的部分不找 P，只把缺的后缀交给 P 算（rendezvous 广播的 remote_cached_tokens）</text>
+  <text x="44" y="470" class="t-mono" style="fill:var(--muted)">decode 期间唯一的搬运动作是 top-k miss 行 H2D 回 NPU——全程在 D 节点内部，P 不参与</text>
+</svg>

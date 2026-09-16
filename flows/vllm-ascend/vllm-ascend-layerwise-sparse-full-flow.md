@@ -29,23 +29,7 @@
 
 **[源码]** 设计文档 §2 的全景图（main 实现与此一致；"device memory"在 RFC 图中对应 NPU HBM）：
 
-```mermaid
-flowchart LR
-    subgraph P["Prefill 节点"]
-        PHost["① Prefill Host KV pool<br/>（Memcache 后端）<br/>完整 KV，按层换入换出"]
-        PNPU["② Prefill NPU<br/>少量可复用的整层 buffer<br/>（I + min(B, R) 个）"]
-    end
-    subgraph D["Decode 节点"]
-        DHost["③ Decode Host<br/>完整 main KV（pinned pool）<br/>由 SparseKVOffloadManager 拥有"]
-        DNPU["④ Decode NPU<br/>indexer cache（完整）<br/>+ 每层 top-k 热 buffer"]
-    end
-
-    PHost <-->|"layerwise save/load<br/>（整层，AscendStore）"| PNPU
-    PNPU -->|"Remote D2H pull：main KV<br/>（整层/块范围，MemFabric）"| DHost
-    PNPU -->|"Remote pull：indexer / LIC8 scale<br/>（块范围）"| DNPU
-    DNPU -->|"新 token K/V 写回<br/>（token 行，D2H）"| DHost
-    DHost -->|"top-k miss 回迁<br/>（token 行，H2D）"| DNPU
-```
+![四个存储区域与它们之间的搬运关系](four-storage-regions.svg)
 
 三个组件的分工 **[源码]**：
 
@@ -83,19 +67,7 @@ flowchart LR
 
 ### 2.2 为什么请求先到 D
 
-```mermaid
-flowchart LR
-    subgraph T1["阶段① rendezvous"]
-        A["请求到 D<br/>D 匹配自己的 host 池前缀<br/>只把缺的部分标为要算"]
-    end
-    subgraph T2["阶段② prefill 传输<br/>（P 唯一参与的窗口）"]
-        B["P 逐层算<br/>D 逐层拉进自己的 host 池<br/>（拉的是缺口部分的 KV）"]
-    end
-    subgraph T3["阶段③ decode（P 已退场）"]
-        C["D 自己算新 token K/V<br/>直接 D2H 写进自己的 host 池<br/>top-k miss 时才 H2D 回 NPU"]
-    end
-    A --> B --> C
-```
+![三个阶段：rendezvous / prefill 传输 / decode](three-phases.svg)
 
 按重要性排四个理由 **[源码]**：
 

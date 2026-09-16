@@ -263,13 +263,14 @@ schema 就得为它们同时让路；而内容量又不足以撑起和六个深�
 ```
 flows/
   kv-return-paths.md          直接放根目录 = 不按项目分组
-  mooncake/                  一层子目录 = 一个项目分组，目录名当标签显示
-    mooncake-load-save-kv-flows.md
-  lmcache-xllm/
-    lmcache-ascend-code-walkthrough.md
+  <项目>/                     一层子目录 = 一个项目分组，目录名当标签显示
+    <slug>.md
   _template.md                下划线开头的不进清单
   manifest.json               CI 生成，不要手改
 ```
+
+（原来这里逐篇举了 `mooncake/` 与 `lmcache-xllm/` 两个真实目录，但联动分析后来
+精简到只留 vllm-ascend 那两篇，举真名会跟着每次增删而失效，所以改成占位写法。）
 
 **分类只有一级**：子目录名当项目分组，显示为卡片上的一枚标签。
 （曾经有过一级「技术方向」的二级分类，划分与维护成本都不划算，已去掉。）

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""把 /Users/hexiaoying/workspace/notes 下的 15 篇一off性搬进站点的 flows/。
+"""把 /Users/hexiaoying/workspace/notes 下的 15 篇一次性搬进站点的 flows/。
+
+⚠️ 这是**历史脚本**：它导入的 15 篇后来被精简掉了，`flows/` 现在只留
+vllm-ascend 下那两篇。重跑这个脚本会把 15 篇全部重新灌回去，别误跑。
 
 做四件事：补 front-matter、摘掉不宜公开的绝对本地路径、修渲染会坏的地方
 （<br> 被转义成字面量、裸围栏没有语言标记）、以及删掉 datasystem 文末那个游离围栏。

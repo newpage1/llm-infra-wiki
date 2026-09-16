@@ -211,7 +211,7 @@ llm-infra-wiki/
 │   └── SKILL-code-arch-analysis.md   # 源码分析方法论
 ├── flows/                      # 联动分析：直接提 .md，清单由 CI 生成
 │   ├── _template.md            # 照着这个写（下划线开头的文件不进清单）
-│   ├── mooncake/ lmcache-xllm/ # 一层子目录 = 一个分组，目录名当标签
+│   ├── vllm-ascend/            # 一层子目录 = 一个分组，目录名当标签
 │   └── manifest.json           # 自动生成，不要手改
 ├── diagrams/                   # PlantUML 源与渲染出的 SVG
 ├── authoring/                  # 写内容的人看这三份

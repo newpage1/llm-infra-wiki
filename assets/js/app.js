@@ -709,7 +709,11 @@
       }
       out.push(box);
     }
-    if (b.html) out.push(el('div', { class: 'an-body' }, window.md(b.html).html));
+    if (b.html) {
+      const box = el('div', { class: 'an-body' }, window.md(b.html).html);
+      out.push(box);
+      renderMermaid(box);
+    }
     return out;
   }
 
@@ -1048,6 +1052,100 @@
     });
   }
 
+  /* ── mermaid：按需加载 + 用站内配色渲染 ──────────────────────
+     md 里的 ```mermaid 块由 markdown.js 产出 `<div class="mermaid">`。
+     这个库有 3.5MB，只在页面真的出现 mermaid 块时才去取（脚本一次就够）。
+     自托管而不是走 CDN：站点的原则是不依赖任何外部资源，而且同事那边
+     未必连得上公共 CDN。 */
+  const MERMAID_VER = (() => {
+    // 版本号跟着 index.html 的 ?v=N 走，bump.py 一改就同步
+    const t = document.querySelector('script[src*="app.js"]');
+    const m = t && t.getAttribute('src').match(/\?v=(\d+)/);
+    return m ? '?v=' + m[1] : '';
+  })();
+  let mermaidLoading = null;
+
+  function loadMermaid() {
+    if (mermaidLoading) return mermaidLoading;
+    mermaidLoading = new Promise((resolve, reject) => {
+      const sc = document.createElement('script');
+      sc.src = 'assets/js/mermaid.min.js' + MERMAID_VER;
+      sc.onload = () => resolve(window.mermaid);
+      sc.onerror = () => reject(new Error('mermaid 加载失败'));
+      document.head.appendChild(sc);
+    });
+    return mermaidLoading;
+  }
+
+  /* 主题照 diagrams/*.puml 的 skinparam：奶油底 + 棕边框 + 同一套字色，
+     免得 mermaid 默认那套蓝紫跟页面打架。 */
+  const MERMAID_OPTS = {
+    startOnLoad: false,
+    securityLevel: 'loose',      // 标签里有 <br/>，strict 会被 sanitize 掉
+    theme: 'base',
+    fontFamily: '"IBM Plex Sans", -apple-system, "PingFang SC", sans-serif',
+    themeVariables: {
+      background: '#FFFDF8',
+      fontFamily: '"IBM Plex Sans", -apple-system, "PingFang SC", sans-serif',
+      fontSize: '13px',
+      primaryColor: '#FFF6E5', primaryBorderColor: '#C9B9A2', primaryTextColor: '#2B241B',
+      secondaryColor: '#F1EAE0', secondaryBorderColor: '#C9B9A2', secondaryTextColor: '#2B241B',
+      tertiaryColor: '#FFFDF8', tertiaryBorderColor: '#C9B9A2', tertiaryTextColor: '#2B241B',
+      lineColor: '#8A7A67', textColor: '#2B241B',
+      noteBkgColor: '#FFF6E5', noteBorderColor: '#C9B9A2', noteTextColor: '#2B241B',
+      actorBkg: '#FFF6E5', actorBorder: '#C9B9A2', actorTextColor: '#2B241B',
+      actorLineColor: '#C9B9A2',
+      signalColor: '#8A7A67', signalTextColor: '#2B241B',
+      labelBoxBkgColor: '#FFF6E5', labelBoxBorderColor: '#C9B9A2', labelTextColor: '#2B241B',
+      loopTextColor: '#2B241B',
+      labelBackgroundColor: '#FFF6E5',
+      // stateDiagram
+      transitionColor: '#8A7A67', transitionLabelColor: '#2B241B',
+      stateBkg: '#FFF6E5', stateBorder: '#C9B9A2', compositeBackground: '#FFFDF8',
+      altBackground: '#F1EAE0',
+    },
+    flowchart: { curve: 'basis', htmlLabels: true, useMaxWidth: true, padding: 12 },
+    sequence: { useMaxWidth: true, mirrorActors: false, wrap: false },
+    state: { useMaxWidth: true },
+    gantt: { useMaxWidth: true },
+  };
+
+  /** 把 root 里的 .mermaid 块渲染成图。没有就什么都不做（不加载那个大文件）。 */
+  function renderMermaid(root) {
+    const nodes = root.querySelectorAll('.mermaid:not([data-processed])');
+    if (!nodes.length) return;
+    loadMermaid()
+      .then(async mm => {
+        mm.initialize(MERMAID_OPTS);
+        // 逐张 render，而不是一次 run({nodes})：批量渲染时 mermaid 只生成**一个**
+        // id 给所有图，66 张图就带 66 个重复 id，连同内部的 marker 定义也彼此撞名
+        // （浏览器只认第一个，箭头看着对但结构是坏的）。自己发 id 就没这问题。
+        // 逐张还能让单张语法错不牵连其它图。
+        let seq = 0;
+        for (const n of nodes) {
+          const src = n.textContent;
+          try {
+            const { svg } = await mm.render('mmd-' + (++seq), src);
+            // 包进 .flow-canvas：页面内按容器宽显示，点一下走站内已有的放大浮层
+            // （installZoom 认 .flow-canvas 里的 svg）。大图在页面里必然被压小，
+            // 靠放大读细节。
+            const c = document.createElement('div');
+            c.className = 'flow-canvas mmd';
+            c.innerHTML = svg;
+            const s = c.querySelector('svg');
+            if (s && !s.classList.contains('diagram')) s.classList.add('diagram');
+            n.replaceWith(c);
+          } catch (err) {
+            const pre = document.createElement('pre');
+            pre.className = 'mermaid-fail';
+            pre.textContent = src;
+            n.replaceWith(pre);
+            console.error('mermaid 第 ' + seq + ' 张渲染失败', err);
+          }
+        }
+      });
+  }
+
   /* 标签：子目录名（项目）在前，作者写的 tags 在后。 */
   function flowTags(f) {
     const tags = f.group ? [f.group].concat(f.tags || []) : (f.tags || []);
@@ -1136,6 +1234,7 @@
           body.appendChild(art);
           wrapTables(wrap);
           inlineFlowSvgs(art);
+          renderMermaid(art);
         })
         .catch(() => {
           body.appendChild(el('h1', null, '没有这一篇'));

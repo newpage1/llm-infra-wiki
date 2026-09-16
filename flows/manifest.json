@@ -22,6 +22,17 @@
       "summary": "这套特性解决一个问题：长序列推理时 KV cache 太大，NPU 装不下。",
       "updated": "2026-09-16",
       "file": "vllm-ascend/vllm-ascend-layerwise-sparse-full-flow.md"
+    },
+    {
+      "slug": "vllm-ascend-mooncake-ascend-call-path",
+      "group": "vllm-ascend",
+      "title": "vLLM-Ascend 与 Mooncake Store 在昇腾栈下的调用路径",
+      "author": "MadaoRui",
+      "date": "2026-09-16",
+      "tags": [],
+      "summary": "在昇腾栈上，vLLM-Ascend 从 Scheduler 命中检查一路把 KV 存进 / 取出 Mooncake Store 的完整调用路径：三条路径怎么分、KV 地址怎么注册与映射、Save 与 Load 两条数据通路各经过谁。",
+      "updated": "2026-09-16",
+      "file": "vllm-ascend/vllm-ascend-mooncake-ascend-call-path.md"
     }
   ]
 }

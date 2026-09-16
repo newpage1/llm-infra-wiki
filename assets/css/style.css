@@ -280,6 +280,23 @@ body::before{
 .flow-fig{margin:22px 0;overflow-x:auto}
 .flow-fig .diagram{margin:0}
 .fig-natural{display:block;margin:22px auto;max-width:100%;height:auto}
+
+/* mermaid 渲染出的图（md 里的 ```mermaid 块）。库是自托管的 3.5MB，
+   冷缓存时要下几秒——这段时间先把源码藏起来，否则像这篇 66 张图会闪一大片。
+   mermaid 渲染完会在节点上打 data-processed，那时才显示。 */
+.mermaid{margin:22px 0;text-align:center}
+.mermaid svg{max-width:100%;height:auto}
+.mermaid:not([data-processed]){visibility:hidden;display:block;height:1.6em}
+/* mermaid 的 svg 自带 max-width（等于它的自然宽度），窄图会靠左。
+   靠 margin:auto 居中；放大浮层那条规则会清掉 max-width，不受影响。 */
+.mmd > svg{margin:0 auto}
+
+/* 库没加载起来或语法错时，把源码露出来——总比一片空白强 */
+.mermaid-fail{
+  margin:20px 0;padding:12px 16px;overflow-x:auto;white-space:pre;
+  background:var(--wash);border:1px solid var(--line);border-radius:var(--radius);
+  font-family:var(--font-mono);font-size:11px;color:var(--muted);
+}
 .flow-art img{
   display:block;width:100%;height:auto;max-width:100%;margin:22px 0;
   border-radius:var(--radius);

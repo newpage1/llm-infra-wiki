@@ -118,10 +118,18 @@
       if (fence) {
         flushPara(); closeList();
         const mark = fence[1];
+        const lang = (fence[2] || '').trim().toLowerCase().split(/\s+/)[0];
         const buf = [];
         i++;
         while (i < lines.length && !new RegExp('^\\s*' + mark).test(lines[i])) { buf.push(lines[i]); i++; }
         i++; // 跳过结束围栏
+        if (lang === 'mermaid') {
+          // 交给页面里的 mermaid 渲染器（app.js 的 renderMermaid）。
+          // 这里照常 esc 一次：浏览器读 textContent 时会把实体还原，
+          // mermaid 拿到的仍是原文（含 `<br/>` 这类它自己的语法）。
+          out.push('<div class="mermaid">' + esc(buf.join('\n')) + '</div>');
+          continue;
+        }
         out.push('<pre><code>' + esc(buf.join('\n')) + '</code></pre>');
         continue;
       }

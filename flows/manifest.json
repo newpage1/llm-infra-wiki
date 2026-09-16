@@ -2,6 +2,17 @@
   "version": 1,
   "flows": [
     {
+      "slug": "vllm-ascend-layerwise-sparse-full-flow",
+      "group": "vllm-ascend",
+      "title": "vLLM-Ascend Layerwise + Sparse KV Offload 完整流程图解",
+      "author": "MadaoRui",
+      "date": "2026-09-16",
+      "tags": [],
+      "summary": "这套特性解决一个问题：长序列推理时 KV cache 太大，NPU 装不下。",
+      "updated": "2026-09-16",
+      "file": "vllm-ascend/vllm-ascend-layerwise-sparse-full-flow.md"
+    },
+    {
       "slug": "huawei-pr-analysis-2026-09-09",
       "group": "mooncake",
       "title": "Mooncake 按现有模块的华为相关 PR 梳理",

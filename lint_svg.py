@@ -12,9 +12,11 @@ import re, sys, pathlib
 FILES = ['data/analyses.js', 'data/catalog.js',
          'data/details.js', 'data/details-ascend.js', 'data/details-nvidia.js', 'data/details-outline.js']
 
-# 笔记里的图是**独立 SVG 文件**（不在 data/*.js 里），也要一起查重叠。
-import glob
-FILES += sorted(glob.glob('flows/**/*.svg', recursive=True))
+# 这里**不查** diagrams/ 与 flows/ 下的独立 SVG：
+#   · diagrams/*.svg 是 PlantUML 的输出，布局是它自己算的，没有手工坐标可压；
+#   · flows/ 下的图按新口径也是 PlantUML 产物，或是从别处搬来的自带 <style> 的图
+#     （那种图有自己的字体栈，下面的字号表是按站内 CSS 类名校准的，认不出会虚报宽度）。
+# 也就是说：这个脚本只管**依赖站内样式表的手绘 SVG**。
 
 def units(t):
     return sum(2 if ord(c) > 0x2e80 else 1 for c in t)

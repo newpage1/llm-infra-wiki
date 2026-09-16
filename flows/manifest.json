@@ -2,6 +2,17 @@
   "version": 1,
   "flows": [
     {
+      "slug": "deepseek-v4.1-reuse-group-layer-chunk-scheduling",
+      "group": "vllm-ascend",
+      "title": "DeepSeek V4.1 的 Reuse-Group Layer Chunk 调度分析",
+      "author": "MadaoRui",
+      "date": "2026-09-16",
+      "tags": [],
+      "summary": "跨层复用 sparse top-k 的模型该按什么粒度调度？这篇的结论是：值得用 layer chunk，但调度单位应是模型语义上的 reuse group 而不是任意单层 task，优先在 ModelRunner 内做 group-aware prefetch。",
+      "updated": "2026-09-16",
+      "file": "vllm-ascend/deepseek-v4.1-reuse-group-layer-chunk-scheduling.md"
+    },
+    {
       "slug": "vllm-ascend-layerwise-sparse-full-flow",
       "group": "vllm-ascend",
       "title": "vLLM-Ascend Layerwise + Sparse KV Offload 完整流程图解",

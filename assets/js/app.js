@@ -1029,12 +1029,12 @@
             [...n.attributes].forEach(a => { if (/^on/i.test(a.name)) n.removeAttribute(a.name); });
           });
           // 两种图要分别对待：
-          //   · PlantUML 渲染出的 SVG 带固定 width/height，按**原尺寸居中**显示——
-          //     和分析页一样（那边是 innerHTML 内联，不套 .diagram）。硬拉成
-          //     容器宽会把 500px 的图放大一倍多，字比正文大一圈。
-          //   · 手绘 SVG 只有 viewBox，挂 .diagram 铺满容器。
+          //   · 带固定 width/height 的（PlantUML 的输出、别处画好的 SVG）按**原尺寸
+          //     居中**显示——和分析页一样（那边是 innerHTML 内联、不套 .diagram）。
+          //     硬拉成容器宽会把 500px 的图放大一倍多，字比正文大一圈。
+          //   · 只有 viewBox 的（本站手绘的那批）挂 .diagram 铺满容器。
           if (svg.getAttribute('width') && svg.getAttribute('height')) {
-            svg.classList.add('puml-inline');
+            svg.classList.add('fig-natural');
           } else if (!svg.classList.contains('diagram')) {
             svg.classList.add('diagram');
           }

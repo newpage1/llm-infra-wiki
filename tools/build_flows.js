@@ -108,6 +108,7 @@ function plain(s) {
 /** 正文第一段能当摘要的话：跳过标题、引用、表格、列表、代码块与空行。 */
 function deriveSummary(body) {
   let inFence = false;
+  const leadIns = [];        // 只有引导句时的兜底
   for (const rawLine of body.split('\n')) {
     const line = rawLine.trim();
     if (/^(```|~~~)/.test(line)) { inFence = !inFence; continue; }
@@ -124,11 +125,14 @@ function deriveSummary(body) {
     if (/^---/.test(line)) continue;
     const t = plain(line);
     if (!t) continue;
+    // 「XXX：」这种引导句不能当摘要——它后面往往跟一个列表，单拎出来读不出信息
+    // （实际踩过：一篇的摘要成了「证据标记：」）。先记下，继续往下找真正的段落。
+    if (/[:：]\s*$/.test(t)) { leadIns.push(t); continue; }
     // 截到第一句，再兜一个长度上限——摘要只是列表页卡片上的一行
     const one = t.split(/(?<=[。！？；.!?;])\s*/)[0] || t;
     return one.length > 150 ? one.slice(0, 148).replace(/[\s，,、]+$/, '') + '…' : one;
   }
-  return '';
+  return leadIns[0] || '';   // 整篇都是引导句，只好退回第一句
 }
 
 /** 一份 md 的最终元数据：front-matter 写了的优先，其余从 md / git 捞。 */

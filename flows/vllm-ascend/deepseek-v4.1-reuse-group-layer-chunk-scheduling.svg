@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 860" width="1400" height="860" role="img" aria-labelledby="title desc">
+  <title id="title">DeepSeek V4.1：IndexCache 复用如何创造 group-level KV streaming 窗口</title>
+  <desc id="desc">左侧展示普通逐层 top-k 和远端 KV 拉取的串行路径，右侧展示 F S S S reuse group 中 anchor 层产生 top-k 后，后续层 KV 可以提前异步拉取并与顺序层计算重叠。图中同时标出 hidden state 串行依赖、每层独立 KV，以及推荐的 ModelRunner 内 group pipeline 边界。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#385477"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#a94442"/>
+    </marker>
+    <style>
+      .title { font: 700 28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #172033; }
+      .subtitle { font: 400 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #4b5870; }
+      .heading { font: 700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #172033; }
+      .label { font: 600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #26364d; }
+      .body { font: 400 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #26364d; }
+      .small { font: 400 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #526178; }
+      .mono { font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #26364d; }
+      .panel { fill: #f8fafc; stroke: #aeb9c8; stroke-width: 1.5; }
+      .lane { fill: #ffffff; stroke: #d5dce6; stroke-width: 1; }
+      .compute { fill: #dce9f7; stroke: #527ca8; stroke-width: 1.5; }
+      .transfer { fill: #fff0cf; stroke: #bd7a16; stroke-width: 1.5; }
+      .reuse { fill: #dff2e3; stroke: #43824f; stroke-width: 1.5; }
+      .sync { fill: #f7dddd; stroke: #a94442; stroke-width: 1.5; }
+      .normal-edge { fill: none; stroke: #385477; stroke-width: 2; marker-end: url(#arrow); }
+      .cost-edge { fill: none; stroke: #a94442; stroke-width: 2; marker-end: url(#arrow-red); }
+      .control-edge { fill: none; stroke: #43824f; stroke-width: 2; stroke-dasharray: 6 5; marker-end: url(#arrow); }
+      .separator { stroke: #b8c2d0; stroke-width: 1; stroke-dasharray: 5 5; }
+    </style>
+  </defs>
+
+  <rect x="0" y="0" width="1400" height="860" fill="#ffffff"/>
+  <text x="54" y="52" class="title">DS V4.1 的正确调度单位：reuse group，而不是任意单层 task</text>
+  <text x="54" y="80" class="subtitle">核心差异：复用 top-k indices 提前暴露后续层的 KV 地址；hidden state 和每层 KV 仍保持逐层依赖</text>
+
+  <rect x="45" y="112" width="620" height="610" rx="12" class="panel"/>
+  <text x="70" y="148" class="heading">普通 sparse layer：每层重新发现地址</text>
+  <text x="70" y="172" class="small">地址发现、网络拉取、attention 在每层形成串行链</text>
+
+  <rect x="70" y="198" width="570" height="128" rx="8" class="lane"/>
+  <text x="88" y="224" class="label">Layer 0</text>
+  <rect x="175" y="212" width="104" height="42" rx="6" class="compute"/>
+  <text x="197" y="238" class="body">top-k₀</text>
+  <path d="M279 233 H305" class="normal-edge"/>
+  <rect x="306" y="212" width="118" height="42" rx="6" class="transfer"/>
+  <text x="324" y="238" class="body">pull KV₀[I₀]</text>
+  <path d="M424 233 H450" class="normal-edge"/>
+  <rect x="451" y="212" width="140" height="42" rx="6" class="compute"/>
+  <text x="474" y="238" class="body">attention + MoE</text>
+  <text x="175" y="286" class="small">只有 I₀ 已知；下一层访问位置仍未知</text>
+
+  <rect x="70" y="342" width="570" height="128" rx="8" class="lane"/>
+  <text x="88" y="368" class="label">Layer 1</text>
+  <rect x="175" y="356" width="104" height="42" rx="6" class="compute"/>
+  <text x="197" y="382" class="body">top-k₁</text>
+  <path d="M279 377 H305" class="normal-edge"/>
+  <rect x="306" y="356" width="118" height="42" rx="6" class="transfer"/>
+  <text x="324" y="382" class="body">pull KV₁[I₁]</text>
+  <path d="M424 377 H450" class="normal-edge"/>
+  <rect x="451" y="356" width="140" height="42" rx="6" class="compute"/>
+  <text x="474" y="382" class="body">attention + MoE</text>
+  <text x="175" y="430" class="small">网络延迟难以被前一层隐藏</text>
+
+  <rect x="70" y="490" width="570" height="188" rx="8" class="sync"/>
+  <text x="90" y="522" class="label">结果</text>
+  <text x="90" y="552" class="body">• 每层都出现一次 top-k → pull 的关键路径</text>
+  <text x="90" y="580" class="body">• 小粒度 RDMA / RPC 固定开销被重复支付</text>
+  <text x="90" y="608" class="body">• 若 pull 慢于本层可重叠计算，NPU 等待网络</text>
+  <text x="90" y="646" class="small">并非所有模型都严格如此；此列用于说明没有跨层 index reuse 时的上限。</text>
+
+  <rect x="695" y="112" width="660" height="610" rx="12" class="panel"/>
+  <text x="720" y="148" class="heading">IndexCache reuse group：F S S S</text>
+  <text x="720" y="172" class="small">F 计算 top-k；S 层复用同一位置集合 I，但读取各自的 KVₗ[I]</text>
+
+  <rect x="720" y="198" width="610" height="112" rx="8" class="lane"/>
+  <text x="738" y="224" class="label">控制 / 地址</text>
+  <rect x="858" y="212" width="128" height="42" rx="6" class="compute"/>
+  <text x="881" y="238" class="body">F: compute I</text>
+  <path d="M986 233 H1032" class="control-edge"/>
+  <rect x="1034" y="212" width="268" height="42" rx="6" class="reuse"/>
+  <text x="1053" y="238" class="body">publish I to layers F,S₁,S₂,S₃</text>
+  <text x="858" y="284" class="small">源码已确认：skip_topk 层读取共享 topk_indices_buffer</text>
+
+  <rect x="720" y="326" width="610" height="142" rx="8" class="lane"/>
+  <text x="738" y="352" class="label">传输流</text>
+  <rect x="858" y="342" width="96" height="34" rx="5" class="transfer"/>
+  <text x="875" y="364" class="small">KVF[I]</text>
+  <rect x="966" y="342" width="96" height="34" rx="5" class="transfer"/>
+  <text x="982" y="364" class="small">KVS₁[I]</text>
+  <rect x="1074" y="342" width="96" height="34" rx="5" class="transfer"/>
+  <text x="1090" y="364" class="small">KVS₂[I]</text>
+  <rect x="1182" y="342" width="96" height="34" rx="5" class="transfer"/>
+  <text x="1198" y="364" class="small">KVS₃[I]</text>
+  <path d="M922 254 V326" class="control-edge"/>
+  <text x="858" y="404" class="body">可合并提交，也可按 buffer 水位分批完成</text>
+  <text x="858" y="434" class="small">架构推演：需要 layer-aware delay-pull / sparse descriptor 接口</text>
+
+  <rect x="720" y="484" width="610" height="128" rx="8" class="lane"/>
+  <text x="738" y="510" class="label">计算流</text>
+  <rect x="858" y="500" width="96" height="42" rx="6" class="compute"/>
+  <text x="887" y="526" class="body">F</text>
+  <path d="M954 521 H966" class="normal-edge"/>
+  <rect x="966" y="500" width="96" height="42" rx="6" class="compute"/>
+  <text x="994" y="526" class="body">S₁</text>
+  <path d="M1062 521 H1074" class="normal-edge"/>
+  <rect x="1074" y="500" width="96" height="42" rx="6" class="compute"/>
+  <text x="1102" y="526" class="body">S₂</text>
+  <path d="M1170 521 H1182" class="normal-edge"/>
+  <rect x="1182" y="500" width="96" height="42" rx="6" class="compute"/>
+  <text x="1210" y="526" class="body">S₃</text>
+  <text x="858" y="580" class="small">hidden state 仍必须 F → S₁ → S₂ → S₃；不能并行计算四层</text>
+
+  <rect x="720" y="628" width="610" height="70" rx="8" class="reuse"/>
+  <text x="738" y="656" class="label">推荐边界：ModelRunner 内执行整个 reuse group</text>
+  <text x="738" y="682" class="body">Scheduler 只做 admission / reservation；必要时在 group 边界 continuation</text>
+
+  <line x1="45" y1="748" x2="1355" y2="748" class="separator"/>
+  <text x="54" y="780" class="heading">决策条件</text>
+  <rect x="185" y="762" width="350" height="62" rx="8" class="reuse"/>
+  <text x="203" y="788" class="label">值得做</text>
+  <text x="203" y="812" class="small">远端 KV miss / RTT 无法被当前 one-layer prefetch 隐藏</text>
+  <rect x="555" y="762" width="350" height="62" rx="8" class="transfer"/>
+  <text x="573" y="788" class="label">先做轻量方案</text>
+  <text x="573" y="812" class="small">group prefetch + batched pull，不改变 EngineCore scheduler</text>
+  <rect x="925" y="762" width="430" height="62" rx="8" class="sync"/>
+  <text x="943" y="788" class="label">避免</text>
+  <text x="943" y="812" class="small">任意 request × layer 交错，破坏 TP/EP collective 与图复用</text>
+</svg>

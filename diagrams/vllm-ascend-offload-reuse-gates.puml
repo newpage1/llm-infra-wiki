@@ -1,0 +1,50 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 14
+skinparam ranksep 30
+skinparam arrowColor #8A7A67
+skinparam activity {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  FontColor #2B241B
+  FontSize 13
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #C9B9A2
+}
+skinparam noteBackgroundColor #FEFFDD
+skinparam noteBorderColor #C9B9A2
+
+title 物理 slot 想被复用：两道门闩串联（∧，缺一不可）
+
+start
+:物理 slot 想被 layer i 复用\n（上一个住户的 K/V 还在里面）;
+note right
+  **两道闩是 ∧**：
+  save 完成 **且** 全 contributor
+  READ_DONE 才放行
+end note
+
+repeat
+  if (门闩 1：Memcache save 完成？\n（AscendStore）) then (是)
+    if (门闩 2：所有 D contributor\n对该 slot READ_DONE？\n（SfaRemoteD2H）) then (是)
+      :两道闩都过;
+    else (否)
+      :等待（门闩 2 未过）;
+    endif
+  else (否)
+    :等待（门闩 1 未过）;
+  endif
+repeat while (slot 尚不可覆盖?) is (是：回到门闩 1\n任一为否都要重查) not (否)
+
+:slot 可覆盖 —— layer i 写入; <<#E7F6E7>>
+note right
+  组合等待器由 AscendMultiConnector 注入；
+  完成按**物理 storage slot** 跟踪，
+  不看逻辑层名（main-KV 与 indexer
+  是两个分开的 gate）
+end note
+
+stop
+@enduml

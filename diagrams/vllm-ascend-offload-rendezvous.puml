@@ -1,0 +1,32 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam sequence {
+  ArrowColor #8A7A67
+  LifeLineBorderColor #C9B9A2
+  ParticipantBorderColor #C9B9A2
+  ParticipantBackgroundColor #FFFDF8
+  ParticipantFontColor #2B241B
+  FontSize 13
+  FontColor #2B241B
+}
+skinparam noteBackgroundColor #FEFFDD
+skinparam noteBorderColor #C9B9A2
+
+title Rendezvous 会合阶段的三方握手
+
+participant "D Scheduler" as D
+participant "Proxy 元服务器" as Meta
+participant "P Scheduler" as P
+
+D -> D : ① 剩余 prompt 报告为异步匹配\nvLLM 分配 main 块（host 池）+ indexer 块（NPU）
+D -> D : ② 把这些 block id 记在本地\n(_request_trackers[req_id])
+D -> Meta : ③ 广播联系方式：\nrequest_id、do_remote_decode=true、\nhost、port、TP/PCP/DCP size、已缓存 token 数
+D -> D : ④ 清掉 do_remote_prefill 标记
+Meta -> P : 转发请求 + D 的联系方式
+note over P
+  之后 P 才能发 MF_META（源地址）
+  和逐层 READ_READY
+end note
+@enduml

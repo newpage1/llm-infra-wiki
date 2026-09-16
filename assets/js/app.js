@@ -1028,8 +1028,16 @@
           box.querySelectorAll('*').forEach(n => {
             [...n.attributes].forEach(a => { if (/^on/i.test(a.name)) n.removeAttribute(a.name); });
           });
-          // 页面样式挂在 .diagram 上，补上它；alt 转成无障碍标签
-          if (!svg.classList.contains('diagram')) svg.classList.add('diagram');
+          // 两种图要分别对待：
+          //   · PlantUML 渲染出的 SVG 带固定 width/height，按**原尺寸居中**显示——
+          //     和分析页一样（那边是 innerHTML 内联，不套 .diagram）。硬拉成
+          //     容器宽会把 500px 的图放大一倍多，字比正文大一圈。
+          //   · 手绘 SVG 只有 viewBox，挂 .diagram 铺满容器。
+          if (svg.getAttribute('width') && svg.getAttribute('height')) {
+            svg.classList.add('puml-inline');
+          } else if (!svg.classList.contains('diagram')) {
+            svg.classList.add('diagram');
+          }
           svg.setAttribute('role', 'img');
           const alt = img.getAttribute('alt');
           if (alt) svg.setAttribute('aria-label', alt);

@@ -1,0 +1,69 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam sequence {
+  ArrowColor #8A7A67
+  LifeLineBorderColor #C9B9A2
+  ParticipantBorderColor #C9B9A2
+  ParticipantBackgroundColor #FFFDF8
+  ParticipantFontColor #2B241B
+  FontSize 13
+  FontColor #2B241B
+}
+skinparam noteBackgroundColor #FEFFDD
+skinparam noteBorderColor #C9B9A2
+
+title 一次请求从客户端到 D 可调度的端到端时序
+
+autonumber
+
+participant "客户端" as Cli
+participant "P/D Proxy\n(load_balance_\nproxy_layerwise_\nserver)" as Prx
+participant "D Scheduler\n(RD2H consumer)" as DS
+participant "D Worker\n(read_thread)" as DW
+participant "P Scheduler\n(RD2H producer)" as PS
+participant "P Worker\n(forward +\nsend_thread)" as PW
+
+Cli ->> Prx : 请求
+Prx ->> DS : 路由到 D\n（do_remote_\nprefill=true）
+
+group Rendezvous 会合阶段\n（见 2.1）
+  note over DS, DW
+    Rendezvous
+    （会合阶段）
+  end note
+  DS -> DS : 剩余 prompt\n报告为异步匹配\nvLLM 分配 main\nhost pool 块\n+ indexer NPU 块
+  note over DS : D 的 block id\n永远不出 D 节点
+  DS -> Prx : 广播 endpoint /\n端口 / TP 拓扑 /\n已缓存 token 数
+  DS -> DS : 清除\ndo_remote_prefill
+end
+
+Prx ->> PS : 转发到 P\n（do_remote_\ndecode=true）
+PS -> PS : 记录 P 侧\nsource block id、\nD endpoint、\n已传 token 数
+
+group 逐层计算 + 逐层传输\n（P 每算完一层就发一层）
+  loop 每个 layer i
+    PW -> PW : wait_for_layer_\nload(i)：从 ①\nMemcache 加载前缀层\n（需先等 buffer\n安全可覆盖）
+    PW -> PW : attention 计算，\nKV 写入\n共享物理 buffer
+    PW -> PW : scatter 完成\n→ save_kv_layer(i)
+    par 双路并行
+      PW -> Prx : AscendStore\n异步 save\n到 ①（Memcache）
+    else
+      PW -> DW : send_thread 发\nREAD_READY_BATCH(\nlayer_idx, 块id, 偏移)
+    end
+    DW -> DW : 校验 main/\nindexer/LIC8\n尺寸与目标块范围\n（不匹配则整层失败，\n不残留半份数据）
+    DW -> DW : MemFabric 批量读：\nmain KV → ③\nD host pool；\nindexer → ④ D NPU
+    DW -->> PW : READ_DONE(i)\n或 READ_FAILED(i)
+    PW -> PW : 该物理 slot 的\nstorage_send_done_\nevents 置位\n（等所有 TP\ncontributor\n+ Memcache\nsave 都完成\n才可复用）
+  end
+end
+
+DS -> DS : 全部层 +\n所有 rank 到达终态\n→ 请求才可被\n调度进 decode
+note over DS
+  物理 buffer 完成
+  ≠ 请求完成：
+  前者保护 P 内存复用，
+  后者控制 D 何时开始推理
+end note
+@enduml

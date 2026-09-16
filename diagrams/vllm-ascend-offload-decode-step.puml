@@ -1,0 +1,51 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 14
+skinparam ranksep 30
+skinparam arrowColor #8A7A67
+skinparam activity {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  FontColor #2B241B
+  FontSize 13
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #C9B9A2
+}
+skinparam noteBackgroundColor #FEFFDD
+skinparam noteBorderColor #C9B9A2
+
+title 一个 Decode Step 内的七个步骤
+
+start
+
+partition "每个 Decode Step（循环执行到生成结束）" {
+  :① pre-attn：qkv_proj / norm / rope\n算出新 token 的 K/V; <<#EAF3FF>>
+  note right
+    **图例**
+    蓝 = 在 NPU（HBM）上执行
+    橙 = 跨设备搬运 / 落到 Host
+  end note
+
+  :② 新 K/V **不写** NPU 分页 main cache，\n直接 D2H 写到 host pool 的逻辑槽位\n（TP rank0 写共享 pool，GVA 广播给全 TP）; <<#FFF0D9>>
+  note right
+    **[差异]** RFC #33980 原设计是
+    「先写常规块、再整块 offload」；
+    main 更激进：decode 根本没有
+    NPU main cache，新 K/V 直接 D2H
+  end note
+
+  :③ indexer 选出逻辑 top-k token 位置\n（indexer cache 常驻 NPU）; <<#EAF3FF>>
+
+  :④ LRU 驻留表判定：\nhit → 已在热 buffer\nmiss → 分配物理热槽\n（热 buffer 满 → 按 LRU 淘汰）; <<#EAF3FF>>
+
+  :⑤ 仅 miss 行从 host H2D 拷入热 buffer\n（搬运量 ∝ miss 数，而非序列长度）; <<#FFF0D9>>
+
+  :⑥ 逻辑 top-k 位置 → 物理热槽位\n重映射; <<#EAF3FF>>
+
+  :⑦ 在热 buffer 上跑 sparse attention\n（驻留元数据留给下一步复用）; <<#EAF3FF>>
+}
+
+stop
+@enduml

@@ -1,0 +1,44 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 14
+skinparam ranksep 30
+skinparam arrowColor #8A7A67
+skinparam activity {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  FontColor #2B241B
+  FontSize 13
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #C9B9A2
+}
+
+title 三个阶段：rendezvous / prefill 传输 / decode
+
+start
+
+partition "阶段 ① rendezvous" {
+  :请求到 D;
+  :D 匹配自己的 host 池前缀;
+  :只把缺的部分标为要算;
+}
+
+partition "阶段 ② prefill 传输" {
+  :**② 是 P 唯一参与的窗口**;
+  :P 逐层算;
+  :D 逐层拉进自己的 host 池;
+  note right
+    拉的是缺口部分的 KV
+  end note
+}
+
+partition "阶段 ③ decode" {
+  :**③ P 已退场**;
+  :D 自己算新 token K/V;
+  :直接 D2H 写进自己的 host 池;
+  :top-k miss 时才 H2D 回 NPU;
+}
+
+stop
+@enduml

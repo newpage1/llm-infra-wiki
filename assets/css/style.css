@@ -274,10 +274,12 @@ body::before{
 }
 .flow-card p{font-size:12.5px;color:var(--ink-2);line-height:1.7;margin:0}
 
-/* 联动分析正文里的图。SVG 会被 app.js 取回来内联（外部 <img> 拿不到 var(--…)），
-   内联后的 .diagram 自带 width:100%；这里只管它和位图的上下留白。 */
+/* 联动分析正文里的图。SVG 会被 app.js 取回来内联（外部 <img> 拿不到 var(--…)）。
+   手绘的那些只有 viewBox，内联后挂 .diagram 铺满容器；
+   PlantUML 渲染出来的带固定像素尺寸，按原大小居中，别拉大。 */
 .flow-fig{margin:22px 0;overflow-x:auto}
 .flow-fig .diagram{margin:0}
+.puml-inline{display:block;margin:22px auto;max-width:100%;height:auto}
 .flow-art img{
   display:block;width:100%;height:auto;max-width:100%;margin:22px 0;
   border-radius:var(--radius);

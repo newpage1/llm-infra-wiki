@@ -29,7 +29,7 @@
 
 **[源码]** 设计文档 §2 的全景图（main 实现与此一致；"device memory"在 RFC 图中对应 NPU HBM）：
 
-![四个存储区域与它们之间的搬运关系](four-storage-regions.svg)
+![四个存储区域与它们之间的搬运关系](../../diagrams/vllm-ascend-offload-regions.svg)
 
 三个组件的分工 **[源码]**：
 
@@ -47,7 +47,7 @@
 
 **[源码]** 一次请求从进来到开始 decode 的完整路径。P/D 之间没有直接推送 KV——**P 只"暴露"，D 主动"拉"**（pull 模型，RD2H = Remote Device To local Host）：
 
-![一次请求从客户端到 D 可调度的端到端时序：Rendezvous 与逐层传输两个阶段](request-lifecycle.svg)
+![一次请求从客户端到 D 可调度的端到端时序：Rendezvous 与逐层传输两个阶段](../../diagrams/vllm-ascend-offload-lifecycle.svg)
 
 关键点 **[源码]**：
 
@@ -61,13 +61,13 @@
 
 为什么必须有：① 请求先到 D 但算 prefill 的是 P，两边要就"这个请求"对上号；② pull 模型下 D 必须先告诉 P"我在哪个 IP、哪个端口、什么拓扑，随时可以来发就绪通知"。
 
-![Rendezvous 会合阶段的三方握手](rendezvous-handshake.svg)
+![Rendezvous 会合阶段的三方握手](../../diagrams/vllm-ascend-offload-rendezvous.svg)
 
 最关键的设计：**D 的 block id 永远不出 D 节点**。`scheduler.py` 注释原文（翻译）：通过元服务器的 rendezvous 只带联系信息和 `do_remote_decode`；D 不把自己的 block id 发给 P——D 自己留着，等 P 的 READ_READY 到达时按 request_id 查回。（把 block id 发给 P 是 push 模型的遗留；pull 模式下 P 只需要 P 自己的源 block。）数据流向上，P 只发"源块地址"，D 收到后自己查"该落到我哪些块"，D 的内存布局对 P 完全透明。
 
 ### 2.2 为什么请求先到 D
 
-![三个阶段：rendezvous / prefill 传输 / decode](three-phases.svg)
+![三个阶段：rendezvous / prefill 传输 / decode](../../diagrams/vllm-ascend-offload-phases.svg)
 
 按重要性排四个理由 **[源码]**：
 
@@ -102,13 +102,13 @@ Round-robin 分配：第 `i` 个复用层落到 `slot = i % B`，即**第 i 层�
 
 **[源码]**（pool_worker `process_layer_data:2254` / `_submit_ready_layer_loads:2296` / `wait_for_layer_load:2325` / `save_kv_layer:2366`）：
 
-![一次 layer 的执行流水，以及 buffer 足够时的重叠回边](layer-pipeline.svg)
+![一次 layer 的执行流水，以及 buffer 足够时的重叠回边](../../diagrams/vllm-ascend-offload-layer-pipeline.svg)
 
 ### 3.3 复用不变式（正确性的核心）
 
 **[源码]** 一个物理 buffer 在其**上一个住户的所有消费者**完成之前不可覆盖。联合部署里这扇门有两道闩，由 `AscendMultiConnector` 组合：
 
-![slot 能不能被复用：两道串联的门闩](slot-reuse-gates.svg)
+![slot 能不能被复用：两道串联的门闩](../../diagrams/vllm-ascend-offload-reuse-gates.svg)
 
 **[源码]** main 上的实现：`AscendMultiConnector._configure_layerwise_reuse_completion`（`ascend_multi_connector.py:42`）识别出 `supports_layerwise_buffer_reuse=True` 且提供 `wait_for_layer_reuse` 的 connector（即 RD2H producer），把组合等待器经 `set_external_slot_release_waiter` 注入 AscendStore。完成按**物理 storage slot** 而非逻辑层名跟踪（main-KV slot 和 indexer slot 是分开的两个 gate，`_infer_layer_storage_slots`）。
 
@@ -137,7 +137,7 @@ Round-robin 分配：第 `i` 个复用层落到 `slot = i % B`，即**第 i 层�
 
 **[源码]**（`SparseKVOffloadManager.offload_new_kv:1077` / `onload_topk_kv:1215`，attention 侧 `sfa_kv_offload.py`）。请求就绪后，每个 decode step 走这 7 步：
 
-![一个 Decode Step 内的七个步骤](decode-step.svg)
+![一个 Decode Step 内的七个步骤](../../diagrams/vllm-ascend-offload-decode-step.svg)
 
 为什么划算 **[RFC]**：热 buffer 开 `2×topk` 时命中率 **80%–90%**（RFC #48203，DeepSeek-V3.2 实测）；GLM-5.2 场景 NPU main KV 可压到约 **1/16**，等价 16× 更长 max_model_len 或 16× batch（RFC 估计值）。RFC #33980 提出的 top-k 预取（相邻步相似度 >80%，FreeKV）在 main 上落地为 `prepare_fused_overlap_external_plan` + `csrc/attention/fused_sparse_attention_overlap` 算子；LRU compact 移入 `csrc/torch_binding.cpp:2191+` 的 `sparse_kv_lru_resident_compact*` ops。**[差异]** RFC #33980 原设计"新 KV 先写 GPU 常规块再整块 offload"；main 更激进：**decode 路径根本没有 NPU main cache**，新 K/V 直接 D2H。
 
@@ -195,7 +195,7 @@ host 池实际大小      ≈ final_num_blocks × host每块字节数
 
 ## 5. 把三张图拼起来：一次完整请求的全流程
 
-![端到端全流程：从请求到达 Proxy 到生成结束](end-to-end.svg)
+![端到端全流程：从请求到达 Proxy 到生成结束](../../diagrams/vllm-ascend-offload-end-to-end.svg)
 
 ---
 

@@ -1,0 +1,56 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 14
+skinparam ranksep 30
+skinparam arrowColor #8A7A67
+skinparam activity {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  FontColor #2B241B
+  FontSize 13
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #C9B9A2
+}
+skinparam noteBackgroundColor #FEFFDD
+skinparam noteBorderColor #C9B9A2
+
+title 端到端全流程：P 逐层 prefill → D 每 step decode
+
+start
+
+partition "阶段 ① rendezvous（D 端）" {
+  :请求到达 Proxy;
+  :D：rendezvous\n分配 ③ host 池 + ④ indexer 块，\n广播 endpoint 给 Proxy / P;
+  :Proxy 把请求转发给 P;
+}
+
+partition "阶段 ② P 逐层 prefill（P 在全部层 save 完后退场）" {
+  :P：layerwise prefill\n少量物理 buffer 逐层算;
+  repeat
+    :P：每层 AscendStore save ①\n+ 发 RD2H READ_READY;
+    :D：收到 READ_READY 拉取该层\n→ 回 READ_DONE;
+    if (**门闩**：save 完成\n∧ 全 contributor 读完？) then (是)
+      :门闩通过 —— 该层 slot 可复用; <<#FFE9E9>>
+    else (否)
+      :等待两道闩都过;
+    endif
+  repeat while (还有层?) is (有：回到逐层 prefill) not (无)
+  :P：全部层 save 完 → **P 退场**;
+}
+
+partition "阶段 ③ D 每 step decode（P 已退场）" {
+  :D：请求可调度;
+  repeat
+    :D：每 step ①~⑦\n新 KV D2H / top-k miss H2D\n/ 热 buffer 上的 sparse attn; <<#EAF3FF>>
+    note right
+      **门闩**与**每 step 七步**
+      是这张图的两个重点
+    end note
+  repeat while (继续生成?) is (是，下一步) not (否)
+  :请求结束\nKV 转成 CPU 前缀缓存;
+}
+
+stop
+@enduml

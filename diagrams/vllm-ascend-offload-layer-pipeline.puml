@@ -1,0 +1,52 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 14
+skinparam ranksep 30
+skinparam arrowColor #8A7A67
+skinparam activity {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  FontColor #2B241B
+  FontSize 13
+  DiamondBackgroundColor #FFF6E5
+  DiamondBorderColor #C9B9A2
+}
+skinparam activity<<blocking>> {
+  BackgroundColor #FFE9E9
+  BorderColor #C0392B
+  FontColor #2B241B
+}
+skinparam noteBackgroundColor #FEFFDD
+skinparam noteBorderColor #C9B9A2
+
+title layer i 的执行流水：5 步 + 重叠回边
+
+start
+:layer i 进入前;
+
+:1. 需要则从 Memcache load 前缀层\n（wait_for_layer_load）;
+
+:2. 等目标物理 buffer 安全可覆盖\n（复用不变式，见 3.3）; <<blocking>>
+note right
+  **唯一的阻塞点**——
+  上一个住户的两道门闩
+  都过了才放行（下一张图）
+end note
+
+repeat
+  :3. attention 计算 + KV 写入 buffer;
+  :4. save_kv_layer：异步 save 到 Host\n+ 发布 RD2H 就绪（见第 2 节）;
+  :5. prefetch 更后面的层\n（layerwise_prefetch_layers\n默认 min(B,8)）;
+repeat while (还有更后面的层?) is (有：buffer ≥ 2 时\n传输与计算重叠，回到第 3 步) not (无)
+
+:该层结束;
+note right
+  回边画到第 3 步，是为突出
+  「预取」与「计算」的重叠窗口；
+  下一层实际仍从第 1 步开始
+end note
+
+stop
+@enduml

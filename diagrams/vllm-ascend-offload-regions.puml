@@ -1,0 +1,38 @@
+@startuml
+skinparam shadowing false
+skinparam defaultFontName "IBM Plex Sans"
+skinparam backgroundColor #FFFDF8
+skinparam nodesep 14
+skinparam ranksep 30
+skinparam arrowColor #8A7A67
+skinparam component {
+  BackgroundColor #FFFDF8
+  BorderColor #C9B9A2
+  FontColor #2B241B
+  FontSize 13
+}
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #C9B9A2
+  FontColor #2B241B
+  FontSize 13
+}
+
+title 四个存储区域与它们之间的搬运关系
+
+rectangle "Prefill 节点 · P" {
+  [① Prefill Host KV pool\n(Memcache 后端)\n完整 KV，按层换入换出] as R1
+  [② Prefill NPU\n少量可复用的整层 buffer\n(I + min(B, R) 个)] as R2
+}
+
+rectangle "Decode 节点 · D" {
+  [③ Decode Host\n完整 main KV (pinned pool)\n由 SparseKVOffloadManager 拥有] as R3
+  [④ Decode NPU\nindexer cache (完整)\n+ 每层 top-k 热 buffer] as R4
+}
+
+R1 <--> R2 : "layerwise save/load\n整层 · AscendStore"
+R2 --> R3 : "Remote D2H pull：main KV\n整层/块范围 · MemFabric"
+R2 --> R4 : "Remote pull：indexer / LIC8 scale\n块范围"
+R4 --> R3 : "新 token K/V 写回\ntoken 行 · D2H"
+R3 --> R4 : "top-k miss 回迁\ntoken 行 · H2D"
+@enduml

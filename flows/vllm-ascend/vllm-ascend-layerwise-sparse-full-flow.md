@@ -63,51 +63,7 @@ flowchart LR
 
 **[源码]** 一次请求从进来到开始 decode 的完整路径。P/D 之间没有直接推送 KV——**P 只"暴露"，D 主动"拉"**（pull 模型，RD2H = Remote Device To local Host）：
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant Cli as 客户端
-    participant Prx as P/D Proxy<br/>(load_balance_proxy_layerwise_server)
-    participant DS as D Scheduler<br/>(SfaRemoteD2HConnector consumer)
-    participant DW as D Worker<br/>(read_thread)
-    participant PS as P Scheduler<br/>(SfaRemoteD2HConnector producer)
-    participant PW as P Worker<br/>(forward + send_thread)
-
-    Cli->>Prx: 请求
-    Prx->>DS: 路由到 D（do_remote_prefill=true）
-
-    rect rgb(230,240,255)
-    Note over DS,DW: Rendezvous（会合阶段，见 2.1）
-    DS->>DS: 剩余 prompt 报告为异步匹配<br/>vLLM 分配 main host pool 块 + indexer NPU 块
-    Note over DS: D 的 block id 永远不出 D 节点
-    DS->>Prx: 广播自己的 endpoint / 端口 / TP 拓扑 / 已缓存 token 数
-    DS->>DS: 清除 do_remote_prefill
-    end
-
-    Prx->>PS: 转发到 P（do_remote_decode=true）
-    PS->>PS: 记录 P 侧 source block id、D endpoint、已传 token 数
-
-    rect rgb(255,245,225)
-    Note over PS,DW: 逐层计算 + 逐层传输（P 每算完一层就发一层）
-    loop 每个 layer i
-        PW->>PW: wait_for_layer_load(i)：从 ① Memcache 加载前缀层<br/>（需先等 buffer 安全可覆盖）
-        PW->>PW: attention 计算，KV 写入共享物理 buffer
-        PW->>PW: scatter 完成 → save_kv_layer(i)
-        par 双路并行
-            PW->>Prx: AscendStore 异步 save 到 ①（Memcache）
-        and
-            PW->>DW: send_thread 发 READ_READY_BATCH(layer_idx, 块id, 偏移)
-        end
-        DW->>DW: 校验 main/indexer/LIC8 尺寸与目标块范围<br/>（不匹配则整层失败，不残留半份数据）
-        DW->>DW: MemFabric 批量读：<br/>main KV → ③ D host pool；indexer → ④ D NPU
-        DW-->>PW: READ_DONE(i) 或 READ_FAILED(i)
-        PW->>PW: 该物理 slot 的 storage_send_done_events 置位<br/>（等所有 TP contributor + Memcache save 都完成才可复用）
-    end
-    end
-
-    DS->>DS: 全部层 + 所有 rank 到达终态<br/>→ 请求才可被调度进 decode
-    Note over DS: 物理buffer完成 ≠ 请求完成：<br/>前者保护 P 内存复用，后者控制 D 何时开始推理
-```
+![一次请求从客户端到 D 可调度的端到端时序：Rendezvous 与逐层传输两个阶段](request-lifecycle.svg)
 
 关键点 **[源码]**：
 
@@ -186,31 +142,13 @@ Round-robin 分配：第 `i` 个复用层落到 `slot = i % B`，即**第 i 层�
 
 **[源码]**（pool_worker `process_layer_data:2254` / `_submit_ready_layer_loads:2296` / `wait_for_layer_load:2325` / `save_kv_layer:2366`）：
 
-```mermaid
-flowchart TD
-    A["layer i 进入前"] --> B["1. 需要则从 Memcache load 前缀层<br/>（wait_for_layer_load）"]
-    B --> C["2. 等目标物理 buffer 安全可覆盖<br/>（复用不变式，见 3.3）"]
-    C --> D["3. attention 计算 + KV 写入 buffer"]
-    D --> E["4. save_kv_layer：save 到 Host（异步）<br/>+ 发布 RD2H 就绪（见第 2 节）"]
-    E --> F["5. prefetch 更后面的层<br/>（layerwise_prefetch_layers，默认 min(B,8)）"]
-    F -->|"buffer ≥ 2 时<br/>传输与计算重叠"| D
-
-    style C stroke:#c33,stroke-width:2px
-```
+![一次 layer 的执行流水，以及 buffer 足够时的重叠回边](layer-pipeline.svg)
 
 ### 3.3 复用不变式（正确性的核心）
 
 **[源码]** 一个物理 buffer 在其**上一个住户的所有消费者**完成之前不可覆盖。联合部署里这扇门有两道闩，由 `AscendMultiConnector` 组合：
 
-```mermaid
-flowchart LR
-    S["物理 slot 想被 layer i 复用"] --> G1{"门闩 1<br/>Memcache save 完成？<br/>(AscendStore)"}
-    G1 -->|是| G2{"门闩 2<br/>所有 D contributor<br/>对该 slot READ_DONE？<br/>(SfaRemoteD2H)"}
-    G2 -->|是| OK["slot 可覆盖"]
-    G1 -->|否| W["等待"]
-    G2 -->|否| W
-    W -.-> G1
-```
+![slot 能不能被复用：两道串联的门闩](slot-reuse-gates.svg)
 
 **[源码]** main 上的实现：`AscendMultiConnector._configure_layerwise_reuse_completion`（`ascend_multi_connector.py:42`）识别出 `supports_layerwise_buffer_reuse=True` 且提供 `wait_for_layer_reuse` 的 connector（即 RD2H producer），把组合等待器经 `set_external_slot_release_waiter` 注入 AscendStore。完成按**物理 storage slot** 而非逻辑层名跟踪（main-KV slot 和 indexer slot 是分开的两个 gate，`_infer_layer_storage_slots`）。
 
@@ -239,19 +177,7 @@ flowchart LR
 
 **[源码]**（`SparseKVOffloadManager.offload_new_kv:1077` / `onload_topk_kv:1215`，attention 侧 `sfa_kv_offload.py`）。请求就绪后，每个 decode step 走这 7 步：
 
-```mermaid
-flowchart TD
-    subgraph STEP["每个 Decode Step"]
-    direction TB
-    S1["① pre-attn：qkv_proj / norm / rope<br/>算出新 token 的 K/V"]
-    S1 --> S2["② 新 K/V 不写 NPU 分页 main cache<br/>直接 D2H 写到 ③ host pool 的逻辑槽位<br/>（TP rank0 写共享 pool，GVA 广播给全 TP）"]
-    S2 --> S3["③ indexer 选出逻辑 top-k token 位置<br/>（indexer cache 常驻 NPU）"]
-    S3 --> S4["④ LRU 驻留表判定：<br/>hit → 已在热 buffer；miss → 分配物理热槽；<br/>热 buffer 满 → 按 LRU 选淘汰槽"]
-    S4 --> S5["⑤ 仅 miss 行从 host H2D 拷入热 buffer<br/>（搬运量 ∝ miss 数，而非序列长度）"]
-    S5 --> S6["⑥ 逻辑 top-k 位置 → 物理热槽位 重映射"]
-    S6 --> S7["⑦ 在热 buffer 上跑 sparse attention<br/>驻留元数据留给下一步复用"]
-    end
-```
+![一个 Decode Step 内的七个步骤](decode-step.svg)
 
 为什么划算 **[RFC]**：热 buffer 开 `2×topk` 时命中率 **80%–90%**（RFC #48203，DeepSeek-V3.2 实测）；GLM-5.2 场景 NPU main KV 可压到约 **1/16**，等价 16× 更长 max_model_len 或 16× batch（RFC 估计值）。RFC #33980 提出的 top-k 预取（相邻步相似度 >80%，FreeKV）在 main 上落地为 `prepare_fused_overlap_external_plan` + `csrc/attention/fused_sparse_attention_overlap` 算子；LRU compact 移入 `csrc/torch_binding.cpp:2191+` 的 `sparse_kv_lru_resident_compact*` ops。**[差异]** RFC #33980 原设计"新 KV 先写 GPU 常规块再整块 offload"；main 更激进：**decode 路径根本没有 NPU main cache**，新 K/V 直接 D2H。
 
@@ -309,22 +235,7 @@ host 池实际大小      ≈ final_num_blocks × host每块字节数
 
 ## 5. 把三张图拼起来：一次完整请求的全流程
 
-```mermaid
-flowchart TD
-    Req["请求到达 Proxy"] --> Rz["D: rendezvous<br/>分配 ③host 池 + ④indexer 块，广播 endpoint"]
-    Rz --> PD["Proxy 转发给 P"]
-    PD --> LP["P: layerwise prefill<br/>少量物理 buffer 逐层算"]
-    LP --> X1["每层: AscendStore save ①<br/>+ RD2H READ_READY→D 拉取→READ_DONE"]
-    X1 --> Gate["slot 双闰门：<br/>save 完成 ∧ 全 contributor 读完 → 复用"]
-    Gate -->|"还有层"| LP
-    Gate -->|"全部层终态"| Ready["D: 请求可调度"]
-    Ready --> Decode["D: 每 step ①~⑦<br/>新KV D2H / top-k miss H2D / sparse attn"]
-    Decode -->|"继续生成"| Decode
-    Decode --> Done["结束"]
-
-    style Gate stroke:#c33,stroke-width:2px
-    style Decode stroke:#36c,stroke-width:2px
-```
+![端到端全流程：从请求到达 Proxy 到生成结束](end-to-end.svg)
 
 ---
 

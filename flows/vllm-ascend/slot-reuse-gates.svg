@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" class="diagram" role="img"
+     aria-label="物理 slot 复用要串过两道门闩：Memcache save 完成与所有 D contributor READ_DONE，任一为否都进入等待并回到门闩 1">
+  <defs>
+    <marker id="srgAR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 z" fill="var(--line-2)"/>
+    </marker>
+    <marker id="srgARa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 z" fill="var(--l2)"/>
+    </marker>
+  </defs>
+
+  <text x="20" y="26" class="t-band" fill="var(--l4)">SLOT 复用双门闩 · 串联的与</text>
+  <text x="44" y="54" class="t-sub">AscendMultiConnector 把两道完成门组合成一道：任一为「否」都不能覆盖</text>
+
+  <rect x="44" y="196" width="176" height="68" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="60" y="222" class="t-title-sm">物理 slot</text>
+  <text x="60" y="244" class="t-mono">想被 layer i 复用</text>
+  <line x1="220" y1="230" x2="256" y2="230" class="t-line" marker-end="url(#srgAR)"/>
+
+  <!-- 门闩 1 -->
+  <polygon points="260,230 420,146 580,230 420,314" fill="var(--panel)" stroke="var(--l2)" stroke-width="2"/>
+  <text x="420" y="208" class="t-title-sm" text-anchor="middle">门闩 1</text>
+  <text x="420" y="230" class="t-mono" text-anchor="middle">Memcache save 完成？</text>
+  <text x="420" y="250" class="t-mono" text-anchor="middle" fill="var(--muted)">(AscendStore)</text>
+
+  <line x1="580" y1="230" x2="626" y2="230" class="t-line" marker-end="url(#srgAR)"/>
+  <text x="590" y="220" class="t-mono" fill="var(--l4)">是</text>
+
+  <!-- 门闩 2 -->
+  <polygon points="630,230 790,146 950,230 790,314" fill="var(--panel)" stroke="var(--l2)" stroke-width="2"/>
+  <text x="790" y="204" class="t-title-sm" text-anchor="middle">门闩 2</text>
+  <text x="790" y="222" class="t-mono" text-anchor="middle">所有 D contributor</text>
+  <text x="790" y="240" class="t-mono" text-anchor="middle">对该 slot READ_DONE？</text>
+  <text x="790" y="258" class="t-mono" text-anchor="middle" fill="var(--muted)">(SfaRemoteD2H)</text>
+
+  <line x1="950" y1="230" x2="986" y2="230" class="t-line" marker-end="url(#srgAR)"/>
+  <text x="960" y="220" class="t-mono" fill="var(--l4)">是</text>
+
+  <rect x="990" y="196" width="186" height="68" rx="7" fill="var(--l4)" fill-opacity=".07" stroke="var(--l4)"/>
+  <text x="1006" y="222" class="t-title-sm">slot 可覆盖</text>
+  <text x="1006" y="244" class="t-mono">进入 layer i 的计算</text>
+
+  <!-- 失败出口汇合 -->
+  <path d="M420,314 L420,404 L790,404" fill="none" stroke="var(--line-2)"/>
+  <path d="M790,314 L790,404" fill="none" stroke="var(--line-2)"/>
+  <text x="428" y="350" class="t-mono" fill="var(--muted)">否</text>
+  <text x="798" y="350" class="t-mono" fill="var(--muted)">否</text>
+  <line x1="605" y1="404" x2="605" y2="436" class="t-line" marker-end="url(#srgAR)"/>
+
+  <rect x="485" y="440" width="240" height="68" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="501" y="466" class="t-title-sm">等待</text>
+  <text x="501" y="488" class="t-mono">未满足：这块 slot 不许覆盖</text>
+
+  <!-- 回流：等待 → 门闩 1 -->
+  <path d="M485,474 L32,474 L32,96 L420,96 L420,140" fill="none" stroke="var(--l2)" stroke-dasharray="6 5" marker-end="url(#srgARa)"/>
+  <text x="300" y="466" class="t-mono" fill="var(--l2)">任一为否 → 等待 → 重新查门闩 1</text>
+  <text x="200" y="88" class="t-mono" fill="var(--l2)">回流：门闩 1 是唯一的重查入口</text>
+
+  <line x1="44" y1="528" x2="1156" y2="528" stroke="var(--line)"/>
+  <text x="44" y="552" class="t-mono">两道闩是串联的：门闩 1 不过就没有门闩 2 的事；门闩 2 不过，门闩 1 的完成也算白等。</text>
+  <text x="44" y="576" class="t-mono">完成按物理 storage slot 跟踪（_infer_layer_storage_slots），main-KV slot 与 indexer slot 各有一道门。</text>
+  <text x="44" y="600" class="t-mono" fill="var(--muted)">实现：_configure_layerwise_reuse_completion:42 把 RD2H 的 wait_for_layer_reuse 经 set_external_slot_release_waiter 注入 AscendStore。</text>
+</svg>

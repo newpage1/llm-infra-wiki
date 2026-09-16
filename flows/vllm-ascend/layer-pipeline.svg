@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 640" class="diagram" role="img"
+     aria-label="layer i 进入前的 5 个步骤首尾相接，第 5 步 prefetch 有一条回到第 3 步的回边表示传输与计算重叠，第 2 步等 buffer 安全可覆盖是阻塞点">
+  <defs>
+    <marker id="lpAR" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 z" fill="var(--line-2)"/>
+    </marker>
+    <marker id="lpARa" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 z" fill="var(--l2)"/>
+    </marker>
+  </defs>
+
+  <text x="20" y="26" class="t-band" fill="var(--l2)">LAYER PIPELINE · 每层 5 步 + 一条回边</text>
+  <text x="44" y="52" class="t-sub">P 端 pool_worker 的一次层循环：第 5 步的回边让第 i 层的搬运与第 i+1 层的计算同时在飞</text>
+
+  <!-- 1 -->
+  <rect x="44" y="84" width="640" height="64" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="64" y="108" class="t-title-sm">1 · 需要则 load 前缀层</text>
+  <text x="64" y="130" class="t-mono">wait_for_layer_load：从 ① Memcache 把该层的前缀 KV 换进这块 buffer</text>
+  <line x1="364" y1="148" x2="364" y2="174" class="t-line" marker-end="url(#lpAR)"/>
+
+  <!-- 2 强调：唯一阻塞点 -->
+  <rect x="44" y="176" width="640" height="64" rx="7" fill="var(--l1)" fill-opacity=".06" stroke="var(--l1)" stroke-width="2"/>
+  <text x="64" y="200" class="t-title-sm">2 · 等目标物理 buffer 安全可覆盖</text>
+  <text x="64" y="222" class="t-mono">复用不变式（见 3.3）：上一个住户的所有消费者完成前，这块 buffer 不可覆盖</text>
+  <text x="700" y="200" class="t-mono" fill="var(--l1)">正确性边界：这一步是唯一的阻塞点</text>
+  <text x="700" y="220" class="t-mono" fill="var(--l1)">被复用 buffer 的前一住户必须全部读完，</text>
+  <text x="700" y="240" class="t-mono" fill="var(--l1)">两道门闩都通过才放行（见第 3.3 节的图）</text>
+  <line x1="364" y1="240" x2="364" y2="266" class="t-line" marker-end="url(#lpAR)"/>
+
+  <!-- 3 -->
+  <rect x="44" y="268" width="640" height="64" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="64" y="292" class="t-title-sm">3 · attention 计算 + KV 写入 buffer</text>
+  <text x="64" y="314" class="t-mono">在该层的物理 buffer 上算 attention，KV 直接 scatter 进这块 buffer</text>
+  <line x1="364" y1="332" x2="364" y2="358" class="t-line" marker-end="url(#lpAR)"/>
+
+  <!-- 4 -->
+  <rect x="44" y="360" width="640" height="64" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="64" y="384" class="t-title-sm">4 · save_kv_layer：save 到 Host（异步）+ 发布 RD2H 就绪</text>
+  <text x="64" y="406" class="t-mono">AscendStore 异步 save 到 ①；send_thread 发 READ_READY_BATCH(layer_idx, 块 id, 偏移)</text>
+  <line x1="364" y1="424" x2="364" y2="450" class="t-line" marker-end="url(#lpAR)"/>
+
+  <!-- 5 -->
+  <rect x="44" y="452" width="640" height="64" rx="7" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="64" y="476" class="t-title-sm">5 · prefetch 更后面的层</text>
+  <text x="64" y="498" class="t-mono">layerwise_prefetch_layers，默认 min(B, 8)；提前把后面的 load 排进队列</text>
+
+  <!-- 回边：5 → 3 -->
+  <path d="M684,484 L1010,484 L1010,300 L690,300" fill="none" stroke="var(--l2)" marker-end="url(#lpARa)"/>
+  <text x="1026" y="352" class="t-mono" fill="var(--l2)">回边：回到第 3 步</text>
+  <text x="1026" y="372" class="t-mono">buffer ≥ 2 时</text>
+  <text x="1026" y="392" class="t-mono">传输与计算重叠</text>
+
+  <line x1="44" y1="536" x2="684" y2="536" stroke="var(--line)"/>
+  <text x="44" y="560" class="t-mono">主链 5 步首尾相接；回边（琥珀色）不是重试，而是层间流水——它跨过第 4 步直接回到第 3 步。</text>
+  <text x="44" y="584" class="t-mono">第 4 步的两路是并行的：AscendStore 异步 save 不等 D 读完，send_thread 只发就绪通知。</text>
+  <text x="44" y="608" class="t-mono" fill="var(--muted)">B = 1 时没有回边可走：load → 算 → save 完全串行，搬运延迟全暴露；B ≥ 2 才买得到重叠窗口。</text>
+</svg>

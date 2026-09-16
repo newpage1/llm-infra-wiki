@@ -77,19 +77,7 @@ flowchart LR
 
 为什么必须有：① 请求先到 D 但算 prefill 的是 P，两边要就"这个请求"对上号；② pull 模型下 D 必须先告诉 P"我在哪个 IP、哪个端口、什么拓扑，随时可以来发就绪通知"。
 
-```mermaid
-sequenceDiagram
-    participant D as D Scheduler
-    participant Meta as Proxy 元服务器
-    participant P as P Scheduler
-
-    D->>D: ① 剩余 prompt 报告为异步匹配<br/>vLLM 分配 main 块（host池）+ indexer 块（NPU）
-    D->>D: ② 把这些 block id 记在本地<br/>（_request_trackers[req_id]）
-    D->>Meta: ③ 广播"联系方式"：<br/>request_id、do_remote_decode=true、<br/>host、port、TP/PCP/DCP size、已缓存 token 数
-    D->>D: ④ 清掉 do_remote_prefill 标记
-    Meta->>P: 转发请求 + D 的联系方式
-    Note over P: 之后 P 才能发 MF_META（源地址）<br/>和逐层 READ_READY
-```
+![Rendezvous 会合阶段的三方握手](rendezvous-handshake.svg)
 
 最关键的设计：**D 的 block id 永远不出 D 节点**。`scheduler.py` 注释原文（翻译）：通过元服务器的 rendezvous 只带联系信息和 `do_remote_decode`；D 不把自己的 block id 发给 P——D 自己留着，等 P 的 READ_READY 到达时按 request_id 查回。（把 block id 发给 P 是 push 模型的遗留；pull 模式下 P 只需要 P 自己的源 block。）数据流向上，P 只发"源块地址"，D 收到后自己查"该落到我哪些块"，D 的内存布局对 P 完全透明。
 

@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 690" class="diagram" role="img"
+     aria-label="Rendezvous 会合阶段的竖向泳道图：D Scheduler 分配落点并把联系方式广播给 Proxy 元服务器，元服务器再转发给 P Scheduler，全程 D 的 block id 不出 D 节点">
+  <defs>
+    <marker id="rva" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0,1 L9,5 L0,9 z" fill="var(--line-2)"/>
+    </marker>
+  </defs>
+
+  <text x="20" y="26" class="t-band" fill="var(--l4)">RENDEZVOUS · 会合阶段</text>
+  <text x="1180" y="26" class="t-mono" text-anchor="end" style="fill:var(--muted)"><tspan font-weight="600">[源码]</tspan> scheduler.py:302-345（D 侧 update_state_after_alloc）</text>
+
+  <!-- 泳道表头 -->
+  <rect x="80" y="52" width="240" height="88" rx="8" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="200" y="78" class="t-title-sm" text-anchor="middle">D Scheduler</text>
+  <text x="200" y="102" class="t-mono" text-anchor="middle" style="fill:var(--muted)">scheduler.py:302-345</text>
+  <text x="200" y="119" class="t-mono" text-anchor="middle" style="fill:var(--muted)">update_state_after_alloc</text>
+  <rect x="480" y="52" width="240" height="88" rx="8" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="600" y="78" class="t-title-sm" text-anchor="middle">Proxy 元服务器</text>
+  <text x="600" y="102" class="t-mono" text-anchor="middle" style="fill:var(--muted)">rendezvous 只带联系信息</text>
+  <text x="600" y="119" class="t-mono" text-anchor="middle" style="fill:var(--muted)">不持有 block id</text>
+  <rect x="880" y="52" width="240" height="88" rx="8" fill="var(--panel)" stroke="var(--line)"/>
+  <text x="1000" y="78" class="t-title-sm" text-anchor="middle">P Scheduler</text>
+  <text x="1000" y="102" class="t-mono" text-anchor="middle" style="fill:var(--muted)">SfaRemoteD2HConnector</text>
+  <text x="1000" y="119" class="t-mono" text-anchor="middle" style="fill:var(--muted)">producer</text>
+
+  <!-- 生命线 -->
+  <line x1="200" y1="140" x2="200" y2="506" class="t-line" stroke-dasharray="2 5" opacity=".65"/>
+  <line x1="600" y1="140" x2="600" y2="506" class="t-line" stroke-dasharray="2 5" opacity=".65"/>
+  <line x1="1000" y1="140" x2="1000" y2="506" class="t-line" stroke-dasharray="2 5" opacity=".65"/>
+
+  <!-- ① -->
+  <rect x="80" y="176" width="240" height="62" rx="7" fill="var(--panel)" stroke="var(--line-2)"/>
+  <rect x="80" y="176" width="3" height="62" fill="var(--l3)"/>
+  <text x="92" y="192" class="t-mono" style="fill:var(--ink-2)"><tspan class="t-mono-c">① </tspan>剩余 prompt 报告为异步匹配</text>
+  <text x="92" y="208" class="t-mono" style="fill:var(--ink-2)">vLLM 分配 main 块（host 池）</text>
+  <text x="92" y="224" class="t-mono" style="fill:var(--ink-2)">+ indexer 块（NPU）</text>
+
+  <!-- ② -->
+  <rect x="80" y="250" width="240" height="46" rx="7" fill="var(--panel)" stroke="var(--line-2)"/>
+  <rect x="80" y="250" width="3" height="46" fill="var(--l3)"/>
+  <text x="92" y="266" class="t-mono" style="fill:var(--ink-2)"><tspan class="t-mono-c">② </tspan>把这些 block id 记在本地</text>
+  <text x="92" y="282" class="t-mono" style="fill:var(--ink-2)">_request_trackers[req_id]</text>
+
+  <!-- ③ -->
+  <text x="400" y="323" class="t-mono" text-anchor="middle" style="fill:var(--ink-2)"><tspan class="t-mono-c">③ </tspan>广播联系方式：request_id、do_remote_decode=true、</text>
+  <text x="400" y="339" class="t-mono" text-anchor="middle" style="fill:var(--ink-2)">host、port、TP/PCP/DCP size、已缓存 token 数</text>
+  <line x1="206" y1="344" x2="593" y2="344" class="t-line" marker-end="url(#rva)"/>
+
+  <!-- ④ -->
+  <rect x="80" y="360" width="240" height="30" rx="7" fill="var(--panel)" stroke="var(--line-2)"/>
+  <rect x="80" y="360" width="3" height="30" fill="var(--l3)"/>
+  <text x="92" y="380" class="t-mono" style="fill:var(--ink-2)"><tspan class="t-mono-c">④ </tspan>清掉 do_remote_prefill 标记</text>
+
+  <!-- ⑤ -->
+  <text x="800" y="417" class="t-mono" text-anchor="middle" style="fill:var(--ink-2)"><tspan class="t-mono-c">⑤ </tspan>转发请求 + D 的联系方式</text>
+  <line x1="606" y1="422" x2="993" y2="422" class="t-line" marker-end="url(#rva)"/>
+
+  <!-- Note over P -->
+  <rect x="870" y="438" width="260" height="46" rx="7" fill="var(--wash)" stroke="var(--line)"/>
+  <text x="882" y="454" class="t-mono" style="fill:var(--muted)">原图 Note：之后 P 才能发</text>
+  <text x="882" y="470" class="t-mono" style="fill:var(--muted)">MF_META（源地址）和逐层 READ_READY</text>
+
+  <!-- 最关键的设计 -->
+  <rect x="20" y="530" width="1160" height="146" rx="10" fill="var(--l1)" fill-opacity=".045" stroke="var(--line)"/>
+  <rect x="20" y="530" width="3" height="146" fill="var(--l1)"/>
+  <text x="44" y="556" class="t-band" fill="var(--l1)">最关键的设计 · D 的 block id 永远不出 D 节点</text>
+  <text x="44" y="584" class="t-mono">元服务器只带联系信息和 do_remote_decode：D 不把自己的 block id 发给 P</text>
+  <text x="44" y="604" class="t-mono">D 自己留着 block id，等 P 的 READ_READY 到达时按 request_id 查回；P 只发自己的源块地址</text>
+  <text x="44" y="624" class="t-mono">数据流向上 D 完全透明：D 的内存布局对 P 不可见（把 block id 发给 P 是 push 模型的遗留）</text>
+  <text x="44" y="650" class="t-mono" style="fill:var(--muted)">pull 模型的前提：先有目的地（D 已分好落点），再发布源（P 的源块地址）；这也是请求必须先到 D 的原因</text>
+</svg>

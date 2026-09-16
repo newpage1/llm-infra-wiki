@@ -6,7 +6,7 @@
     </marker>
   </defs>
   <text x="20" y="26" class="t-band" fill="var(--l2)">端到端请求生命周期 · 一次请求从进来到开始 decode</text>
-  <text x="320" y="26" class="t-mono" style="fill:var(--muted)">实线箭头 = 消息 ｜ 虚线箭头 = 应答 ｜ 圆角方框 = 泳道内部动作 ｜ 浅色横带 = 原图的 rect 阶段</text>
+  <text x="400" y="26" class="t-mono" style="fill:var(--muted)">实线 = 消息 ｜ 虚线 = 应答 ｜ 方框 = 泳道内部动作 ｜ 浅色横带 = 原图的 rect 阶段</text>
   <text x="1180" y="26" class="t-mono" text-anchor="end" style="fill:var(--muted)"><tspan font-weight="600">[源码]</tspan> vllm_ascend main 4c5ee332</text>
   <rect x="25" y="52" width="184" height="88" rx="8" fill="var(--panel)" stroke="var(--line)"/>
   <text x="117" y="78" class="t-title-sm" text-anchor="middle">客户端</text>
@@ -29,12 +29,12 @@
   <rect x="991" y="52" width="184" height="88" rx="8" fill="var(--panel)" stroke="var(--line)"/>
   <text x="1083" y="78" class="t-title-sm" text-anchor="middle">P Worker</text>
   <text x="1083" y="102" class="t-mono" text-anchor="middle" style="fill:var(--muted)">forward + send_thread</text>
-  <line x1="117" y1="140" x2="117" y2="1777" class="t-line" stroke-dasharray="2 5" opacity=".5"/>
-  <line x1="310" y1="140" x2="310" y2="1777" class="t-line" stroke-dasharray="2 5" opacity=".5"/>
-  <line x1="503" y1="140" x2="503" y2="1777" class="t-line" stroke-dasharray="2 5" opacity=".5"/>
-  <line x1="697" y1="140" x2="697" y2="1777" class="t-line" stroke-dasharray="2 5" opacity=".5"/>
-  <line x1="890" y1="140" x2="890" y2="1777" class="t-line" stroke-dasharray="2 5" opacity=".5"/>
-  <line x1="1083" y1="140" x2="1083" y2="1777" class="t-line" stroke-dasharray="2 5" opacity=".5"/>
+  <line x1="117" y1="140" x2="117" y2="1777" class="t-line" stroke-dasharray="2 5" opacity=".65"/>
+  <line x1="310" y1="140" x2="310" y2="1777" class="t-line" stroke-dasharray="2 5" opacity=".65"/>
+  <line x1="503" y1="140" x2="503" y2="1777" class="t-line" stroke-dasharray="2 5" opacity=".65"/>
+  <line x1="697" y1="140" x2="697" y2="1777" class="t-line" stroke-dasharray="2 5" opacity=".65"/>
+  <line x1="890" y1="140" x2="890" y2="1777" class="t-line" stroke-dasharray="2 5" opacity=".65"/>
+  <line x1="1083" y1="140" x2="1083" y2="1777" class="t-line" stroke-dasharray="2 5" opacity=".65"/>
   <rect x="20" y="150" width="1160" height="398" rx="10" fill="var(--l4)" fill-opacity=".05" stroke="var(--line)"/>
   <rect x="20" y="150" width="3" height="398" fill="var(--l4)"/>
   <text x="38" y="176" class="t-band" fill="var(--l4)">RENDEZVOUS · 会合阶段（见 2.1）</text>

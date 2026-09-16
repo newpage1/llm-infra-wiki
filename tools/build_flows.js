@@ -75,6 +75,10 @@ function gitOrigin(rel) {
   const added = git(['log', '--diff-filter=A', '-1', '--format=%an%x09%cs', '--', repoRel]);
   if (added) { const [a, d] = added.split('\t'); out.author = a || ''; out.date = d || ''; }
   if (!out.date) out.date = git(['log', '-1', '--format=%cs', '--', repoRel]);
+  // 文件还没提交（本地刚写下、或 CI 上还没进历史）时，作者与日期都问不出来。
+  // 日期退回 mtime；作者退回本地 git 身份——否则清单里会是一串空作者，
+  // 而 CI 上文件一旦提交，`--diff-filter=A` 就找得到真正的作者了。
+  if (!out.author) out.author = git(['config', 'user.name']);
   if (!out.date) {
     out.date = fs.statSync(path.join(DIR, rel)).mtime.toISOString().slice(0, 10);
   }
@@ -110,7 +114,10 @@ function deriveSummary(body) {
     if (inFence) continue;
     if (!line) continue;
     if (/^#{1,6}\s/.test(line)) continue;          // 标题
-    if (/^[>|\-*+]/.test(line)) continue;          // 引用 / 表格 / 列表
+    if (/^[>|]/.test(line)) continue;              // 引用 / 表格
+    // 列表项要求标记后跟空格——否则 `**加粗开头的段落**` 会被当成无序列表，
+    // 摘要就会跳过它去挑下一句（实际踩过：挑中的是「做法是…：」这种引导语）
+    if (/^[-*+]\s/.test(line)) continue;
     if (/^\d+[.)]\s/.test(line)) continue;         // 有序列表
     if (/^<!--/.test(line)) continue;              // 注释
     if (/^!\[/.test(line)) continue;               // 光是一张图
@@ -132,12 +139,14 @@ function extract(slug, text, origin) {
     return Array.isArray(v) ? v.length > 0 : !!(v && String(v).trim());
   };
   const derived = [];
+  const fromFm = Object.keys(data);        // 写进 front-matter 的字段，校验只看这些
   const pick = (k, fn) => {
     if (have(k)) return data[k];
     derived.push(k);
     return fn();
   };
   return {
+    fromFm,
     data: {
       title: pick('title', () => deriveTitle(body, slug)),
       author: pick('author', () => origin.author),
@@ -180,15 +189,18 @@ function collect() {
 
     const text = fs.readFileSync(path.join(DIR, rel), 'utf8');
     const origin = gitOrigin(rel);
-    const { data, derived: got } = extract(slug, text, origin);
+    const { data, derived: got, fromFm } = extract(slug, text, origin);
 
-    // 只校验**写了的**字段：没写会自己去捞，不是错误
+    // 只校验**front-matter 里写了的**字段：没写的会自己去捞，捞不出来也不是错误
+    // （新文件还没提交时作者与日期问不出来，那是正常状态，不是格式问题）
     const bad = [];
     if (data.date && !/^\d{4}-\d{2}-\d{2}$/.test(String(data.date))) {
       bad.push(`date 要写 YYYY-MM-DD，现在是「${data.date}」`);
     }
     for (const k of VALIDATED) {
-      if (data[k] !== undefined && !String(data[k]).trim()) bad.push(`${k} 是空的，删掉这行或填上`);
+      if (fromFm.includes(k) && !String(data[k] == null ? '' : data[k]).trim()) {
+        bad.push(`front-matter 里的 ${k} 是空的，删掉这行或填上`);
+      }
     }
     if (bad.length) { problems.push(`${rel}：${bad.join('；')}`); continue; }
     if (got.length) derived.push(`${rel}（捞了 ${got.join('、')}）`);

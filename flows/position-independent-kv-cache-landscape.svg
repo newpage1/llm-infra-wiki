@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="820" viewBox="0 0 1400 820" role="img" aria-labelledby="title desc">
+  <title id="title">位置无关 KV cache 真正消除了哪一层依赖</title>
+  <desc id="desc">比较 exact prefix、模块 schema、仅 re-RoPE、re-RoPE 加选择性重算四种 KV cache 复用路线，突出位置校正和上下文修复的区别。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#35506b"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#b8423d"/>
+    </marker>
+    <style>
+      .title { font: 700 30px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #17324d; }
+      .subtitle { font: 400 16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #4c6378; }
+      .coltitle { font: 700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #17324d; }
+      .label { font: 600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #233f57; }
+      .body { font: 400 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #365068; }
+      .small { font: 400 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #4c6378; }
+      .evidence { font: 600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .panel { fill: #f8fbfd; stroke: #9fb5c7; stroke-width: 1.5; rx: 12; }
+      .node { fill: #eaf2f8; stroke: #7395af; stroke-width: 1.5; rx: 9; }
+      .good { fill: #e8f5ec; stroke: #5e9b70; stroke-width: 1.5; rx: 9; }
+      .warn { fill: #fff5df; stroke: #c5943e; stroke-width: 1.5; rx: 9; }
+      .bad { fill: #fdebea; stroke: #c76059; stroke-width: 1.5; rx: 9; }
+      .flow { fill: none; stroke: #35506b; stroke-width: 2; marker-end: url(#arrow); }
+      .risk { fill: none; stroke: #b8423d; stroke-width: 2; stroke-dasharray: 7 5; marker-end: url(#arrowRed); }
+      .divider { stroke: #d4e0e8; stroke-width: 1; }
+    </style>
+  </defs>
+
+  <rect width="1400" height="820" fill="#ffffff"/>
+  <text class="title" x="60" y="52">位置无关 KV cache 真正消除了哪一层依赖？</text>
+  <text class="subtitle" x="60" y="82">从左到右复用自由度上升；显式位置可校正，但前序上下文变化仍需修复</text>
+
+  <rect class="panel" x="45" y="115" width="310" height="620"/>
+  <rect class="panel" x="380" y="115" width="310" height="620"/>
+  <rect class="panel" x="715" y="115" width="310" height="620"/>
+  <rect class="panel" x="1050" y="115" width="310" height="620"/>
+
+  <text class="coltitle" x="200" y="150" text-anchor="middle">Exact Prefix</text>
+  <text class="small" x="200" y="174" text-anchor="middle">vLLM APC / RadixAttention</text>
+  <rect class="node" x="75" y="205" width="250" height="68"/>
+  <text class="label" x="200" y="232" text-anchor="middle">完整前缀 hash-chain</text>
+  <text class="body" x="200" y="255" text-anchor="middle">父 block + 当前 tokens</text>
+  <path class="flow" d="M200 273 V320"/>
+  <text class="small" x="214" y="302">相同 causal history</text>
+  <rect class="good" x="75" y="320" width="250" height="78"/>
+  <text class="label" x="200" y="349" text-anchor="middle">直接复用 KV</text>
+  <text class="body" x="200" y="373" text-anchor="middle">无 re-RoPE、无重算</text>
+  <line class="divider" x1="75" y1="438" x2="325" y2="438"/>
+  <text class="label" x="85" y="470">消除：</text>
+  <text class="body" x="142" y="470">重复 prefill</text>
+  <text class="label" x="85" y="500">保留：</text>
+  <text class="body" x="142" y="500">必须是连续相同前缀</text>
+  <rect class="good" x="75" y="552" width="250" height="72"/>
+  <text class="label" x="200" y="580" text-anchor="middle">正确性边界最强</text>
+  <text class="body" x="200" y="603" text-anchor="middle">命中自由度最低</text>
+  <text class="evidence" x="200" y="695" text-anchor="middle" fill="#3d8052">源码已确认</text>
+
+  <text class="coltitle" x="535" y="150" text-anchor="middle">模块 Schema</text>
+  <text class="small" x="535" y="174" text-anchor="middle">Prompt Cache</text>
+  <rect class="node" x="410" y="205" width="250" height="68"/>
+  <text class="label" x="535" y="232" text-anchor="middle">声明 prompt modules</text>
+  <text class="body" x="535" y="255" text-anchor="middle">模板 / 系统消息 / 文档</text>
+  <path class="flow" d="M535 273 V320"/>
+  <text class="small" x="549" y="302">schema 保证位置准确</text>
+  <rect class="good" x="410" y="320" width="250" height="78"/>
+  <text class="label" x="535" y="349" text-anchor="middle">复用模块 attention state</text>
+  <text class="body" x="535" y="373" text-anchor="middle">组合空间受接口约束</text>
+  <line class="divider" x1="410" y1="438" x2="660" y2="438"/>
+  <text class="label" x="420" y="470">消除：</text>
+  <text class="body" x="477" y="470">整段 prompt 必须相同</text>
+  <text class="label" x="420" y="500">保留：</text>
+  <text class="body" x="477" y="500">应用 schema 与组合规则</text>
+  <rect class="good" x="410" y="552" width="250" height="72"/>
+  <text class="label" x="535" y="580" text-anchor="middle">受约束、可预测</text>
+  <text class="body" x="535" y="603" text-anchor="middle">适合稳定 prompt 结构</text>
+  <text class="evidence" x="535" y="695" text-anchor="middle" fill="#3d8052">论文原文</text>
+
+  <text class="coltitle" x="870" y="150" text-anchor="middle">仅 re-RoPE</text>
+  <text class="small" x="870" y="174" text-anchor="middle">position relocation primitive</text>
+  <rect class="node" x="745" y="205" width="250" height="68"/>
+  <text class="label" x="870" y="232" text-anchor="middle">内容 chunk 命中</text>
+  <text class="body" x="870" y="255" text-anchor="middle">old position → new position</text>
+  <path class="flow" d="M870 273 V320"/>
+  <text class="small" x="884" y="302">撤销旧旋转，再施加新旋转</text>
+  <rect class="warn" x="745" y="320" width="250" height="78"/>
+  <text class="label" x="870" y="349" text-anchor="middle">K 的显式位置已校正</text>
+  <text class="body" x="870" y="373" text-anchor="middle">V / hidden context 未修复</text>
+  <path class="risk" d="M870 398 V445"/>
+  <rect class="bad" x="745" y="445" width="250" height="78"/>
+  <text class="label" x="870" y="474" text-anchor="middle">跨 chunk 依赖陈旧</text>
+  <text class="body" x="870" y="498" text-anchor="middle">RAG 换序可能降质</text>
+  <rect class="warn" x="745" y="552" width="250" height="72"/>
+  <text class="label" x="870" y="580" text-anchor="middle">只适合上下文等价的平移</text>
+  <text class="body" x="870" y="603" text-anchor="middle">不能泛化为任意无损复用</text>
+  <text class="evidence" x="870" y="695" text-anchor="middle" fill="#a26f1d">数学可证；适用性需验证</text>
+
+  <text class="coltitle" x="1205" y="150" text-anchor="middle">re-RoPE + 修复</text>
+  <text class="small" x="1205" y="174" text-anchor="middle">CacheBlend / Cache-Craft</text>
+  <rect class="node" x="1080" y="205" width="250" height="68"/>
+  <text class="label" x="1205" y="232" text-anchor="middle">任意 chunk 指纹命中</text>
+  <text class="body" x="1205" y="255" text-anchor="middle">加载旧 KV + 位置 metadata</text>
+  <path class="flow" d="M1205 273 V320"/>
+  <text class="small" x="1219" y="302">K-only / rotation window</text>
+  <rect class="warn" x="1080" y="320" width="250" height="78"/>
+  <text class="label" x="1205" y="349" text-anchor="middle">re-RoPE + stale score</text>
+  <text class="body" x="1205" y="373" text-anchor="middle">定位重要 token / 边界</text>
+  <path class="flow" d="M1205 398 V445"/>
+  <rect class="good" x="1080" y="445" width="250" height="78"/>
+  <text class="label" x="1205" y="474" text-anchor="middle">选择性重算并覆盖 KV</text>
+  <text class="body" x="1205" y="498" text-anchor="middle">失败则 full prefill</text>
+  <rect class="good" x="1080" y="552" width="250" height="72"/>
+  <text class="label" x="1205" y="580" text-anchor="middle">复用范围最大</text>
+  <text class="body" x="1205" y="603" text-anchor="middle">质量与收益需联合标定</text>
+  <text class="evidence" x="1205" y="695" text-anchor="middle" fill="#3d8052">论文 + LMCache 源码已确认</text>
+
+  <rect x="45" y="758" width="1315" height="40" fill="#eef4f8" rx="8"/>
+  <text class="label" x="70" y="784">核心判断：</text>
+  <text class="body" x="160" y="784">位置校正解决“在哪里”；选择性重算解决“前面是谁”。只有两者都处理，任意 chunk 复用才有可控质量。</text>
+</svg>

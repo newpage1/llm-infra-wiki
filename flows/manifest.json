@@ -72,6 +72,18 @@
       "file": "vllm-ascend/vllm-ascend-layerwise-sparse-full-flow.md"
     },
     {
+      "slug": "position-independent-kv-cache-report",
+      "section": "新模型",
+      "group": "",
+      "title": "Position-Independent KV Cache 技术与论文综述",
+      "author": "MadaoRui",
+      "date": "2026-09-17",
+      "tags": [],
+      "summary": "position-independent cache 更准确的名字应是 position-relocatable cache：它能把缓存搬到新位置，但是否能正确复用仍取决于上下文修复。最稳的低风险路线仍是 exact prefix，任意 chunk 复用必须配上选择性重算。",
+      "updated": "2026-09-17",
+      "file": "position-independent-kv-cache-report.md"
+    },
+    {
       "slug": "deepseek-v4.1-reuse-group-layer-chunk-scheduling",
       "section": "新模型",
       "group": "vllm-ascend",

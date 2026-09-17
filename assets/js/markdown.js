@@ -130,7 +130,11 @@
           out.push('<div class="mermaid">' + esc(buf.join('\n')) + '</div>');
           continue;
         }
-        out.push('<pre><code>' + esc(buf.join('\n')) + '</code></pre>');
+        // 带上语言：页面据此区分「真源码」与「```text 的 ASCII 示意图」，
+        // 代码块右上角也能挂一个语言小标（见 style.css 的 .codeblk）。
+        out.push('<div class="codeblk" data-lang="' + esc(lang) + '">' +
+          '<pre><code class="language-' + esc(lang || 'plain') + '">' +
+          esc(buf.join('\n')) + '</code></pre></div>');
         continue;
       }
 

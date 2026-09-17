@@ -304,6 +304,41 @@ body::before{
 .mermaid{margin:22px 0;text-align:center}
 .mermaid svg{max-width:100%;height:auto}
 .mermaid:not([data-processed]){visibility:hidden;display:block;height:1.6em}
+/* 联动分析正文里的代码块与行内代码。
+   这套页面是**代码密集型**的（一篇里几十段源码摘录），原来 .flow-art 里
+   完全没有 pre / code 样式，代码跟正文一样贴在页面背景上，看不出边界。 */
+.flow-art code{
+  font-family:var(--font-mono);font-size:.87em;color:#8a4a12;
+  background:var(--wash);border:1px solid var(--line);padding:1px 5px;border-radius:4px;
+  overflow-wrap:anywhere;
+}
+.flow-art .codeblk{position:relative;margin:0 0 16px}
+.flow-art .codeblk pre{
+  max-width:100%;overflow-x:auto;margin:0;padding:13px 16px;
+  background:var(--bg-2);border:1px solid var(--line);border-radius:var(--radius-sm);
+  font-family:var(--font-mono);font-size:11.5px;line-height:1.7;color:var(--ink-2);
+}
+.flow-art .codeblk pre code{
+  background:none;border:0;padding:0;color:inherit;font-size:inherit;
+  overflow-wrap:normal;white-space:pre;
+}
+/* 右上角一个语言小标。挂在 .codeblk（滚动容器外面）而不是 pre 里，
+   否则横滑长行时标签会跟着跑出视野。 */
+.flow-art .codeblk[data-lang]:not([data-lang=""]):not([data-lang="text"])::before{
+  content:attr(data-lang);
+  position:absolute;top:-1px;right:-1px;z-index:1;
+  font-family:var(--font-mono);font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);background:var(--wash);
+  border:1px solid var(--line);border-radius:0 var(--radius-sm) 0 4px;
+  padding:2px 8px;
+}
+/* ```text 的块不是源码，是 ASCII 示意图（调用链、目录树、圈号流程）：
+   去掉代码块的「框感」，换成左侧细线 + 更淡的字色，读者一眼分得清。 */
+.flow-art .codeblk[data-lang="text"] pre{
+  background:none;border:0;border-left:2px solid var(--line-2);border-radius:0;
+  color:var(--muted);padding:2px 0 2px 14px;font-size:11px;
+}
+
 /* mermaid 的 svg 自带 max-width（等于它的自然宽度），窄图会靠左。
    靠 margin:auto 居中；放大浮层那条规则会清掉 max-width，不受影响。 */
 .mmd > svg{margin:0 auto}

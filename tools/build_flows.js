@@ -109,7 +109,12 @@ function plain(s) {
 function deriveSummary(body) {
   let inFence = false;
   const leadIns = [];        // 只有引导句时的兜底
-  for (const rawLine of body.split('\n')) {
+  const lines = body.split('\n');
+  // 从第一个 `## ` 之后开始找：文档开头那段通常是「标题 + 日期/对象/核心问题」
+  // 这类元信息，拿它当摘要没意义（实际踩过：「研究日期： 2026-09-14」）。
+  // 没有二级标题的文档就从头找——那种情况下第一段往往就是正文。
+  const h2 = lines.findIndex(l => /^##\s/.test(l));
+  for (const rawLine of lines.slice(h2 >= 0 ? h2 + 1 : 0)) {
     const line = rawLine.trim();
     if (/^(```|~~~)/.test(line)) { inFence = !inFence; continue; }
     if (inFence) continue;

@@ -1,4 +1,5 @@
 ---
+section: lmcache
 summary: 把 DeepSeek V4.1 的 Engram 表从 HBM 卸载到 Host，建议分两阶段：先每个 TP rank 一份 Host shard（只解决 HBM 压力，风险最低），再做到每节点 / NUMA 域一份共享 full table（可以去掉 Engram 专属的 TP all-gather）。
 ---
 

@@ -36,6 +36,20 @@ const OUT = path.join(DIR, 'manifest.json');
 /* 写了就必须是对的（都不是必填——没写会从 md 或 git 里捞） */
 const VALIDATED = ['title', 'author', 'date', 'summary'];
 
+/* 章节：联动分析按项目/主题分段。
+   这里是唯一来源——生成器按它校验 front-matter，也按这个顺序写进清单，
+   列表页照单渲染分段，不在页面里再抄一份（抄了就会两边漂）。
+   顺序即展示顺序；没写 section 的落进最后那个兜底段。 */
+const SECTIONS = [
+  ['lmcache', 'LMCache 与 LMCache-Ascend：设计、集成与卸载方案'],
+  ['mooncake', 'Mooncake Store 与 Transfer Engine：调用路径、竞品与选型'],
+  ['sglang', 'SGLang 侧的跨组件链路'],
+  ['vllm', 'vLLM 与 vLLM-Ascend：KV 卸载、传输与调度'],
+  ['新模型', '新模型的 KV 形态带来的改动（DeepSeek V4.1 等）'],
+];
+const SECTION_NAMES = SECTIONS.map(x => x[0]);
+const NO_SECTION = '未归类';
+
 /** 解析 front-matter。只支持 `key: value` 与 `tags: [a, b]`，不引入 YAML 依赖。 */
 function parseFrontMatter(text) {
   if (!text.startsWith('---')) return { data: {}, body: text };
@@ -162,6 +176,8 @@ function extract(slug, text, origin) {
       date: pick('date', () => origin.date),
       summary: pick('summary', () => deriveSummary(body)),
       tags: Array.isArray(data.tags) ? data.tags : (data.tags ? [String(data.tags)] : []),
+      // 分类是**作者写的**，不推导，所以原样带出来（别漏，漏了会全部落进「未归类」）
+      section: data.section ? String(data.section) : '',
     },
     derived,
   };
@@ -186,7 +202,7 @@ function entries() {
 
 function collect() {
   if (!fs.existsSync(DIR)) return { flows: [], problems: [], derived: [] };
-  const problems = [], flows = [], derived = [];
+  const problems = [], flows = [], derived = [], noSection = [];
   const seen = new Map();
 
   for (const [group, fn] of entries()) {
@@ -211,11 +227,19 @@ function collect() {
         bad.push(`front-matter 里的 ${k} 是空的，删掉这行或填上`);
       }
     }
+    if (data.section && !SECTION_NAMES.includes(String(data.section))) {
+      bad.push(`section 写的是「${data.section}」，只能是这 ${SECTION_NAMES.length} 个之一：` +
+        SECTION_NAMES.join(' / '));
+    }
     if (bad.length) { problems.push(`${rel}：${bad.join('；')}`); continue; }
     if (got.length) derived.push(`${rel}（捞了 ${got.join('、')}）`);
 
+    const section = data.section ? String(data.section) : NO_SECTION;
+    if (section === NO_SECTION) noSection.push(rel);
+
     flows.push({
       slug,
+      section,
       group,                 // 子目录名，页面当标签显示；空串=没分组
       title: String(data.title),
       author: String(data.author || ''),
@@ -227,20 +251,30 @@ function collect() {
     });
   }
 
-  // 日期倒序；同日期按 slug，保证顺序稳定（内容不变则字节不变）
-  flows.sort((a, b) => (b.date.localeCompare(a.date)) || a.slug.localeCompare(b.slug));
-  return { flows, problems, derived };
+  // 先按章节（照 SECTIONS 的顺序，没归类的排最后），章节内日期倒序、同日期按 slug——
+  // 顺序完全确定，内容不变则字节不变
+  const rank = new Map(SECTION_NAMES.map((n, i) => [n, i]));
+  const rankOf = x => (rank.has(x) ? rank.get(x) : SECTION_NAMES.length);
+  flows.sort((a, b) =>
+    (rankOf(a.section) - rankOf(b.section)) ||
+    b.date.localeCompare(a.date) || a.slug.localeCompare(b.slug));
+  return { flows, problems, derived, noSection };
 }
 
 function main() {
   const check = process.argv.includes('--check');
   const lint = process.argv.includes('--lint');
-  const { flows, problems, derived } = collect();
+  const { flows, problems, derived, noSection } = collect();
 
   if (problems.length) {
     console.error('❌ flows/ 里有问题：');
     problems.forEach(p => console.error('   ' + p));
     process.exit(1);
+  }
+
+  if (noSection.length) {
+    console.log(`⚠️  ${noSection.length} 篇没写 section，会落在「${NO_SECTION}」段：`);
+    noSection.forEach(x => console.log('     ' + x));
   }
 
   if (lint) {
@@ -249,7 +283,12 @@ function main() {
     return 0;
   }
 
-  const text = JSON.stringify({ version: 1, flows }, null, 2) + '\n';
+  // 章节表随清单一起下发，列表页就不必自己维护一份顺序
+  const text = JSON.stringify({
+    version: 1,
+    sections: SECTIONS.map(([name, blurb]) => ({ name, blurb })),
+    flows,
+  }, null, 2) + '\n';
   const stale = !fs.existsSync(OUT) || fs.readFileSync(OUT, 'utf8') !== text;
 
   if (check) {
@@ -268,7 +307,8 @@ function main() {
     derived.forEach(d => console.log('     ' + d));
   }
   for (const f of flows) {
-    console.log(`   ${f.date}  ${(f.group ? f.group + '/' : '') + f.slug}`.padEnd(50) + f.title);
+    console.log(`   ${f.date}  ${f.section.padEnd(8)}` +
+      `${(f.group ? f.group + '/' : '') + f.slug}`.padEnd(52) + f.title);
   }
   return 0;
 }

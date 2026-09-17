@@ -1,3 +1,7 @@
+---
+section: vllm
+---
+
 # vLLM-Ascend Layerwise + Sparse KV Offload 完整流程图解
 
 > 依据：vllm-ascend main `4c5ee332`（2026-09-16）源码 + 合并后设计文档

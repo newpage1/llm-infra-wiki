@@ -1,4 +1,5 @@
 ---
+section: mooncake
 summary: 两者不是完全同层竞争：Yuanrong DS 是通用分布式数据系统加昇腾异构数据面，Mooncake 是以 KVCache 为中心的推理传输与存储平台。昇腾单一集群优先看 Yuanrong，KV serving 平台化与生态优先看 Mooncake。
 ---
 

@@ -1,8 +1,31 @@
 {
   "version": 1,
+  "sections": [
+    {
+      "name": "lmcache",
+      "blurb": "LMCache 与 LMCache-Ascend：设计、集成与卸载方案"
+    },
+    {
+      "name": "mooncake",
+      "blurb": "Mooncake Store 与 Transfer Engine：调用路径、竞品与选型"
+    },
+    {
+      "name": "sglang",
+      "blurb": "SGLang 侧的跨组件链路"
+    },
+    {
+      "name": "vllm",
+      "blurb": "vLLM 与 vLLM-Ascend：KV 卸载、传输与调度"
+    },
+    {
+      "name": "新模型",
+      "blurb": "新模型的 KV 形态带来的改动（DeepSeek V4.1 等）"
+    }
+  ],
   "flows": [
     {
       "slug": "lmcache-engram-offload-design",
+      "section": "lmcache",
       "group": "",
       "title": "在 LMCache / LMCache-Ascend / Mooncake 中增加 DeepSeek V4.1 Engram 卸载",
       "author": "MadaoRui",
@@ -14,6 +37,7 @@
     },
     {
       "slug": "openyuanrong-mooncake-competitive-report",
+      "section": "mooncake",
       "group": "",
       "title": "openYuanrong datasystem vs Mooncake 竞品报告",
       "author": "MadaoRui",
@@ -24,18 +48,20 @@
       "file": "openyuanrong-mooncake-competitive-report.md"
     },
     {
-      "slug": "deepseek-v4.1-reuse-group-layer-chunk-scheduling",
+      "slug": "vllm-ascend-mooncake-ascend-call-path",
+      "section": "mooncake",
       "group": "vllm-ascend",
-      "title": "DeepSeek V4.1 的 Reuse-Group Layer Chunk 调度分析",
+      "title": "vLLM-Ascend 与 Mooncake Store 在昇腾栈下的调用路径",
       "author": "MadaoRui",
       "date": "2026-09-16",
       "tags": [],
-      "summary": "跨层复用 sparse top-k 的模型该按什么粒度调度？这篇的结论是：值得用 layer chunk，但调度单位应是模型语义上的 reuse group 而不是任意单层 task，优先在 ModelRunner 内做 group-aware prefetch。",
+      "summary": "在昇腾栈上，vLLM-Ascend 从 Scheduler 命中检查一路把 KV 存进 / 取出 Mooncake Store 的完整调用路径：三条路径怎么分、KV 地址怎么注册与映射、Save 与 Load 两条数据通路各经过谁。",
       "updated": "2026-09-16",
-      "file": "vllm-ascend/deepseek-v4.1-reuse-group-layer-chunk-scheduling.md"
+      "file": "vllm-ascend/vllm-ascend-mooncake-ascend-call-path.md"
     },
     {
       "slug": "vllm-ascend-layerwise-sparse-full-flow",
+      "section": "vllm",
       "group": "vllm-ascend",
       "title": "vLLM-Ascend Layerwise + Sparse KV Offload 完整流程图解",
       "author": "MadaoRui",
@@ -46,15 +72,16 @@
       "file": "vllm-ascend/vllm-ascend-layerwise-sparse-full-flow.md"
     },
     {
-      "slug": "vllm-ascend-mooncake-ascend-call-path",
+      "slug": "deepseek-v4.1-reuse-group-layer-chunk-scheduling",
+      "section": "新模型",
       "group": "vllm-ascend",
-      "title": "vLLM-Ascend 与 Mooncake Store 在昇腾栈下的调用路径",
+      "title": "DeepSeek V4.1 的 Reuse-Group Layer Chunk 调度分析",
       "author": "MadaoRui",
       "date": "2026-09-16",
       "tags": [],
-      "summary": "在昇腾栈上，vLLM-Ascend 从 Scheduler 命中检查一路把 KV 存进 / 取出 Mooncake Store 的完整调用路径：三条路径怎么分、KV 地址怎么注册与映射、Save 与 Load 两条数据通路各经过谁。",
+      "summary": "跨层复用 sparse top-k 的模型该按什么粒度调度？这篇的结论是：值得用 layer chunk，但调度单位应是模型语义上的 reuse group 而不是任意单层 task，优先在 ModelRunner 内做 group-aware prefetch。",
       "updated": "2026-09-16",
-      "file": "vllm-ascend/vllm-ascend-mooncake-ascend-call-path.md"
+      "file": "vllm-ascend/deepseek-v4.1-reuse-group-layer-chunk-scheduling.md"
     }
   ]
 }

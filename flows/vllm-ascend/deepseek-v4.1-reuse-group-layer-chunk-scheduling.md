@@ -1,4 +1,5 @@
 ---
+section: 新模型
 summary: 跨层复用 sparse top-k 的模型该按什么粒度调度？这篇的结论是：值得用 layer chunk，但调度单位应是模型语义上的 reuse group 而不是任意单层 task，优先在 ModelRunner 内做 group-aware prefetch。
 ---
 

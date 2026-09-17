@@ -959,15 +959,15 @@
      由 CI 扫目录重建。为什么走 fetch 而不是像其它页那样嵌进 data/*.js：
      这类内容是跨组件的联动分析，让写的人去改 7.7MB 的 analyses.js 门槛太高——
      加一个 md、提 PR 就行。 */
-  let FLOWS = null;
+  let FLOWS = null;      // { sections, flows }——章节表从清单来，页面不自己维护
   let svgSeq = 0;        // 内联 SVG 的 id 前缀，避免同页多张图撞 id
 
   function fetchFlowList() {
     if (FLOWS) return Promise.resolve(FLOWS);
     return fetch('flows/manifest.json', { cache: 'no-cache' })
       .then(r => (r.ok ? r.json() : Promise.reject(r.status)))
-      .then(j => (FLOWS = (j && j.flows) || []))
-      .catch(() => (FLOWS = []));
+      .then(j => (FLOWS = { sections: (j && j.sections) || [], flows: (j && j.flows) || [] }))
+      .catch(() => (FLOWS = { sections: [], flows: [] }));
   }
 
   /* window.md() 不认识 front-matter——会渲染成 <hr> 加一串粘连的
@@ -1175,24 +1175,42 @@
     document.title = '联动分析 · LLM Infra Wiki';
     window.scrollTo({ top: 0 });
 
-    fetchFlowList().then(list => {
-      if (!list.length) {
+    fetchFlowList().then(({ sections, flows }) => {
+      if (!flows.length) {
         box.appendChild(el('p', { class: 'flow-note' },
           '还没有内容。清单由 `node tools/build_flows.js` 生成，' +
           '如果 flows/ 下已经有 md 却看不到，说明清单没重建。'));
         return;
       }
-      const grid = el('div', { class: 'flow-grid' });
-      list.forEach(f => {
-        const a = el('a', { class: 'flow-card', href: '#/f/' + f.slug });
-        a.innerHTML = `
-          <em>${esc(f.date)} · ${esc(f.author)}</em>
-          <b>${esc(f.title)}</b>
-          <div class="fc-parts">${flowTags(f)}</div>
-          <p>${window.md(f.summary || '').html.replace(/^<p>|<\/p>$/g, '')}</p>`;
-        grid.appendChild(a);
+      /* 按章节分段。章节表与顺序都来自清单（build_flows.js 里那份是唯一来源），
+         所以这里不写死任何分类名；清单里出现而章节表没兜住的，补在最后。 */
+      const order = sections.map(x => x.name);
+      const blurb = new Map(sections.map(x => [x.name, x.blurb || '']));
+      const seen = [...new Set(flows.map(f => f.section).filter(Boolean))];
+      seen.sort((a, b) => {
+        const ia = order.indexOf(a), ib = order.indexOf(b);
+        return (ia < 0 ? 1e9 : ia) - (ib < 0 ? 1e9 : ib);
       });
-      box.appendChild(grid);
+
+      seen.forEach(sec => {
+        const mine = flows.filter(f => f.section === sec);
+        const s = el('section', { class: 'flow-sec' });
+        s.appendChild(el('header', { class: 'flow-sec-head' }, `
+          <h2>${esc(sec)}<span class="flow-sec-n">${mine.length}</span></h2>
+          ${blurb.get(sec) ? `<p>${esc(blurb.get(sec))}</p>` : ''}`));
+        const grid = el('div', { class: 'flow-grid' });
+        mine.forEach(f => {
+          const a = el('a', { class: 'flow-card', href: '#/f/' + f.slug });
+          a.innerHTML = `
+            <em>${esc(f.date)} · ${esc(f.author)}</em>
+            <b>${esc(f.title)}</b>
+            <div class="fc-parts">${flowTags(f)}</div>
+            <p>${window.md(f.summary || '').html.replace(/^<p>|<\/p>$/g, '')}</p>`;
+          grid.appendChild(a);
+        });
+        s.appendChild(grid);
+        box.appendChild(s);
+      });
     }).catch(err => {
       box.appendChild(el('p', { class: 'flow-note' },
         '清单读不出来，列表渲染失败。看一眼控制台。'));
@@ -1211,8 +1229,8 @@
     view.replaceChildren(wrap);
     window.scrollTo({ top: 0 });
 
-    fetchFlowList().then(list => {
-      const meta = list.find(x => x.slug === slug);
+    fetchFlowList().then(({ flows }) => {
+      const meta = flows.find(x => x.slug === slug);
       document.title = (meta ? meta.title : slug) + ' · LLM Infra Wiki';
       if (meta) crumb.textContent = meta.title;
 

@@ -1,4 +1,5 @@
 ---
+section: mooncake
 summary: 在昇腾栈上，vLLM-Ascend 从 Scheduler 命中检查一路把 KV 存进 / 取出 Mooncake Store 的完整调用路径：三条路径怎么分、KV 地址怎么注册与映射、Save 与 Load 两条数据通路各经过谁。
 ---
 

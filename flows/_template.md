@@ -2,11 +2,31 @@
 
 > 这份是模板，**不用改它**——复制成 `flows/你的文件名.md` 再写。
 > 文件名就是网址里的 slug，用英文小写加连字符，例如 `kv-return-paths.md`。
-> 想按项目分组就把文件放进一层子目录（如 `flows/mooncake/`），
-> 目录名会作为标签显示在卡片上，标题与 slug 里不用再重复它。
+> 想再按项目分组就把文件放进一层子目录（如 `flows/vllm-ascend/`），
+> 目录名会额外作为标签显示在卡片上。
 
-**front-matter 可以完全不写。** 列表页要的标题、作者、日期、摘要都由 CI
+**front-matter 基本可以不写。** 列表页要的标题、作者、日期、摘要都由 CI
 从这份 md 和 git 历史里读出来，写进清单；**它只读，不会改动你的文件**。
+
+唯一建议自己写一行的是 `section`——列表页按它**分章节**：
+
+```markdown
+---
+section: mooncake
+---
+```
+
+| `section` | 这一段收什么 |
+|---|---|
+| `lmcache` | LMCache 与 LMCache-Ascend：设计、集成与卸载方案 |
+| `mooncake` | Mooncake Store 与 Transfer Engine：调用路径、竞品与选型 |
+| `sglang` | SGLang 侧的跨组件链路 |
+| `vllm` | vLLM 与 vLLM-Ascend：KV 卸载、传输与调度 |
+| `新模型` | 新模型的 KV 形态带来的改动（DeepSeek V4.1 等） |
+
+权威清单在 `tools/build_flows.js` 的 `SECTIONS` 里（顺序即展示顺序）；写错会被拦下
+并列出全部合法值。都不合适就在那里加一行。不写也能投，只是会落进最后的「未归类」
+段，生成清单时会有提示。
 
 ## 这一节写什么
 

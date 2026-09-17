@@ -86,7 +86,11 @@ $EDITOR flows/你的标题.md
 node tools/build_flows.js --lint     # 只校验 front-matter，两秒出结果
 ```
 
-想按项目分组就把文件放进一层子目录（如 `flows/mooncake/`），目录名会当标签显示。
+**建议写一行 `section`（章节）**，列表页按它分段：`lmcache` / `mooncake` / `sglang` /
+`vllm` / `新模型`。可选值见 [`flows/_template.md`](flows/_template.md)，权威清单在
+`tools/build_flows.js` 的 `SECTIONS` 里。不写也能投，只是会落进最后的「未归类」段。
+
+想再按项目分组就把文件放进一层子目录（如 `flows/vllm-ascend/`），目录名会额外当标签显示。
 
 front-matter **完全可选**：哪一项想自己定（比如摘要想自己写），就只写那一行覆盖掉，
 不需要写全，也不用记格式。
@@ -211,7 +215,7 @@ llm-infra-wiki/
 │   └── SKILL-code-arch-analysis.md   # 源码分析方法论
 ├── flows/                      # 联动分析：直接提 .md，清单由 CI 生成
 │   ├── _template.md            # 照着这个写（下划线开头的文件不进清单）
-│   ├── vllm-ascend/            # 一层子目录 = 一个分组，目录名当标签
+│   ├── vllm-ascend/            # 一层子目录 = 项目标签；章节由 front-matter 的 section 决定
 │   └── manifest.json           # 自动生成，不要手改
 ├── diagrams/                   # PlantUML 源与渲染出的 SVG
 ├── authoring/                  # 写内容的人看这三份

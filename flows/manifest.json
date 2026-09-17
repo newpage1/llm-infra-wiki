@@ -43,7 +43,7 @@
       "author": "MadaoRui",
       "date": "2026-09-17",
       "tags": [],
-      "summary": "两者不是完全同层竞争：Yuanrong DS 是通用分布式数据系统加昇腾异构数据面，Mooncake 是以 KVCache 为中心的推理传输与存储平台。昇腾单一集群优先看 Yuanrong，KV serving 平台化与生态优先看 Mooncake。",
+      "summary": "两者不是完全同层竞争：Mooncake 在 KVCache 专用存储、跨实例复用与 LLM serving 生态上领先，Yuanrong DS 在昇腾原生 RH2D/HIXL/HCCS、统一对象数据系统与可随 worker 分片的 metadata owner 上更深。选型看目标是昇腾专用高可控，还是 KVCache 平台化与生态。",
       "updated": "2026-09-17",
       "file": "openyuanrong-mooncake-competitive-report.md"
     },

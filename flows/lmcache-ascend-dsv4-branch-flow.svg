@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">lmcache-ascend dsv4_support_045 registration allocation and transfer flow</title>
+  <desc id="desc">Control flow from vLLM KV cache registration to LMCache multi-group allocation, followed by the bidirectional multi-plane byte transfer path.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; }
+      .control { fill: #dbeafe; stroke: #3b82f6; stroke-width: 1.7; }
+      .meta { fill: #ede9fe; stroke: #8b5cf6; stroke-width: 1.7; }
+      .memory { fill: #dcfce7; stroke: #22c55e; stroke-width: 1.7; }
+      .device { fill: #fef3c7; stroke: #f59e0b; stroke-width: 1.7; }
+      .external { fill: #f1f5f9; stroke: #64748b; stroke-width: 1.7; }
+      .title { font: 700 28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .section { font: 700 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #334155; }
+      .label { font: 600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .text { font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #334155; }
+      .small { font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #475569; }
+      .mono { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #0f172a; }
+      .arrow { stroke: #64748b; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .back { stroke: #16a34a; stroke-width: 2.2; fill: none; marker-end: url(#green-arrow); }
+      .dash { stroke: #7c3aed; stroke-width: 1.7; fill: none; stroke-dasharray: 7 5; marker-end: url(#purple-arrow); }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"/></marker>
+    <marker id="green-arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#16a34a"/></marker>
+    <marker id="purple-arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#7c3aed"/></marker>
+  </defs>
+
+  <rect class="bg" width="1440" height="900"/>
+  <text class="title" x="52" y="48">lmcache-ascend / dsv4_support_045：KV 从注册到字节搬运</text>
+  <text class="text" x="52" y="76">蓝色是注册控制面，紫色是布局元数据，绿色是 CPU 连续内存，黄色是 NPU paged cache。</text>
+
+  <rect class="panel" x="40" y="102" width="1360" height="330" rx="18"/>
+  <text class="section" x="66" y="139">注册与申请：必须在 post_init() 前固定 group layout</text>
+
+  <rect class="control" x="70" y="175" width="220" height="90" rx="12"/>
+  <text class="label" x="91" y="204">register_kv_caches()</text>
+  <text class="small" x="91" y="229">输入：vLLM kv_caches dict</text>
+  <text class="small" x="91" y="249">不是 forward tuple 序列化</text>
+
+  <rect class="control" x="340" y="175" width="230" height="90" rx="12"/>
+  <text class="label" x="363" y="204">build_flat_kv_caches()</text>
+  <text class="small" x="363" y="229">独立 plane → MultiPlaneBundle</text>
+  <text class="small" x="363" y="249">或 layer.subN flatten</text>
+
+  <rect class="control" x="620" y="175" width="230" height="90" rx="12"/>
+  <text class="label" x="644" y="204">apply_skip_policy...</text>
+  <text class="small" x="644" y="229">默认过滤 compressor state</text>
+  <text class="small" x="644" y="249">保留 bundle provenance</text>
+
+  <rect class="meta" x="900" y="175" width="220" height="90" rx="12"/>
+  <text class="label" x="924" y="204">ensure_kv_layer_groups()</text>
+  <text class="small" x="924" y="229">layout identity 分组</text>
+  <text class="small" x="924" y="249">生成 plane widths / dtype</text>
+
+  <rect class="meta" x="1170" y="175" width="190" height="90" rx="12"/>
+  <text class="label" x="1191" y="204">post_init()</text>
+  <text class="small" x="1191" y="229">metadata 已有 groups</text>
+  <text class="small" x="1191" y="249">connector 初始化</text>
+
+  <path class="arrow" d="M290 220 L340 220"/>
+  <text class="small" x="299" y="207">预处理</text>
+  <path class="arrow" d="M570 220 L620 220"/>
+  <text class="small" x="578" y="207">过滤</text>
+  <path class="arrow" d="M850 220 L900 220"/>
+  <text class="small" x="859" y="207">分组</text>
+  <path class="arrow" d="M1120 220 L1170 220"/>
+  <text class="small" x="1126" y="207">先于</text>
+
+  <rect class="meta" x="310" y="315" width="330" height="78" rx="12"/>
+  <text class="label" x="332" y="343">LMCacheMetadata.get_shapes(Q)</text>
+  <text class="mono" x="332" y="369">multi-plane: [1, L, Q, H], uint8</text>
+  <rect class="memory" x="800" y="315" width="330" height="78" rx="12"/>
+  <text class="label" x="823" y="343">StorageManager.allocate()</text>
+  <text class="small" x="823" y="369">MemoryObj + group_prefix_sum</text>
+  <path class="dash" d="M1010 265 C970 294, 785 297, 640 349"/>
+  <text class="small" x="760" y="298">group metadata 决定 shape</text>
+  <path class="arrow" d="M640 354 L800 354"/>
+  <text class="small" x="682" y="341">shapes[] / dtypes[]</text>
+
+  <rect class="panel" x="40" y="462" width="1360" height="388" rx="18"/>
+  <text class="section" x="66" y="499">运行期字节数据面：同一 kernel 参数反向使用</text>
+
+  <rect class="device" x="75" y="550" width="300" height="170" rx="14"/>
+  <text class="label" x="99" y="583">vLLM NPU paged planes</text>
+  <text class="small" x="99" y="611">每 plane 独立 pointer / block size</text>
+  <text class="small" x="99" y="635">每 plane 独立 slot mapping</text>
+  <text class="small" x="99" y="659">地址：page + slot × row bytes</text>
+  <text class="small" x="99" y="695">有效行数：c[p]</text>
+
+  <rect class="control" x="445" y="550" width="330" height="170" rx="14"/>
+  <text class="label" x="469" y="583">multi_layer_kv_transfer_multi_plane()</text>
+  <text class="small" x="469" y="611">pointer table: [layer][plane]</text>
+  <text class="small" x="469" y="635">perPlaneSlotCounts[p] = c[p]</text>
+  <text class="small" x="469" y="659">planeByteOffsets[p] 基于 w[p] × Q</text>
+  <text class="small" x="469" y="695">page2L: store=true / load=false</text>
+
+  <rect class="memory" x="845" y="525" width="315" height="220" rx="14"/>
+  <text class="label" x="869" y="558">MemoryObj multi-plane group</text>
+  <text class="mono" x="869" y="586">shape = [1, L, Q, H]</text>
+  <text class="mono" x="869" y="611">dtype = uint8</text>
+  <rect class="device" x="871" y="639" width="95" height="56" rx="6"/>
+  <rect class="external" x="966" y="639" width="135" height="56" rx="6"/>
+  <text class="small" x="882" y="661">valid c[p]</text>
+  <text class="small" x="875" y="681">rows</text>
+  <text class="small" x="981" y="661">unused reserved</text>
+  <text class="small" x="999" y="681">Q-c[p] rows</text>
+  <text class="small" x="869" y="721">每个 plane 都预留 Q rows，再 32B 对齐</text>
+
+  <rect class="external" x="1225" y="550" width="135" height="170" rx="14"/>
+  <text class="label" x="1253" y="583">CPU / SSD</text>
+  <text class="label" x="1269" y="608">/ P2P</text>
+  <text class="small" x="1247" y="642">传完整逻辑</text>
+  <text class="small" x="1247" y="663">MemoryObj bytes</text>
+  <text class="small" x="1247" y="695">无 K/V schema</text>
+
+  <path class="arrow" d="M375 603 L445 603"/>
+  <text class="small" x="389" y="590">store</text>
+  <path class="arrow" d="M775 603 L845 603"/>
+  <text class="small" x="790" y="590">D2H</text>
+  <path class="back" d="M845 684 L775 684"/>
+  <text class="small" x="791" y="708">H2D</text>
+  <path class="back" d="M445 684 L375 684"/>
+  <text class="small" x="389" y="708">load</text>
+  <path class="arrow" d="M1160 635 L1225 635"/>
+  <text class="small" x="1172" y="622">persist</text>
+  <path class="back" d="M1225 681 L1160 681"/>
+  <text class="small" x="1176" y="705">restore</text>
+
+  <text class="text" x="75" y="803">核心不变量：Q 决定 CPU 预留跨度，c[p] 决定 kernel 本次实际搬运跨度；两者不能互换。</text>
+</svg>

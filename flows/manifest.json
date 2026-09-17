@@ -84,6 +84,18 @@
       "file": "position-independent-kv-cache-report.md"
     },
     {
+      "slug": "vllm-ascend-dsa-kv-lmcache-analysis",
+      "section": "新模型",
+      "group": "",
+      "title": "DSV4 / GLM DSA KV 格式与 LMCache-Ascend `dsv4_support_045` 传输链路分析",
+      "author": "MadaoRui",
+      "date": "2026-09-17",
+      "tags": [],
+      "summary": "DSV4/GLM 的 DSA KV 不再是单一同构 page，而是多个独立 paging plane 叠加不同 dtype / block size / 压缩比 / slot stream 与运行中的 compressor state。vLLM-Ascend 已在 spec、planner、raw allocation 与写入 kernel 上表达这些差异；LMCache-Ascend 要正确承接，必须保留每 group 的 block table/slot mapping，并把异构 plane 转成带 metadata 的连续 byte chunk。",
+      "updated": "2026-09-17",
+      "file": "vllm-ascend-dsa-kv-lmcache-analysis.md"
+    },
+    {
       "slug": "deepseek-v4.1-reuse-group-layer-chunk-scheduling",
       "section": "新模型",
       "group": "vllm-ascend",

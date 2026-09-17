@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1040" viewBox="0 0 1440 1040" role="img" aria-labelledby="title desc">
+  <title id="title">DSA and GLM KV cache data structure</title>
+  <desc id="desc">Four layers from semantic cache planes, runtime tensor views, physical page bytes, to LMCache chunk bytes.</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 18; }
+      .band { fill: #e2e8f0; }
+      .title { font: 700 28px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .subtitle { font: 600 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #334155; }
+      .label { font: 600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .text { font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #334155; }
+      .mono { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #0f172a; }
+      .small { font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #475569; }
+      .plane-main { fill: #dbeafe; stroke: #3b82f6; stroke-width: 1.5; }
+      .plane-swa { fill: #dcfce7; stroke: #22c55e; stroke-width: 1.5; }
+      .plane-state { fill: #fef3c7; stroke: #f59e0b; stroke-width: 1.5; }
+      .plane-index { fill: #ede9fe; stroke: #8b5cf6; stroke-width: 1.5; }
+      .plane-scale { fill: #fce7f3; stroke: #ec4899; stroke-width: 1.5; }
+      .plane-pad { fill: #e2e8f0; stroke: #94a3b8; stroke-width: 1; }
+      .wire { fill: #cffafe; stroke: #0891b2; stroke-width: 1.5; }
+      .arrow { stroke: #64748b; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .dash { stroke: #8b5cf6; stroke-width: 2; fill: none; stroke-dasharray: 7 5; }
+      .bracket { stroke: #7c3aed; stroke-width: 2; fill: none; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#64748b"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1440" height="1040"/>
+  <text class="title" x="52" y="48">DSA / GLM KV 数据结构：四层表示不能混用</text>
+  <text class="text" x="52" y="76">示例采用 DSV4 A5、head_dim=512、indexer_dim=128、physical page rows P=128</text>
+
+  <rect class="panel" x="40" y="100" width="1360" height="180"/>
+  <rect class="band" x="40" y="100" width="185" height="180" rx="18"/>
+  <text class="subtitle" x="65" y="138">① 语义对象</text>
+  <text class="small" x="65" y="166">模型需要保存什么</text>
+
+  <rect class="plane-main" x="250" y="125" width="190" height="58" rx="10"/>
+  <text class="label" x="268" y="150">main compressed KV</text>
+  <text class="small" x="268" y="170">C4 / C128 完成行</text>
+  <rect class="plane-swa" x="455" y="125" width="160" height="58" rx="10"/>
+  <text class="label" x="484" y="150">SWA KV</text>
+  <text class="small" x="474" y="170">逐 token，滑窗</text>
+  <rect class="plane-state" x="630" y="125" width="205" height="58" rx="10"/>
+  <text class="label" x="648" y="150">main compressor state</text>
+  <text class="small" x="650" y="170">未完成压缩组，FP32</text>
+  <rect class="plane-state" x="850" y="125" width="220" height="58" rx="10"/>
+  <text class="label" x="866" y="150">indexer compressor state</text>
+  <text class="small" x="886" y="170">未完成 indexer 组</text>
+  <rect class="plane-index" x="1085" y="125" width="130" height="58" rx="10"/>
+  <text class="label" x="1106" y="150">indexer K</text>
+  <text class="small" x="1104" y="170">候选检索</text>
+  <rect class="plane-scale" x="1230" y="125" width="140" height="58" rx="10"/>
+  <text class="label" x="1254" y="150">K scale</text>
+  <text class="small" x="1248" y="170">量化辅助值</text>
+
+  <rect class="plane-index" x="250" y="202" width="290" height="52" rx="10"/>
+  <text class="label" x="269" y="225">KDA: conv_state + recurrent_state</text>
+  <text class="small" x="269" y="244">递归模型状态；不是 DSV4 compressor state</text>
+  <text class="text" x="575" y="226">每个方框是一个语义 plane/state；它们可有不同 block table、压缩比和生命周期。</text>
+
+  <path class="arrow" d="M720 280 L720 315"/>
+
+  <rect class="panel" x="40" y="320" width="1360" height="180"/>
+  <rect class="band" x="40" y="320" width="185" height="180" rx="18"/>
+  <text class="subtitle" x="65" y="358">② Runtime view</text>
+  <text class="small" x="65" y="386">Python/Torch 所见形状</text>
+
+  <text class="label" x="250" y="354">通用 paged tensor</text>
+  <rect class="plane-main" x="250" y="370" width="360" height="52" rx="9"/>
+  <text class="mono" x="272" y="401">[num_blocks, P, num_heads, D]</text>
+  <text class="text" x="250" y="448">stride(0) = page_size_bytes / sizeof(dtype)</text>
+  <text class="text" x="250" y="474">逻辑 block tokens = P × tokens_per_state</text>
+
+  <text class="label" x="650" y="354">A5 indexer：三个 view，共用一个 backing</text>
+  <rect class="plane-index" x="650" y="370" width="220" height="52" rx="9"/>
+  <text class="mono" x="668" y="392">K [B,128,1,128]</text>
+  <text class="small" x="668" y="411">FP8，data_ptr = base</text>
+  <rect class="plane-scale" x="885" y="370" width="220" height="52" rx="9"/>
+  <text class="mono" x="900" y="392">scale [B,128,1,1]</text>
+  <text class="small" x="900" y="411">FP32，data_ptr = base+16KB</text>
+  <rect class="plane-index" x="1120" y="370" width="250" height="52" rx="9"/>
+  <text class="mono" x="1138" y="392">full [B,128,1,132]</text>
+  <text class="small" x="1138" y="411">FP8/uint8，data_ptr = base</text>
+  <path class="dash" d="M660 441 C820 466, 1190 466, 1360 441"/>
+  <text class="text" x="806" y="488">full 是整页 byte coverage，不代表逐行 AoS 字段</text>
+
+  <path class="arrow" d="M720 500 L720 535"/>
+
+  <rect class="panel" x="40" y="540" width="1360" height="285"/>
+  <rect class="band" x="40" y="540" width="185" height="285" rx="18"/>
+  <text class="subtitle" x="65" y="578">③ 物理 page bytes</text>
+  <text class="small" x="65" y="606">NPU backing 的真实布局</text>
+
+  <text class="label" x="250" y="575">A5 main/SWA packed row（D=512，MXFP8 group=64）</text>
+  <rect class="plane-main" x="250" y="592" width="438" height="58"/>
+  <rect class="plane-swa" x="688" y="592" width="125" height="58"/>
+  <rect class="plane-scale" x="813" y="592" width="72" height="58"/>
+  <rect class="plane-pad" x="885" y="592" width="137" height="58"/>
+  <text class="label" x="378" y="618">448B FP8 value</text>
+  <text class="small" x="358" y="638">D - rope_head_dim</text>
+  <text class="label" x="700" y="618">128B rope</text>
+  <text class="small" x="704" y="638">64 × BF16</text>
+  <text class="label" x="826" y="618">7B scale</text>
+  <text class="small" x="825" y="638">MXFP8</text>
+  <text class="label" x="915" y="618">57B pad</text>
+  <text class="small" x="902" y="638">总计 640B</text>
+  <text class="text" x="1045" y="617">这一类是逐 row packed：</text>
+  <text class="mono" x="1045" y="642">row_stride = 640 bytes</text>
+
+  <text class="label" x="250" y="692">A5 indexer page（P=128，D=128）</text>
+  <rect class="plane-index" x="250" y="710" width="780" height="62"/>
+  <rect class="plane-scale" x="1030" y="710" width="260" height="62"/>
+  <text class="label" x="530" y="738">K region = P × 128B = 16,384B</text>
+  <text class="small" x="476" y="758">K[row] offset = page_base + row × 128</text>
+  <text class="label" x="1054" y="738">scale region = P × 4B = 512B</text>
+  <text class="small" x="1070" y="758">scale[row] = +16,384 + row×4</text>
+  <path class="bracket" d="M250 790 L250 804 L1290 804 L1290 790"/>
+  <text class="text" x="536" y="820">full view 覆盖整个 16,896B page；页内是 SoA，而不是每 row 的 [K|scale]</text>
+
+  <path class="arrow" d="M720 825 L720 860"/>
+
+  <rect class="panel" x="40" y="865" width="1360" height="135"/>
+  <rect class="band" x="40" y="865" width="185" height="135" rx="18"/>
+  <text class="subtitle" x="65" y="903">④ LMCache bytes</text>
+  <text class="small" x="65" y="931">D2H/H2D 的 chunk 格式</text>
+
+  <rect class="wire" x="250" y="895" width="105" height="55"/>
+  <rect class="plane-pad" x="355" y="895" width="180" height="55"/>
+  <rect class="plane-pad" x="535" y="895" width="50" height="55"/>
+  <rect class="wire" x="620" y="895" width="135" height="55"/>
+  <rect class="plane-pad" x="755" y="895" width="135" height="55"/>
+  <rect class="plane-pad" x="890" y="895" width="50" height="55"/>
+  <rect class="wire" x="975" y="895" width="85" height="55"/>
+  <rect class="plane-pad" x="1060" y="895" width="145" height="55"/>
+  <rect class="plane-pad" x="1205" y="895" width="50" height="55"/>
+  <text class="small" x="264" y="918">valid c[0]</text>
+  <text class="small" x="375" y="918">unused Q-c[0]</text>
+  <text class="small" x="546" y="937">32B</text>
+  <text class="small" x="646" y="918">valid c[1]</text>
+  <text class="small" x="770" y="918">unused Q-c[1]</text>
+  <text class="small" x="901" y="937">32B</text>
+  <text class="small" x="988" y="918">valid c[N]</text>
+  <text class="small" x="1072" y="918">unused Q-c[N]</text>
+  <text class="small" x="1216" y="937">32B</text>
+  <text class="small" x="332" y="940">plane 0 reserved Q rows</text>
+  <text class="small" x="682" y="940">plane 1 reserved Q rows</text>
+  <text class="small" x="1035" y="940">plane N reserved Q rows</text>
+  <text class="text" x="250" y="978">MemoryObj.dtype = uint8；Q 决定每个 plane 的预留跨度，c[p] 只决定 kernel 实际读写的有效前缀。</text>
+</svg>

@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="980" viewBox="0 0 1500 980">
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L10,3 L0,6 Z" fill="#334155"/>
+    </marker>
+    <style>
+      .title { font: 700 28px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; fill:#0f172a }
+      .h { font: 700 18px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; fill:#0f172a }
+      .t { font: 14px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; fill:#1e293b }
+      .s { font: 12px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; fill:#475569 }
+      .box { stroke:#334155; stroke-width:1.5; rx:12; ry:12 }
+      .arrow { stroke:#334155; stroke-width:2; fill:none; marker-end:url(#arrow) }
+      .dashed { stroke-dasharray:8 6 }
+    </style>
+  </defs>
+  <rect width="1500" height="980" fill="#f8fafc"/>
+  <text x="750" y="46" text-anchor="middle" class="title">SGLang：一棵逻辑 Radix Tree 如何承载多种 KV / state 格式</text>
+  <text x="750" y="72" text-anchor="middle" class="s">源码基线：sglang main @ 2123aca87e0f486d7843e50c5dd6928409bd9bb1（2026-09-14）</text>
+
+  <rect x="45" y="105" width="1410" height="235" class="box" fill="#e0f2fe"/>
+  <text x="70" y="138" class="h">① 统一逻辑层：UnifiedRadixCache / UnifiedTreeCore</text>
+  <rect x="80" y="165" width="350" height="135" class="box" fill="#ffffff"/>
+  <text x="105" y="194" class="h">UnifiedTreeNode</text>
+  <text x="105" y="220" class="t">key = RadixKey(token IDs, extra namespace)</text>
+  <text x="105" y="245" class="t">children / parent / hash / recency</text>
+  <text x="105" y="270" class="t">component_data[FULL|SWA|MAMBA|C128]</text>
+  <text x="105" y="291" class="s">每个 component_data：value、host_value、lock_ref、metadata</text>
+  <rect x="485" y="165" width="420" height="135" class="box" fill="#ffffff"/>
+  <text x="510" y="194" class="h">match / insert / evict</text>
+  <text x="510" y="220" class="t">RadixKey.match → validators 全部通过才推进边界</text>
+  <text x="510" y="245" class="t">split → component.redistribute_on_node_split()</text>
+  <text x="510" y="270" class="t">evict → component priority cascade</text>
+  <text x="510" y="291" class="s">树只决定 prefix ownership；不解释 dtype、head_dim、压缩布局</text>
+  <rect x="960" y="165" width="450" height="135" class="box" fill="#ffffff"/>
+  <text x="985" y="194" class="h">统一生命周期状态</text>
+  <text x="985" y="220" class="t">logical prefix → matched node → slot indices</text>
+  <text x="985" y="245" class="t">device/host residency、lock、LRU、evictable size</text>
+  <text x="985" y="270" class="t">deferred CacheAction / ComponentAction</text>
+  <text x="985" y="291" class="s">同一节点可同时有 Full、SWA、Mamba、C128 的独立数据</text>
+
+  <rect x="45" y="375" width="1410" height="205" class="box" fill="#fef3c7"/>
+  <text x="70" y="408" class="h">② 映射与资源层：统一接口，分池分配</text>
+  <rect x="80" y="435" width="330" height="105" class="box" fill="#ffffff"/>
+  <text x="105" y="465" class="h">ReqToTokenPool</text>
+  <text x="105" y="491" class="t">req_to_token[req_pool_idx, token_pos]</text>
+  <text x="105" y="516" class="t">DSV4：req_to_c128_sidecar[group] → C128 page id</text>
+  <rect x="450" y="435" width="330" height="105" class="box" fill="#ffffff"/>
+  <text x="475" y="465" class="h">TokenToKVPoolAllocator</text>
+  <text x="475" y="491" class="t">Full/SWA slots；C4 从 full slot 派生</text>
+  <text x="475" y="516" class="t">C128 独立 paged allocator + page refcount</text>
+  <rect x="820" y="435" width="300" height="105" class="box" fill="#ffffff"/>
+  <text x="845" y="465" class="h">TreeComponent hooks</text>
+  <text x="845" y="491" class="t">validator / split / lock / evict</text>
+  <text x="845" y="516" class="t">build/commit HiCache transfers</text>
+  <rect x="1160" y="435" width="250" height="105" class="box" fill="#ffffff"/>
+  <text x="1185" y="465" class="h">HiCache controller</text>
+  <text x="1185" y="491" class="t">L1 GPU → L2 host</text>
+  <text x="1185" y="516" class="t">→ L3 storage</text>
+
+  <path d="M430 232 L485 232" class="arrow"/>
+  <text x="455" y="218" text-anchor="middle" class="s">key / node</text>
+  <path d="M905 232 L960 232" class="arrow"/>
+  <text x="932" y="218" text-anchor="middle" class="s">logical result</text>
+  <path d="M255 300 L245 435" class="arrow"/>
+  <text x="205" y="370" class="s">token positions</text>
+  <path d="M650 300 L615 435" class="arrow"/>
+  <text x="620" y="370" class="s">alloc/free slots</text>
+  <path d="M1080 300 L970 435" class="arrow"/>
+  <text x="1045" y="370" class="s">component hooks</text>
+  <path d="M1285 300 L1285 435" class="arrow"/>
+  <text x="1315" y="370" class="s">residency</text>
+
+  <rect x="45" y="615" width="1410" height="315" class="box" fill="#dcfce7"/>
+  <text x="70" y="648" class="h">③ 物理格式层：同一 logical slot 由不同 pool/backend 解释</text>
+  <rect x="75" y="680" width="260" height="205" class="box" fill="#ffffff"/>
+  <text x="95" y="710" class="h">Full / MHA</text>
+  <text x="95" y="738" class="t">KVCache tensor</text>
+  <text x="95" y="764" class="t">K/V rows indexed by full slots</text>
+  <text x="95" y="790" class="t">FullComponent.value = slot tensor</text>
+  <text x="95" y="828" class="s">普通模型：tree_components=(FULL,)</text>
+  <text x="95" y="850" class="s">Full 负责叶节点淘汰与 path lock</text>
+  <rect x="365" y="680" width="260" height="205" class="box" fill="#ffffff"/>
+  <text x="385" y="710" class="h">SWA / hybrid</text>
+  <text x="385" y="738" class="t">SWA ring / window KV</text>
+  <text x="385" y="764" class="t">full_to_swa mapping 或 req ring</text>
+  <text x="385" y="790" class="t">SWAComponent.value / tombstone</text>
+  <text x="385" y="828" class="s">窗口锁、独立 LRU、窗口外可 tombstone</text>
+  <text x="385" y="850" class="s">和 Full 同一树，不是同一物理 buffer</text>
+  <rect x="655" y="680" width="260" height="205" class="box" fill="#ffffff"/>
+  <text x="675" y="710" class="h">Mamba / KDA</text>
+  <text x="675" y="738" class="t">conv_state + recurrent_state</text>
+  <text x="675" y="764" class="t">MambaComponent.value = state slot</text>
+  <text x="675" y="790" class="t">copy-on-write；single-node lock</text>
+  <text x="675" y="828" class="s">不是 token KV；state 有自己的 shape/dtype</text>
+  <text x="675" y="850" class="s">与 Full prefix 共享 key，但不共享 value</text>
+  <rect x="945" y="680" width="470" height="205" class="box" fill="#ffffff"/>
+  <text x="965" y="710" class="h">DSV4 / DSA（最新实现）</text>
+  <text x="965" y="738" class="t">Full/SWA：PA_ND 或 unified KV rows</text>
+  <text x="965" y="764" class="t">C4/C128 compressed KV：独立 pool</text>
+  <text x="965" y="790" class="t">C4 indexer K + scale：独立 indexer pool</text>
+  <text x="965" y="816" class="t">main/indexer compressor state：fixed ring state pools</text>
+  <text x="965" y="850" class="s">NPU DSV4 额外注册 ComponentType.C128 sidecar</text>
+  <text x="965" y="870" class="s">Rust TreeCore 当前不支持 C128/custom component</text>
+
+  <path d="M245 540 L205 680" class="arrow"/>
+  <path d="M615 540 L495 680" class="arrow"/>
+  <path d="M970 540 L785 680" class="arrow"/>
+  <path d="M1285 540 L1180 680" class="arrow"/>
+  <text x="220" y="620" class="s">FULL value</text>
+  <text x="535" y="620" class="s">SWA value</text>
+  <text x="850" y="620" class="s">state value</text>
+  <text x="1220" y="620" class="s">DSV4 pools</text>
+
+  <path d="M335 782 L365 782" class="arrow dashed"/>
+  <path d="M625 782 L655 782" class="arrow dashed"/>
+  <path d="M915 782 L945 782" class="arrow dashed"/>
+  <text x="350" y="770" text-anchor="middle" class="s">same tree key</text>
+  <text x="640" y="770" text-anchor="middle" class="s">same tree key</text>
+  <text x="930" y="770" text-anchor="middle" class="s">same tree key</text>
+
+  <text x="750" y="958" text-anchor="middle" class="s">结论：SGLang 统一的是“逻辑 prefix + ownership/lifecycle”；物理 KV/state 格式仍由 component、allocator、pool 和 attention backend 各自解释。</text>
+</svg>

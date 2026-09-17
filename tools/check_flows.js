@@ -85,22 +85,83 @@ for (const fn of files) {
   }
 }
 
-/* 3) `路径:行号` 的范围核对（检出不存在就跳过） */
+/* 3) `路径:行号` 的范围核对。
+ *
+ * 这里的作者是按**自己的检出**写的行号，未必等于本站钉的分析基线：同一份文件
+ * 在新版本里可能长得多，拿旧检出比就会一片「越界」（实际踩过：一篇声明的
+ * sglang 是 7465e42b，那两个文件 679/501 行，而本站钉的 0bcd822377 只有 588/294 行）。
+ *
+ * 所以 front-matter 里可以声明自己是对着哪些提交写的：
+ *
+ *     anchors: vllm=435c96f9, sglang=7465e42b
+ *
+ * 声明了、且检出里**恰好有这个提交**，就按那个提交核（核出来越界是真错误）；
+ * 核不了才退回工作区文件，退回时越界只算提示——那是版本差异，不是写错了。 */
 const ANCHOR = /([\w./+-]+\.(?:py|cpp|cc|h|hpp|cu|cuh|go|rs)):(\d+)/g;
+const REPO_OF = {
+  sglang: 'sglang-review',
+  vllm: 'vllm-review',
+  'vllm-ascend': 'vllm-ascend-review',
+  lmcache: 'lmcache-review',
+  'lmcache-ascend': 'lmcache-ascend-combined',
+  mooncake: 'mooncake-review',
+};
 const roots = CHECKOUTS.map(d => path.join(BASE, d)).filter(d => fs.existsSync(d));
+
+/** 解析 front-matter 里的 `anchors: a=rev, b=rev2`。没写就返回空表。 */
+function declaredRevisions(text) {
+  const m = text.match(/^anchors:\s*(.+)$/m);
+  const out = {};
+  if (!m) return out;
+  m[1].split(',').forEach(kv => {
+    const [k, v] = kv.split('=').map(x => x.trim());
+    if (k && v) out[k] = v;
+  });
+  return out;
+}
+
 let anchors = 0, checked = 0;
 if (roots.length) {
   for (const fn of files) {
     const text = fs.readFileSync(path.join(DIR, fn), 'utf8');
+    const declared = declaredRevisions(text);
     for (const m of text.matchAll(ANCHOR)) {
       anchors++;
       const rel = m[1], ln = +m[2];
-      const hits = roots.filter(r => fs.existsSync(path.join(r, rel)));
-      if (!hits.length) continue;                      // 不在本站分析范围内，跳过
+      const hit = roots.find(r => fs.existsSync(path.join(r, rel)));
+      if (!hit) continue;                              // 不在本站分析范围内，跳过
       checked++;
-      const n = fs.readFileSync(path.join(hits[0], rel), 'utf8').split('\n').length;
+      const repo = path.basename(hit);
+      const declName = Object.keys(REPO_OF).find(k => REPO_OF[k] === repo);
+      const rev = declName && declared[declName];
+
+      // 声明了提交、且检出里真有它：按那个提交核，越界就是真错误
+      if (rev) {
+        let src = '';
+        try {
+          // 声明了提交但检出里没有、或那个提交里没这个文件，都是**预期内**的回退，
+          // 所以把 git 的 stderr 关掉，别让它把 fatal 打到输出里
+          src = execFileSync('git', ['-C', hit, 'show', `${rev}:${rel}`],
+            { encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'ignore'] });
+        } catch (e) { src = ''; }                      // 这个提交里没这个文件
+        if (src) {
+          const n = src.split('\n').length;
+          if (ln < 1 || ln > n) {
+            problems.push(`${fn}：行号越界 ${rel}:${ln}` +
+              `（声明的 ${declName}=${rev} 里只有 ${n} 行）`);
+          }
+          continue;
+        }
+      }
+
+      // 退回当前检出：越界只提示，因为很可能是版本差异
+      const n = fs.readFileSync(path.join(hit, rel), 'utf8').split('\n').length;
       if (ln < 1 || ln > n) {
-        problems.push(`${fn}：行号越界 ${rel}:${ln}（${path.basename(hits[0])} 只有 ${n} 行）`);
+        const why = rev
+          ? `声明的 ${declName}=${rev} 在检出里没有，只能拿工作区比`
+          : '没声明 anchors，拿工作区比';
+        warns.push(`${fn}：${rel}:${ln} 超出当前检出（${repo} 只有 ${n} 行；${why}）` +
+          '——若这是版本差异，在 front-matter 里加一行 `anchors: 仓库=提交` 即可按声明核对');
       }
     }
   }

@@ -485,9 +485,9 @@ window.WIKI_COMPONENTS = [
   },
   {
     id: 'memfabric', name: 'MemFabric', primary: 'transport', runs: ['ascend'], port: 'bound',
-    org: '华为昇腾', repo: 'https://gitcode.com/Ascend/memfabric',
+    org: '华为昇腾', repo: 'https://gitcode.com/Ascend/memfabric_hybrid',
     lang: 'C++ / Python',
-    role: '基于灵衢（UnifiedBus）的内存池化 fabric，提供全局内存语义',
+    role: '基于灵衢（UnifiedBus）的内存池化 fabric：DRAM 与 HBM 混合池化，对外给内存语义接口',
     status: 'outline',
     highlights: [
       "**基于灵衢（UnifiedBus）的内存语义**：跨节点内存池化，访问方式接近 load/store，而非 RDMA 的显式提交-轮询",

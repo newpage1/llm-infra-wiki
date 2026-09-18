@@ -814,7 +814,10 @@ function titleOnBand(title, bands) {
    P2P 不该匹配到 P2PController，否则一个声明会认领两个框。 */
 function labelClaims(label, sym) {
   if (!sym) return false;
-  const isWord = c => /[A-Za-z0-9_]/.test(c);
+  // `-` 也要算词字符：模块 id 带连字符（under-api / meta-http / buffer-manager…），
+  // 方框标题写「under-api · 底座对接」。若把 `-` 当边界，`api` 会在 `under-api`
+  // 里被匹配到，同一个方框就同时认领 api 与 under-api，--design 报重复认领。
+  const isWord = c => /[A-Za-z0-9_-]/.test(c);
   let i = label.indexOf(sym);
   while (i >= 0) {
     const before = i === 0 ? '' : label[i - 1];

@@ -374,7 +374,7 @@ indexer global bytes/original-token
 total = 720 + 170 = 890 B/token
 ```
 
-这也解释了为什么不能用 `640` 去质疑 `890`：`640` 是“一份 cache 的一条已存 row”，而 `890` 是“四份共享 cache 经 C2/C1 摊销后的全模型合计”。V4.1 的代码确实只让 KV-source layer 拥有 compressed cache，consumer layer 通过 source prefix 复用，见 `vllm/models/deepseek_v41/attention.py:244-289`、`:369-420`、`:462-492`。
+所以不能用 `640` 去质疑 `890`：`640` 是“一份 cache 的一条已存 row”，而 `890` 是“四份共享 cache 经 C2/C1 摊销后的全模型合计”。V4.1 的代码确实只让 KV-source layer 拥有 compressed cache，consumer layer 通过 source prefix 复用，见 `vllm/models/deepseek_v41/attention.py:244-289`、`:369-420`、`:462-492`。
 
 **DSV4 为什么约为 3514。** DeepSeek-V4-Flash 的 43 个 backbone layer 中，前两层只有 SWA；其余 41 层交替为 21 个 C4 与 20 个 C128。每个压缩层各自拥有 main KV，只有 C4 层创建 indexer，后一点也直接体现在 `vllm_ascend/models/deepseek_v4/model.py:548-616`。标准 DSV4 main row 按 `448B FP8 NoPE + 128B BF16 RoPE + 7B scale + 1B scale pad = 584B` 计算；indexer row 为 `64B MXFP4 value + 4B scale = 68B`：
 

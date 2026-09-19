@@ -24,6 +24,18 @@
   ],
   "flows": [
     {
+      "slug": "dynamo-lmcache-vllm-stack",
+      "section": "lmcache",
+      "group": "",
+      "title": "Dynamo + vLLM + LMCache：三者怎么搭、接口在哪、一次请求怎么走",
+      "author": "MadaoRui",
+      "date": "2026-09-19",
+      "tags": [],
+      "summary": "Dynamo 编排、vLLM 执行、LMCache 存 KV，三者靠 vLLM 的 KVConnectorBase_V1 接在一起。这篇把三种部署形态（进程内 LMCache、MP sidecar、分离式 PdConnector）的进程与端口、两层配置面（lmcache 与 lmcache.mp 前缀）、connector 被调用的精确时序，以及一次 prefill 的完整调用链拆开讲清楚，并标出文档与代码不一致、名字撞车的几个坑。",
+      "updated": "2026-09-19",
+      "file": "dynamo-lmcache-vllm-stack.md"
+    },
+    {
       "slug": "lmcache-engram-offload-design",
       "section": "lmcache",
       "group": "",

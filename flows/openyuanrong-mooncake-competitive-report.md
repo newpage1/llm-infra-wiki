@@ -1,14 +1,13 @@
 ---
 section: mooncake
-summary: 两者不是完全同层竞争：Mooncake 在 KVCache 专用存储、跨实例复用与 LLM serving 生态上领先，Yuanrong DS 在昇腾原生 RH2D/HIXL/HCCS、统一对象数据系统与可随 worker 分片的 metadata owner 上更深。选型看目标是昇腾专用高可控，还是 KVCache 平台化与生态。
+summary: 两者不是完全同层竞争：Mooncake 在 KVCache 专用存储、跨实例复用与 LLM serving 生态上领先，Yuanrong DS 在昇腾原生 RH2D/HIXL/HCCS、统一对象数据系统与可随 worker 分片的 metadata owner 上更深；本轮新增昇腾底层传输专项，把两条实现追到 ACL/ADXL/HCCL 与 HCCS/RoCE 边界，并给出地址发现、内存注册、分组批量、并发与失败路径的源码对照。
 ---
 
 # openYuanrong datasystem vs Mooncake 竞品报告
 
-**研究日期：** 2026-09-17
+**研究日期：** 2026-09-19
 
 **比较对象：** openYuanrong datasystem（下文简称“Yuanrong DS”）与 Mooncake（Transfer Engine + Mooncake Store）
-
 **核心问题：** 昇腾特性支持程度、KV 存储、KV 传输，以及国内互联网厂商使用情况。
 
 ## 范围、版本与证据等级
@@ -20,17 +19,19 @@ summary: 两者不是完全同层竞争：Mooncake 在 KVCache 专用存储、�
 - **Inferred / 架构推断：** 根据 API、编译开关和数据路径推导，并明确写出推理依据。
 - **Unknown / 未知：** 未获得两家在同一硬件、同一模型、同一请求 trace 下的可复现实测；厂商采用规模、SLA、成本和故障率不应从公开仓库直接外推。
 
+**本轮昇腾专项边界：** 从应用/connector 入口追到 ACL、HIXL、ADXL、HCCL/DSP2P 与 HCCS/RoCE 边界，覆盖地址发现、内存注册、分组批量、并发、多 NPU、回退和硬约束；不把 Store 元数据、KV 淘汰算法或 README 性能数字当成底层传输实现证据。
+
 **未覆盖：** 许可证与商业支持合同、具体云厂商报价、私有部署规模、未公开客户、真实生产 tail latency、CANN/驱动在每个版本组合上的兼容矩阵。
 
 ## 一页结论
 
 | 维度 | Yuanrong DS | Mooncake | 结论 | 代码证据 |
 |---|---:|---:|---|---|
-| 昇腾原生能力 | **4.5/5** | **4.5/5** | Yuanrong 更像昇腾数据系统；Mooncake 更像跨加速器传输平台，昇腾路径已经形成 Direct/ADXL、HCCS/RDMA、UBSHMEM 组合。 | **Observed：** Yuanrong `hccs_transport.*`；Mooncake `multi_transport.cpp`、`transfer_engine_impl.cpp` |
+| 昇腾原生能力 | **4.5/5** | **4.5/5** | Yuanrong 更像昇腾数据系统；Mooncake 更像跨加速器传输平台，昇腾路径已经形成 Direct/ADXL、HCCS/RDMA、UBSHMEM 组合。 | **Observed：** Yuanrong `src/datasystem/common/rdma/npu/hccs_transport.cpp:136-214`、`remote_h2d_manager.cpp:740-759`；Mooncake `mooncake-transfer-engine/src/multi_transport.cpp:467-480`、`ascend_direct_transport.cpp:181-251` |
 | KV 存储产品化 | **3.5/5** | **5.0/5** | Mooncake Store 原生围绕 KVCache 做分布式存储、复制、淘汰、分层和放置；Yuanrong DS 强在通用对象/异构缓存与 L2 持久化，KV 语义主要由 vLLM connector 适配。 | **Observed + Documented：** Yuanrong `ObjectPersistenceApi`/`PersistenceApi`；Mooncake placement/replica 源码与 Store 文档 |
-| KV 传输效率 | **4.0/5** | **4.5/5** | Yuanrong 的 RH2D/HCCS/RoCE 可直达 NPU HBM；Mooncake TE 在统一请求切片、批量提交、多协议/多硬件复用上更完整。Mooncake 的零拷贝、多 NIC、拓扑选路与容错能力包含项目文档主张，本报告未同机复测。 | **Observed + Documented：** Yuanrong `MGetH2D`→`HostDataCopy2Device`；Mooncake `TransferRequest`/`MultiTransport` 源码及 README 基准 |
-| 统一对象数据系统 | **4.5/5** | **2.5/5** | Yuanrong 源码同时具备 object/device-object、L2 persistence、slot/recovery 和路由/worker 边界；本次 Mooncake 源码范围未见 Stream 语义，因此不能等量齐观。 | **Observed：** Yuanrong `object_client_impl.h`、`persistence_api.*`；Mooncake 本次 checkout 未见对应 Stream API |
-| 华为/昇腾基础设施集成 | **4.5/5** | **4.0/5** | 两者均有代码级 Ascend runtime 集成；Yuanrong 在 HIXL/HCCS/RH2D/ACL 资源控制更深入。**华为内部产品协同与客户采用不由源码证明。** | **Observed：** Yuanrong HIXL/ACL/HCCL；Mooncake ADXL/Ascend transport；采用证据另列 |
+| KV 传输效率 | **4.0/5** | **4.5/5** | Yuanrong 的 RH2D/HCCS/RoCE 把远端 Host source 直接送入本地 NPU HBM；Mooncake TE 以统一 task/slice 状态模型组织请求，并按 transport、segment、opcode、endpoint 和 engine 分组。当前 Ascend Direct 是“一 request 一 slice”，不能概括成自动把单请求切碎。 | **Observed：** Yuanrong `object_client_impl.cpp:2037-2170`；Mooncake `ascend_direct_transport.cpp:254-318`、`slice_dispatcher.cpp:65-99,131-160` |
+| 统一对象数据系统 | **4.5/5** | **2.5/5** | Yuanrong 源码同时具备 object/device-object、L2 persistence、slot/recovery 和路由/worker 边界；本次 Mooncake 源码范围未见 Stream 语义，因此不能等量齐观。 | **Observed：** Yuanrong `src/datasystem/client/object_cache/object_client_impl.h:581-670`、`src/datasystem/common/l2cache/persistence_api.h:109-122`；Mooncake 的 KV placement 证据为 `mooncake-store/include/placement/target.h:11-33`，未见对等 Stream API |
+| 华为/昇腾基础设施集成 | **4.5/5** | **4.0/5** | 两者均有代码级 Ascend runtime 集成；Yuanrong 在 HIXL/HCCS/RH2D/ACL 资源控制更深入。**华为内部产品协同与客户采用不由源码证明。** | **Observed：** Yuanrong `cmake/modules/FindAscend.cmake:27-69,93-123`、`hccs_transport.cpp:136-214`；Mooncake `mooncake-common/common.cmake:104-111,610-627`、`transfer_executor_base.cpp:169-294`；组织协同为 **Unknown** |
 | 元数据架构 / 横向扩展 | **4.5/5** | **3.5/5** | Yuanrong 默认启用 distributed master，对象 key 按 topology placement 分配 metadata owner；Mooncake Store 当前是逻辑单 active master，进程内 1024 shard 提升并发，HA standby 不分担在线 metadata 请求。 | **Observed + Inferred：** Yuanrong `object_meta_route_helper.cpp`、`worker_oc_server.cpp`；Mooncake `client_service.cpp`、`master_service.h` |
 | 元数据一致性机制 | **4.0/5** | **4.0/5** | Yuanrong 的 topology 有 CAS/version/digest fencing，但 object metadata 的持久化语义随 write mode 改变；Mooncake 的 HA oplog 有 producer view、顺序和 durable-prefix fencing，但部分业务 mutation 是 visible-before-durable。 | **Observed：** Yuanrong `object_meta_store.cpp`、`topology_repository.cpp`；Mooncake `oplog_batch_storage.cpp`、`master_service.cpp` |
 | HA / 故障恢复 | **4.0/5** | **4.0/5** | Yuanrong 是分布式 owner/worker/object/slot 恢复；Mooncake 是 master active/standby + lease + oplog/snapshot。两者均存在实际运行路径，也都存在默认关闭或组合受限的关键能力。 | **Observed：** Yuanrong `metadata_recovery_manager.cpp`、`slot_recovery_manager.cpp`；Mooncake `master_service_supervisor.cpp`、`standby_controller.cpp` |
@@ -140,7 +141,7 @@ Yuanrong DS 的核心存储是通用 object cache/heterogeneous object，叠加 
 
 ### 4.1 Mooncake：以 Transfer Engine 为中心
 
-TE 的公开能力包括批量传输、拓扑感知、多 NIC 带宽聚合、临时网络错误自动切换，以及 TCP/RDMA/NVMe-oF/Ascend 等多协议。README 报告在 4×200 Gbps RoCE 上最高 87 GB/s、8×400 Gbps 上最高 190 GB/s，并声称相对 TCP 为 2.4×/4.6×；这些是项目基准，不是本次独立复测（`README.md:94-110`）。
+TE 的 README 宣称具备批量传输、拓扑感知、多 NIC 带宽聚合和路径故障处理，并报告在 4×200 Gbps RoCE 上最高 87 GB/s、8×400 Gbps 上最高 190 GB/s；这些是项目基准，不是本次独立复测（`README.md:94-110`）。源码侧能确认 `MultiTransport` 的协议选择与批量聚合，但 Ascend Direct 的失败路径是刷新 segment metadata 后重试同一 ADXL 路径，未证明会自动降级到 TCP/RDMA 等另一 transport（`mooncake-transfer-engine/src/multi_transport.cpp:589-692`；`src/transport/ascend_transport/ascend_direct_transport/transfer_executor_base.cpp:653-708`）。
 
 在 vLLM 中，`MooncakeConnector` 用于 PD 解耦，把 prefill worker 的 KV block 传给 decode worker；`MooncakeStoreConnector` 用于跨实例共享和 hash-prefix 复用（`README.md:181-192`）。这使“KV 传输”和“KV 存储”在同一套 object/segment/transport 模型中闭环。
 
@@ -158,9 +159,94 @@ TE 的公开能力包括批量传输、拓扑感知、多 NIC 带宽聚合、临
 - **Inferred，架构含义：** Yuanrong 把昇腾设备地址、注册预算和 HCCS/RoCE 模式暴露在数据系统边界，因此做 Ascend 专项内存池、预注册和链路调优时控制点更直接；Mooncake 把调用方约束收敛成统一 request/segment 模型，同一批调度器可复用多种 transport，因此新增 serving engine 或硬件时上层改动通常更小。这是基于接口耦合面的推断，不是性能结论。
 - **可证伪条件：** 若 Mooncake connector 必须针对每种硬件复制大量调度逻辑，或 Yuanrong 可在不改上层接口的情况下动态加载非昇腾 transport，上述“专项优化 vs 复用”的差异应下调。最终仍需用同一模型、同一 block size、同一 CANN/驱动版本比较接入代码量和运行指标。
 
-## 5. 元数据架构、一致性、HA 与演进能力
+## 5. 昇腾底层传输专项源码比较
 
-### 5.1 “Yuanrong 去中心化、Mooncake 依赖 Master”是否成立
+![Yuanrong 与 Mooncake 的昇腾底层传输链](openyuanrong-mooncake-ascend-transport.svg)
+
+这张图按相同的四层纵轴排列两条实现，而不是照抄目录。真正拉开差异的是第二、三层：Yuanrong 先判断对象数据来自本地 Host 还是远端 Host，再把远端 source 交给 RH2D strategy；Mooncake 先把调用统一成 `TransferRequest`，再按 transport、segment/opcode、目标 endpoint 和本地 engine 分组。前者把“远端 Host cache 回填到 HBM”做成对象系统内的专项路径，后者把 H2D、D2H、D2D 组织成通用 ADXL 执行模型。
+
+关键类关系见 [PlantUML 类图](openyuanrong-mooncake-ascend-transport.puml)。类图只画传输主干：Yuanrong 的 `RemoteH2DManager` 持有一个 `RH2DTransportStrategy`；Mooncake 的 `AscendDirectTransport` 同时拥有 dispatcher 和 executor，executor 再拥有本地 copy engine。
+
+### 5.1 专项评分
+
+以下是固定源码基线下的“能力与工程完整度评分”，不是吞吐、时延或稳定性实测分。0.1 分差只用于表达代码层面的相对强弱，不应被解读成可量化性能差。
+
+| 底层传输维度 | Yuanrong | Mooncake | 评分依据 |
+|---|---:|---:|---|
+| RH2D：远端 Host→本地 NPU 专项完整度 | **4.8** | **4.4** | Yuanrong 把 remote source、root info、Host segment import、scatter 和目标 `DeviceBlobList` 串进 `MGetH2D`；Mooncake Ascend Direct 能做 H2D，但入口是通用 READ/WRITE，不携带对象 source-locality 语义（Y: `object_client_impl.cpp:1930-1965,2037-2170`；M: `transport.h:60-75`）。 |
+| HCCS/HIXL/ADXL 控制深度 | **4.7** | **4.7** | Yuanrong 直接控制 HIXL mode、engine、注册预算和 `TransferSync`；Mooncake 直接配置 ADXL engine、AutoConnect、buffer pool、fabric mem、sync/async executor（Y: `hccs_transport.cpp:136-214,562-637`；M: `transfer_executor_base.cpp:103-294`）。 |
+| HCCS/RoCE 多模式 | **4.6** | **4.7** | Yuanrong 在 `RemoteH2DManager` 选择 HCCS 或 RoCE；Mooncake Ascend Direct 可由 ADXL resource config/HCCL 环境切换底层模式，并另有 UBSHMEM。双方都没有证明运行期跨 transport 自动降级（Y: `remote_h2d_manager.cpp:740-759`；M: `utils.cpp:142-170`、`multi_transport.cpp:467-480`）。 |
+| Device 内存注册可控性 | **4.7** | **4.5** | Yuanrong 暴露 HBM 预注册、253 个共享预算和临时注册回收；Mooncake 能识别 Host/NPU、批量 publish metadata、失败回滚，但默认只在当前 engine 注册（Y: `hccs_transport.cpp:412-462,579-637`；M: `ascend_direct_transport.cpp:349-457`、`transfer_executor_base.cpp:475-542`）。 |
+| 多 NPU / 并发调度 | **3.7** | **4.6** | Yuanrong 能建立 per-device HIXL engines，但当前 `Connect`、device register 和 `ScatterBatch` 使用 `engines_.begin()`，且有单个 `transferMutex_`；Mooncake agent mode 建立每 NPU endpoint，并有 per-engine queue（Y: `hccs_transport.cpp:217-275,383-394,599-607`；M: `slice_dispatcher.cpp:109-210`）。 |
+| H2D / D2H / D2D 对称性 | **4.0** | **4.7** | Yuanrong RH2D 专项只覆盖远端 Host→Device；`MSetD2H` 是本地 D2H 后发布，D2D 走另一套 device-object/P2P API。Mooncake READ/WRITE + pointer type + local/remote endpoint 覆盖三种方向（Y: `object_client_impl.cpp:2181-2233,2290-2327`；M: `local_copy_engine.cpp:99-147`）。 |
+| 本地 copy 优化 | **4.3** | **4.7** | 两者都调用 ACL；Mooncake 显式区分 H2H/D2D/H2D/D2H，H2D/D2H 优先 `aclrtMemcpyBatch`，不支持时退回 async（Y: `client_device_object_manager.cpp:294-309`；M: `local_copy_engine.cpp:60-127,150-290`）。 |
+| 批处理与分组 | **4.4** | **4.6** | Yuanrong 按 root info 聚合 `P2pScatterEntry`，HIXL 每批 1024 descriptor、RoCE 每批 16384 blobs；Mooncake 有 transport、task group、segment/opcode、endpoint/engine 多级分组（Y: `object_client_impl.cpp:2037-2170`、`hccs_transport.cpp:49-52`；M: `multi_transport.cpp:138-204`、`slice_dispatcher.cpp:65-99,131-160`）。 |
+| 失败恢复 / endpoint 刷新 | **4.0** | **4.5** | Yuanrong 有 connection state、初始化回滚、disconnect 清理和 RoCE heartbeat；Mooncake retryable failure 会强制刷新 `SegmentDesc` 后再试一次。两者当前代码都不足以证明 Ascend 路径自动跨协议切换（Y: `remote_h2d_manager.cpp:281-373`；M: `transfer_executor_base.cpp:653-708`）。 |
+| 传输可观测性 | **4.6** | **3.9** | Yuanrong 在 Get、source grouping、local/remote copy、comm wait、scatter 等阶段有 `PerfPoint`；Mooncake 有 trace/log 和状态计数，但 Ascend Direct 的阶段化指标较少（Y: `object_client_impl.cpp:1934-1965,2123-2177`；M: `multi_transport.cpp:662-668`）。 |
+| 运行约束显式性 | **4.6** | **4.5** | Yuanrong 把 HIXL 8.5.2、253 registrations、1024 descriptors、5/10 秒同步限制写入构建和代码；Mooncake 把 thread/timeout/buffer-pool/async 互斥和 endpoint 配置显式化（Y: `FindAscend.cmake:93-123`、`hccs_transport.cpp:49-52`；M: `slice_dispatcher.cpp:34-55`、`transfer_executor_base.cpp:113-173`）。 |
+| 跨硬件 / 跨框架复用 | **3.8** | **4.8** | Yuanrong 的 RH2D strategy 当前是 HCCS/RoCE 两种昇腾实现；Mooncake 的 `TransferRequest`/`MultiTransport` 同时承载多种加速器与网络 transport（Y: `remote_h2d_manager.cpp:740-759`；M: `multi_transport.cpp:430-517,589-692`）。 |
+
+**专项结论：** 如果 workload 的主链就是“对象已在远端 Host cache，按 object key 取回并落入调用方给定的 NPU buffer”，Yuanrong 的代码更短、更显式。若需要同一传输层同时覆盖 H2D、D2H、D2D、多 NPU endpoint，并被多个 serving engine 复用，Mooncake Ascend Direct 的调度层次更完整。Yuanrong 当前最值得优先验证的是 HCCS 的实际多 engine 并行度；Mooncake 最值得验证的是复杂 build/config 组合、metadata plugin 可用性和 retry 后的 P99。
+
+### 5.2 入口语义与实际调用链
+
+**Yuanrong RH2D（Observed）：**
+
+1. `MGetH2D` 接收 `objectKeys + DeviceBlobList`，更新客户端 RH2D 配置后进入 `MGetH2DImpl`（`src/datasystem/client/object_cache/object_client_impl.cpp:1816-1839`）。同步实现把 `isRH2DSupported=true` 传给 `Get`，保留返回的 `Buffer` 生命周期，再执行 `HostDataCopy2Device`（`object_client_impl.cpp:1930-1965`）。异步实现把 RPC Get 和 copy 放在两个线程池阶段（`object_client_impl.cpp:1864-1927`）。
+2. `HostDataCopy2Device` 在 RH2D 关闭时统一做 ACL Host→Device copy；开启时依据 `Buffer::GetRemoteHostInfo()` 分成本地 source 与远端 source，远端 source 再按 root info 分组（`object_client_impl.cpp:2123-2170`）。
+3. 远端组把远端 Host VA、目标 device pointers 和长度数组装成 `P2pScatterEntry`，导入 Host segment 后调用 `RemoteH2DManager::ScatterBatch`（`object_client_impl.cpp:2037-2118`）。manager 等待连接初始化完成，并用 communicator mutex 保证同一 context 的操作串行，再转给 transport strategy（`src/datasystem/common/rdma/npu/remote_h2d_manager.cpp:675-691`）。
+4. `remote_h2d_link_type=ROCE` 创建 `RoCETransport`，`HCCS` 创建 `HCCSTransport`；请求 HCCS 但构建时没有 HIXL 会直接 fatal（`remote_h2d_manager.cpp:740-759`）。
+
+**Yuanrong 的方向边界（Observed）：** `MSetD2H` 先 `MultiCreate` 本地 Host buffer，再调用 `MemCopyBetweenDevAndHost(... DEVICE_TO_HOST ...)`，最后 `MultiPublish`（`object_client_impl.cpp:2181-2233,2290-2327`）。因此 Yuanrong 的 `MGetH2D` 与 `MSetD2H` API 名称虽然对称，底层远端 transport 并不对称：远端专项是 RH2D，D2H 是先落本地 Host object。Device↔Device 由 `DevPublish/DevSubscribe/DevMGet/DevMSet` 等另一组接口承担（`src/datasystem/client/object_cache/object_client_impl.h:620-670`），不能把三条路径合并描述成一个双向 RH2D transport。
+
+**Mooncake Ascend Direct（Observed）：**
+
+1. `TransferRequest` 统一定义 READ/WRITE、local source、remote `target_id + target_offset`、length、retry hint、transport hint 和 task group（`mooncake-transfer-engine/include/transport/transport.h:60-75`）。`MultiTransport` 先逐 request 调 `selectTransport`，再按 transport 聚合 `TransferTask` 提交（`mooncake-transfer-engine/src/multi_transport.cpp:138-204`）。
+2. `selectTransport` 读取目标 `SegmentDesc.protocol`；Ascend segment 的 protocol 为 `ascend`，构建宏决定装配 `AscendDirectTransport`、旧 `HcclTransport` 或 `HeterogeneousRdmaTransport`（`multi_transport.cpp:467-480,589-692`）。这是一种 build-time implementation choice，不是一次传输失败后的 runtime failover。
+3. Ascend Direct 为每个 request 调一次 `InitializeSlice`，所以当前实现是“一 request 一 slice”；随后 dispatcher 按 `(target_id, opcode)` 分组，RoCE agent 模式再按 `(engine_idx, target_id, opcode)` 分组（`src/transport/ascend_transport/ascend_direct_transport/ascend_direct_transport.cpp:85-97,254-318`；`slice_dispatcher.cpp:65-99,131-160`）。
+4. executor 再依据目标地址落在哪个 `BufferDesc`，用 `device_id` 选择远端 ADXL endpoint；同 endpoint 且非 fabric-memory 时走 `LocalCopyEngine`，否则调用 ADXL sync/async transfer（`transfer_executor_base.cpp:47-78,615-689`）。
+
+### 5.3 地址发现、内存注册与链路选择
+
+| 问题 | Yuanrong | Mooncake |
+|---|---|---|
+| endpoint 如何产生 | RoCE identity 是 HCCL root info 的 Base64；HCCS 为 HIXL `ip:port`。`RemoteH2DContext` 缓存 remote endpoint、local identity、link type、stream 与初始化状态（`remote_h2d_manager.h:49-72`；`roce_transport.cpp:92-97`）。 | `SegmentDesc` 发布 protocol、endpoints、buffers、`BufferDesc.device_id` 和 `metadata_version`（`mooncake-transfer-engine/include/transfer_metadata.h:56-80,90-123`）。agent mode 为所有本地 NPU 建 endpoint，普通模式只使用当前 device（`ascend_direct_transport.cpp:181-251`）。 |
+| endpoint 如何交换 | worker 把 root info/endpoint 随 remote-host metadata 返回；client 以 root info 为 communicator key，连接可异步初始化，失败时 rollback、disconnect 并清理 heartbeat map（`remote_h2d_manager.cpp:241-279,281-440`）。 | segment descriptor 由 metadata plugin 或 P2P handshake 发布/获取；远端 lookup 可缓存，`force_update=true` 会重新拉取（`mooncake-transfer-engine/src/transfer_metadata.cpp:1460-1492,1517-1554`）。 |
+| Host source 注册 | HCCS buffer-pool 不注册 Host source；HIXL RoCE-direct 在 worker 按当前 device 注册 `MEM_HOST`（`hccs_transport.cpp:329-362`）。RoCE 路径调用 `DSP2PRegisterHostMem`（`roce_transport.cpp:163-165`）。 | location 可明确写 `cpu*`/`npu*`，也可用 `aclrtPointerGetAttributes` 推断；buffer-pool 模式跳过 Host 注册（`ascend_direct_transport.cpp:50-75`；`transfer_executor_base.cpp:475-482`）。 |
+| Device destination 注册 | HCCS 可通过公开 API 长期预注册 HBM；未命中时 batch 内临时注册，二者共享 253 个预算（`object_client_impl.cpp:1969-1998`；`hccs_transport.cpp:412-462,579-637`）。 | 先把 `BufferDesc` 加入 metadata，再调用 ADXL `RegisterMem`；失败则移除 metadata。batch 注册最后只 publish 一次（`ascend_direct_transport.cpp:349-397,418-457`）。 |
+| HCCS/RoCE 选择 | `RemoteH2DManager::CreateTransport` 依据单一 flag 选择 HCCS 或 RoCE；没有看到同一请求自动改走另一 strategy（`remote_h2d_manager.cpp:740-759`）。 | `HCCL_INTRA_ROCE_ENABLE=1` 或 `ASCEND_GLOBAL_RESOURCE_CONFIG` 中含 RoCE protocol 决定 ADXL 资源模式（`utils.cpp:142-170`）。这仍是 Ascend Direct 内部配置，不等同于跨 TE transport failover。 |
+
+**多 NPU 的关键差异（Observed）：** Yuanrong 的 worker 能为多个 device 创建 HIXL engine，连接 identity 也按 engine round-robin 返回（`hccs_transport.cpp:136-228`），但实际 `Connect`、device memory register 和 `ScatterBatch` 均选 `engines_.begin()`（`hccs_transport.cpp:231-275,383-394,599-607`）。所以“发布多个 device endpoint”不能直接推导成“传输负载自动分摊到多个 engine”。Mooncake Ascend Direct 在 agent mode 为每个本地 NPU 建 context/endpoint，RoCE dispatcher 为每个 ADXL engine 建独立线程和队列，且目标 `BufferDesc.device_id` 参与远端 endpoint 选择（`context_manager.cpp:43-130`；`slice_dispatcher.cpp:109-210`；`transfer_executor_base.cpp:47-78`）。
+
+### 5.4 批处理、并发与本地 copy
+
+**Yuanrong（Observed）：** HCCS 把多个 `P2pScatterEntry` 展开为 HIXL `TransferOpDesc`，达到 1024 descriptors 就 flush；每次 flush 是 `Hixl::TransferSync(... READ ..., 10000)`（`hccs_transport.cpp:49-52,562-637`）。同一个 `HCCSTransport` 的 `ScatterBatch` 被全局 `transferMutex_` 包住，该 mutex 同时保护注册生命周期（`hccs_transport.h:94-99`；`hccs_transport.cpp:599-607`）。RoCE 则按最多 16384 blobs 拆批，每批调用 DSP2P scatter 后同步 stream，超时 5000 ms；连接 map 锁在拿到 `shared_ptr` 后释放，不把所有 endpoint 的网络等待串在一起（`roce_transport.cpp:77-82,187-282`）。
+
+**Mooncake（Observed）：** 默认 dispatcher 线程池为 8、最大 16，buffer-pool 强制为 1；每个工作线程在执行前设置 ACL context（`slice_dispatcher.cpp:34-99`）。本地 endpoint 且非 fabric-memory 时不走 ADXL remote transfer：`LocalCopyEngine` 对 H2H/default 用同步 copy，D2D 用 async，H2D/D2H 优先 `aclrtMemcpyBatch`，单批最多 4096，runtime 不支持 batch 时回退到 async（`local_copy_engine.cpp:27-29,60-127,129-290`）。远端路径的 sync executor 把同组 slices 组成 `TransferOpDesc` 数组后调用一次 `TransferSync`（`sync_transfer_executor.cpp:46-95`）。
+
+**对“Mooncake 传输切片”的修正：** `TransferTask` 确实维护 `slice_count`、成功/失败计数和 `slice_list`（`mooncake-transfer-engine/include/transport/transport.h:337-377`），多种 transport 也可自行产生多个 slice；但在本基线的 Ascend Direct 提交实现中，每个 request 只创建一个 slice（`ascend_direct_transport.cpp:276-285,302-313`）。因此准确表述是“统一 task/slice 状态模型并多级分组”，而不是“Ascend Direct 会自动把大 request 切成多个小片”。
+
+### 5.5 失败路径、硬约束与可观测性
+
+**连接与失败：** Yuanrong 的 `RemoteH2DContext` 有 UNINITIALIZED/INITIALIZING/INITIALIZED 状态，连接失败会 disconnect、清 heartbeat map、删除 communicator 并唤醒等待者（`remote_h2d_manager.cpp:281-373`）；heartbeat 只在 RoCE link 上安装（`remote_h2d_manager.cpp:339-356`）。Mooncake sync/async executor 支持 connect/transfer timeout、short connection 和 AutoConnect；retryable failure 最多两次，第二次以 `force_update=true` 刷新 segment descriptor（`transfer_executor_base.cpp:39,113-167,653-708`）。这证明的是“同一路径刷新 endpoint 后重试”，不是“自动跨协议故障切换”。
+
+**构建与运行包线：** Yuanrong 的 HCCS 编译要求 `cann_hixl`、HIXL headers、`metadef`，且 HIXL 版本不低于 8.5.2；否则不编译 `hccs_transport.cpp`，只保留 RoCE 实现（`cmake/modules/FindAscend.cmake:27-69,93-123`；`src/datasystem/common/rdma/CMakeLists.txt:36-53,79-82`）。`FABRIC_MEM` 枚举已经存在，但当前 `DetermineHixlMemoryMode` 注释明确尚未接入对应 flag，运行时只返回 BUFFER_POOL 或 ROCE_DIRECT（`hccs_transport.cpp:54-60`）。Mooncake 则有 `USE_ASCEND`、`USE_ASCEND_DIRECT`、`USE_UBSHMEM`、`USE_ASCEND_HETEROGENEOUS` 四条构建路径，源码目录的 `if/elseif` 也表明这些实现并非全部叠加到一个 ascend transport 中（`mooncake-common/common.cmake:104-111,610-627`；`mooncake-transfer-engine/src/transport/ascend_transport/CMakeLists.txt:1-12`）。
+
+**额外路径：** Mooncake UBSHMEM 发布 IPC key 或 fabric shareable handle，远端导入后 reserve/map VMM 地址，再用多 stream `aclrtMemcpyAsync`（`ubshmem_transport.cpp:59-111,315-457,577-718`）。`HeterogeneousRdmaTransport` 对 NPU source 先做 D2H 到预分配 Host staging，再交给 RDMA；小块还可先 D2D 聚合到大 device block，因此它不能被描述成 direct NPU RDMA（`heterogeneous_rdma_transport.cpp:102-162,246-303,350-445`）。Yuanrong 另有默认关闭、依赖 `BUILD_WITH_URMA` 的 `BUILD_PIPLN_H2D`（`CMakeLists.txt:140-143`；`cmake/dependency.cmake:34-39`），但 client 和 pipeline API 仍构造 `TargetDeviceType::CUDA`（`src/datasystem/client/object_cache/object_client_impl.cpp:3355-3380`；`src/datasystem/common/os_transport_pipeline/os_transport_pipeline_api_impl.cpp:51-65,257-276`）。在没有补充 runtime/driver 实测前，本报告只确认“pipeline mechanism 存在”，不把它升级为已验证的 Ascend 原生 RH2D。
+
+**可观测性：** Yuanrong 在 `MGetH2D`、Get、copy、source grouping、local/remote copy、comm wait 和 scatter 等边界设置 `PerfPoint`，并为 HCCS/RoCE 的 endpoint、device、batch、timeout 输出结构化日志（`object_client_impl.cpp:1816-1823,1934-1965,2123-2177`；`remote_h2d_manager.cpp:675-691`）。Mooncake 可通过 `globalConfig().trace` 输出 transport 选择，并在 executor/local-copy 中记录状态和错误；不过本基线没有看到与 Yuanrong 同粒度的 Ascend Direct 分阶段指标，因此可观测性评分略低（`multi_transport.cpp:662-668`；`local_copy_engine.cpp:60-127`）。
+
+### 5.6 选型与验证建议
+
+- **优先 Yuanrong：** 目标是远端 Host object/cache 回填本地 HBM，团队需要直接控制 HIXL mode、HBM 预注册、注册预算、HCCS/RoCE 选择，并愿意围绕 Ascend 做专项优化。
+- **优先 Mooncake：** 目标是一个统一 READ/WRITE 传输层覆盖 H2D/D2H/D2D、多 NPU endpoint、同机共享内存与跨硬件 connector，且更看重框架复用。
+- **必须实测 Yuanrong：** `engines_.begin()` 与 `transferMutex_` 对多 NPU、多连接、多流吞吐和 P99 的影响；253 registration budget 用尽时的临时注册退化；HCCS 与 RoCE 的恢复时间。
+- **必须实测 Mooncake：** buffer-pool 单线程、sync/async 互斥、默认只在当前 engine 注册、metadata refresh 重试、UBSHMEM/fabric-memory 版本矩阵，以及 Store TE 与普通 TE 的配置隔离。
+- **共同测试法：** 固定 A2/A3、CANN/driver、NUMA、block size 和并发，分别测 local H2D、remote H2D、D2H、D2D；同时记录 registration count、connect 次数、metadata lookup、队列等待、ACL/ADXL/HIXL sync 时间和 P50/P99，避免只看总带宽。
+
+## 6. 元数据架构、一致性、HA 与演进能力
+
+### 6.1 “Yuanrong 去中心化、Mooncake 依赖 Master”是否成立
 
 **结论：对 Mooncake Store 和 Yuanrong 默认 distributed-master 模式而言，这个说法方向上成立。更准确的表述是：Yuanrong 是“分布式 metadata-owner”，Mooncake Store 是“单 active Master 元数据控制面”；但 Yuanrong 不是完全无控制中心，Mooncake 的数据搬运也不经过 Master 中转。**
 
@@ -190,7 +276,7 @@ TE 的公开能力包括批量传输、拓扑感知、多 NIC 带宽聚合、临
 
 **竞争含义（Inferred）：** 在 metadata QPS 或对象数随 worker 数增长的场景，Yuanrong 的 owner 分片提供了更直接的横向扩展路径；Mooncake 的单 active Master 更容易形成单一裁决顺序、统一 placement 和相对简单的故障切换语义。前者付出的成本是 topology、迁移、redirect 和跨 owner 协调，后者付出的成本是 Master 容量上限和 failover 窗口。当前没有同规模压测，不能只凭架构判定实际 QPS、P99、扩展效率或恢复时间。
 
-### 5.2 元数据一致性：两边都不能概括成“全局强一致”
+### 6.2 元数据一致性：两边都不能概括成“全局强一致”
 
 **Yuanrong object metadata 按 write mode 变化（Observed）：** `ObjectMetaStore` 定义 `ROCKS_ONLY`、`ROCKS_ASYNC_ETCD`、`ROCKS_SYNC_ETCD` 三种写入类型（`src/datasystem/master/object_cache/store/object_meta_store.h:90-93`）。映射关系是：无 L2 → Rocks-only，write-back → Rocks + 异步 etcd，write-through → Rocks + 同步 etcd（`src/datasystem/master/object_cache/oc_metadata_manager.cpp:3818-3829`）。同步路径在返回前执行 etcd `Put/BatchPut`；异步路径按 object key hash 进入队列（`object_meta_store.cpp:288-344`）。队列满时源码会移除一个旧 operation（`object_meta_store.cpp:257-285`）。因此：
 
@@ -209,7 +295,7 @@ TE 的公开能力包括批量传输、拓扑感知、多 NIC 带宽聚合、临
 
 但业务 mutation 的可见性点并不统一：`PutEnd` 先更新 metadata、授予 read lease、发布 stored event，之后才调用 `AppendOpLogVisibleBeforeDurable`（`mooncake-store/src/master_service.cpp:4945-4964,13741-13775`）；部分删除/cleanup 则用 durable callback 完成最终删除（`master_service.cpp:2728-2788,13777-13830`）。因此更准确的结论是：**oplog 对日志顺序、producer view 和 durable prefix 有事务 fencing，但不能写成“所有 metadata mutation 都在可见前同步持久化”。**
 
-### 5.3 HA 与故障恢复
+### 6.3 HA 与故障恢复
 
 | 故障场景 | Yuanrong DS | Mooncake Store |
 |---|---|---|
@@ -222,19 +308,19 @@ TE 的公开能力包括批量传输、拓扑感知、多 NIC 带宽聚合、临
 
 **Mooncake（Observed）：** HA 默认关闭（`mooncake-store/src/master.cpp:185-186`）；启用时必须有 backend connection string，oplog 要求 `enable_ha=true` 且当前要求 etcd（`master.cpp:1446-1462`）。etcd leader acquisition 创建带 lease 的 master-view key 并保存 view version/owner token，keepalive 停止触发 leadership-lost callback（`src/ha/leadership/backends/etcd/etcd_leader_coordinator.cpp:193-259,262-335`）。supervisor 在 promotion state restore 后再次 renew leadership，才开放服务；丢 leadership 或 oplog writer terminal 会立刻 `SetServiceAvailable(false)` 并 stop server（`src/ha/leadership/master_service_supervisor.cpp:352-560`）。standby 只有在 snapshot bootstrap 或 `enable_oplog && backend=etcd` 时具有恢复能力，否则退为 noop controller（`src/ha/standby_controller.cpp:18-45,382-393`）。所以 Mooncake 有真实 active/standby HA 实现，但“开启 HA”不自动等于“standby 拥有可恢复状态”。
 
-### 5.4 特性成熟度
+### 6.4 特性成熟度
 
 **Observed 的工程信号：** 固定 checkout 中，Yuanrong `tests/` 有 656 个文件，其中名称包含 recovery/fail/dfx/etcd/slot/topology 的约 37 个；覆盖 metadata recovery、slot end-to-end、topology 和 etcd store。Mooncake Store/TE 相关测试目录有 246 个文件，其中名称包含 HA/fail/snapshot/oplog/standby/transport 的约 78 个；包括 etcd leader hang E2E、Redis/K8s leadership、oplog codec/storage/writer/reader/applier、snapshot promotion 和 hot standby。
 
 **评分为什么仍都是 4.0/5：** 测试文件数量说明工程投入，不等于测试通过率或生产 SLA。Yuanrong 的 metadata recovery 默认关闭且恢复对象有边界；Mooncake 的 HA 也默认关闭，oplog/snapshot/backend 存在组合约束和 noop fallback。本报告未在固定 CANN、etcd、Redis、K8s 和 distributed-disk 环境执行两仓全量故障测试，因此不把任一方标为“完整 HA”或“生产成熟度已审计”。
 
-### 5.5 框架可扩展性
+### 6.5 框架可扩展性
 
 **Yuanrong（4.0/5）：** `DsClient` 同时暴露 KV/Hetero/Object（`include/datasystem/datasystem.h:25-71`），另有 producer/subscribe/delete 的 Stream API（`include/datasystem/stream_client.h:41-162`）；coordination backend 抽象可由 etcd 或 DS coordinator 实现。它的优势是语义面广、数据与 metadata owner 可横向分片。限制是 L2 persistence factory 仍用 `l2_cache_type` 的硬编码分支选择 `AggregatedPersistenceApi`/`ObjectPersistenceApi`（`src/datasystem/common/l2cache/persistence_api.cpp:37-50`），新增 backend 通常要修改核心 factory 和构建。
 
 **Mooncake（4.5/5）：** 通用 `TransferRequest` 把 source pointer、target segment/offset、length 和 hint/group 固定成统一契约（`mooncake-transfer-engine/include/transport/transport.h:49-75`）；`MultiTransport` 统一选路并按 transport 批量提交（`src/multi_transport.cpp:138-204`）。Connector/TE/Store 分层使 serving engine、传输协议和存储生命周期可以相对独立演进。限制是 transport 创建仍是编译宏 + 协议字符串分支（`multi_transport.cpp:430-517`），metadata storage plugin 也硬编码 Redis/HTTP/etcd factory（`transfer_metadata_plugin.cpp:544-595`），因此它是“统一接口”，不是完全动态的插件系统。
 
-### 5.6 可演进性
+### 6.6 可演进性
 
 **Yuanrong（3.5/5）：** topology codec 写入并严格校验 `SCHEMA_VERSION="1"`（`src/datasystem/cluster/repository/topology_repository_codec.cpp:35,156-185`），membership value 编解码 `compatibility_version` 且兼容 legacy etcd value（`src/datasystem/cluster/membership/membership_value_codec.cpp:157-204`）。这些机制有助于拒绝不兼容状态。明确扣分项是当前 RPC protobuf 注释写明 timeout 字段单位发生不兼容变化，不支持与旧二进制 rolling upgrade，部署需要 worker + master + client 全量重启（`src/datasystem/protos/meta_zmq.proto:62-67`）。
 
@@ -242,7 +328,7 @@ TE 的公开能力包括批量传输、拓扑感知、多 NIC 带宽聚合、临
 
 **综合推断：** Mooncake 的层次边界更适合分别替换 connector、transport 和 store，故可演进性略高；Yuanrong 的统一数据系统降低多数据模型的运维碎片，但协议和 owner/recovery 状态耦合更深。要验证这一判断，应做 N/N+1 混部、双版本 client、snapshot/oplog 升级和 topology schema 升级演练，而不是只看 schema 字段是否存在。
 
-## 6. 国内互联网厂商使用与生态
+## 7. 国内互联网厂商使用与生态
 
 ### 已有较强公开证据的 Mooncake 使用者
 
@@ -262,7 +348,7 @@ TE 的公开能力包括批量传输、拓扑感知、多 NIC 带宽聚合、临
 
 **因此不要把“华为体系采用”与“国内互联网厂商广泛采用”混为一谈：** Mooncake 的优势是公开生态网络和 LLM serving 项目密度；Yuanrong 的优势是昇腾基础设施代码集成深度，但外部互联网客户证据需要进一步通过招标、技术分享、镜像/依赖、PR 或客户案例核验。
 
-## 7. 竞争格局与选型建议
+## 8. 竞争格局与选型建议
 
 ### 适合优先 Yuanrong DS 的场景
 
@@ -282,7 +368,7 @@ TE 的公开能力包括批量传输、拓扑感知、多 NIC 带宽聚合、临
 
 在昇腾集群不必把两者视为只能二选一：可以用 Mooncake Store/connector 表达 KV block 和跨实例复用，用 Ascend Direct 或其下层昇腾通道完成高性能数据搬运；也可以在 Yuanrong DS 中保留统一对象/L2/恢复体系，仅借鉴 Mooncake 的 KV 元数据、prefix hash、placement 和可观测性模型。组合前必须做接口和所有权设计，避免同一 KV 同时被两个 eviction/recovery owner 管理。
 
-## 8. 需要补齐的验证项
+## 9. 需要补齐的验证项
 
 1. 在同一 A2/A3 硬件、同一 CANN/驱动版本上，对 Mooncake Ascend Direct、Mooncake UBSHMEM、Yuanrong HIXL HCCS、Yuanrong P2P RoCE 做 1 MB–1 GB 的单流/多流带宽与 P50/P99。
 2. 用同一 vLLM/SGLang 版本、同一 DeepSeek/Qwen 长上下文 trace，测 prefix hit、TTFT、decode ITL、KV write/read amplification 和 HBM/DRAM/SSD 命中率。
@@ -295,7 +381,7 @@ TE 的公开能力包括批量传输、拓扑感知、多 NIC 带宽聚合、临
 
 ## 最终判断
 
-**技术产品层面：** Mooncake 在 KVCache 专用存储、跨实例复用、传输抽象和 LLM serving 生态领先；Yuanrong DS 在昇腾原生 RH2D/HIXL/HCCS、统一对象数据系统、分布式 metadata owner 和昇腾基础设施代码集成上更深。Mooncake Store 当前是单 active master 控制面，但 replica 数据由 client/TE 直传，不能称为“所有数据都经过中心节点”。
+**技术产品层面：** Mooncake 在 KVCache 专用存储、跨实例复用、H2D/D2H/D2D 通用调度和 LLM serving 生态领先；Yuanrong DS 在昇腾原生 RH2D/HIXL/HCCS、统一对象数据系统、分布式 metadata owner 和昇腾基础设施代码集成上更深。源码也暴露了各自的现实边界：Yuanrong HCCS 当前受 `engines_.begin()` 与 `transferMutex_` 约束；Mooncake Ascend Direct 当前是一 request 一 slice，retry 是刷新 metadata 后重试同一 ADXL 路径，不是自动跨协议降级。Mooncake Store 当前是单 active master 控制面，但 replica 数据由 client/TE 直传，不能称为“所有数据都经过中心节点”。
 
 **市场层面：** Mooncake 当前拥有更强的公开互联网/开源生态证明；Yuanrong 的公开证明更偏 openEuler/华为/昇腾体系，不能在没有额外证据时表述为“已被国内互联网大厂广泛采用”。
 

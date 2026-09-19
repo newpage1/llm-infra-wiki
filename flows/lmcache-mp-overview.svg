@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="820" viewBox="0 0 1400 820" role="img" aria-labelledby="title desc">
+  <title id="title">LMCache MP 两条 NPU 数据路径</title>
+  <desc id="desc">对比 engine-driven 与 lmcache-driven：前者由 Worker 先把 NPU KV gather 到 CPU/SHM，后者由 Server 通过 NPU IPC handle 直接驱动 paged KV，并用 staging 与 pinned host memory 交换。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 z" fill="#334155"/></marker>
+    <marker id="redarrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 z" fill="#b91c1c"/></marker>
+    <style>
+      .title{font:700 28px sans-serif;fill:#0f172a}.head{font:700 21px sans-serif;fill:#0f172a}.label{font:600 15px sans-serif;fill:#0f172a}.small{font:13px sans-serif;fill:#334155}.tiny{font:12px sans-serif;fill:#475569}.box{stroke:#475569;stroke-width:1.5;rx:12}.boundary{fill:none;stroke:#94a3b8;stroke-width:2;stroke-dasharray:8 6;rx:16}.data{stroke:#334155;stroke-width:2;fill:none;marker-end:url(#arrow)}.cost{stroke:#b91c1c;stroke-width:2.5;fill:none;marker-end:url(#redarrow)}.control{stroke:#64748b;stroke-width:1.8;fill:none;stroke-dasharray:7 5;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1400" height="820" fill="#f8fafc"/>
+  <text x="50" y="48" class="title">MP NPU KV：Worker 复制 vs Server 直接驱动</text>
+  <text x="50" y="76" class="small">红色箭头=同步/成本中心；虚线=控制或架构推断；每列均以 CPU MemoryObj 完成 Store/Retrieve 为语义终点。</text>
+
+  <rect x="40" y="105" width="635" height="650" class="boundary"/>
+  <rect x="725" y="105" width="635" height="650" class="boundary"/>
+  <text x="65" y="140" class="head">engine_driven（AUTO 的 NPU 路径）</text>
+  <text x="750" y="140" class="head">lmcache_driven（显式模式）</text>
+
+  <rect x="70" y="170" width="260" height="90" fill="#dbeafe" class="box"/>
+  <text x="90" y="198" class="label">Worker / NPU</text><text x="90" y="222" class="small">paged KV：Tensor / tuple</text><text x="90" y="244" class="small">block_ids + 当前 stream</text>
+  <rect x="390" y="170" width="245" height="90" fill="#fef3c7" class="box"/>
+  <text x="410" y="198" class="label">CPU / SHM chunk</text><text x="410" y="222" class="small">连续 bytes；Worker 拥有</text><text x="410" y="244" class="small">D2H/H2D 后交给 Server</text>
+  <path d="M330 215 H390" class="cost"/><text x="337" y="202" class="tiny">fused gather/scatter；D2H</text>
+  <rect x="235" y="320" width="260" height="90" fill="#fef3c7" class="box"/>
+  <text x="255" y="348" class="label">LMCache Server</text><text x="255" y="372" class="small">CPU MemoryObj store/query</text><text x="255" y="394" class="small">commit / release SHM</text>
+  <path d="M512 260 V320" class="data"/><text x="520" y="296" class="tiny">MP transport</text>
+  <path d="M200 260 V320" class="control"/><text x="90" y="292" class="tiny">producer/completion control</text>
+  <rect x="70" y="485" width="565" height="105" fill="#f1f5f9" class="box"/>
+  <text x="90" y="514" class="label">约束（源码已确认）</text><text x="90" y="538" class="small">Ascend override：dedicated transfer stream + SHM slot sync</text><text x="90" y="562" class="small">多 engine group 的 block-id flatten 未在此路径闭合（需验证）</text>
+  <text x="70" y="630" class="tiny">状态：源码已确认；hybrid 能力边界需运行时测试</text>
+
+  <rect x="755" y="170" width="260" height="90" fill="#dbeafe" class="box"/>
+  <text x="775" y="198" class="label">Worker / NPU</text><text x="775" y="222" class="small">NpuIPCWrapper：每层一个</text><text x="775" y="244" class="small">producer event + block_ids</text>
+  <rect x="1075" y="170" width="245" height="90" fill="#dcfce7" class="box"/>
+  <text x="1095" y="198" class="label">Server NPU context</text><text x="1095" y="222" class="small">imported paged KV</text><text x="1095" y="244" class="small">pointer table + transfer stream</text>
+  <path d="M1015 205 H1075" class="control"/><text x="1018" y="188" class="tiny">KV IPC handles</text>
+  <path d="M1015 235 H1075" class="control"/><text x="1018" y="260" class="tiny">producer event IPC</text>
+  <rect x="755" y="320" width="260" height="90" fill="#dcfce7" class="box"/>
+  <text x="775" y="348" class="label">NPU staging</text><text x="775" y="372" class="small">flat uint8；按 object/group</text><text x="775" y="394" class="small">native 或 torch fallback</text>
+  <rect x="1075" y="320" width="245" height="90" fill="#fef3c7" class="box"/>
+  <text x="1095" y="348" class="label">Pinned CPU MemoryObj</text><text x="1095" y="372" class="small">Server 拥有；aclrtMallocHost</text><text x="1095" y="394" class="small">D2H/H2D staging boundary</text>
+  <path d="M1015 365 H1075" class="cost"/><text x="1018" y="350" class="tiny">NPU memcpy；D2H/H2D</text>
+  <path d="M885 260 V320" class="data"/><text x="895" y="296" class="tiny">paged KV read/write</text>
+  <path d="M1195 260 V320" class="data"/><text x="1205" y="296" class="tiny">staging copy</text>
+  <rect x="905" y="485" width="260" height="105" fill="#f1f5f9" class="box"/>
+  <text x="925" y="514" class="label">LMCache Server</text><text x="925" y="538" class="small">NpuCacheContext + MemoryObj</text><text x="925" y="562" class="small">completion event → Worker future</text>
+  <path d="M885 410 V485" class="data"/><text x="895" y="452" class="tiny">execute_object_group_transfer</text>
+  <path d="M1195 410 V485" class="data"/><text x="1205" y="452" class="tiny">finish_write after stream sync</text>
+  <path d="M755 215 H700 V650 H1010 V590" class="control"/><text x="770" y="672" class="tiny">completion event（目标 device context 内 export）</text>
+  <text x="755" y="630" class="tiny">状态：源码已确认；任意 plane native 支持未知</text>
+
+  <rect x="50" y="780" width="14" height="14" fill="#dbeafe"/><text x="72" y="792" class="tiny">NPU/控制</text><rect x="170" y="780" width="14" height="14" fill="#fef3c7"/><text x="192" y="792" class="tiny">Host/成本</text><rect x="300" y="780" width="14" height="14" fill="#dcfce7"/><text x="322" y="792" class="tiny">Server 直接驱动</text>
+</svg>

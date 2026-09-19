@@ -90,7 +90,7 @@ C128 plane:
   row 0 <- token 0~127                       # 1 个物理 row
 ```
 
-所以“不同 plane 不能共用一条按 token 展开的 slot mapping”的准确含义是：普通 token/SWA plane 需要 128 个目标 slot，C4 plane 只需要 32 个 compressed slot，C128 plane 只需要 1 个 compressed slot。每个 compressor 必须在压缩组完成时，为自己的输出 plane 生成独立的 `compress_slot_mapping`。
+所以“不同 plane 不能共用一条按 token 展开的 slot mapping”的准确含义是：普通 token/SWA plane 需要 128 个目标 slot，C4 plane 只需要 32 个 compressed slot，C128 plane 只需要 1 个 compressed slot。这里的 slot 是“一次 cache row 写入的目标地址编号/坐标”，不是 allocation、page 或额外数据副本；完整定义和数值例子见 8.1。每个 compressor 必须在压缩组完成时，为自己的输出 plane 生成独立的 `compress_slot_mapping`。
 
 还要区分 plane 与 alias view：indexer K 和 indexer scale 是两个 plane，因为它们有不同 dtype、字段语义和读写地址；A5 `full view` 只是覆盖 K+scale backing 的整体解释视图，没有新增数据和独立生命周期，因此不应算作第三份 payload plane。
 
@@ -171,6 +171,50 @@ block_table[request_id, logical_block_id] = physical_block_id
 block_table 行:   7          | 2          | 11
 ```
 
+#### 不同请求长度不同时，block table 如何保持二维矩形
+
+会有空余列。`block_table` 不是 ragged list，而是按运行上限预分配的固定宽度 buffer：
+
+```text
+shape = [max_num_reqs, max_num_blocks_per_req]
+```
+
+每行只有前 `num_blocks_per_row[request_id]` 项有效。假设 `block_size=4`，当前三个请求分别有 10、3、17 个 token，则分别需要 `ceil(10/4)=3`、`ceil(3/4)=1`、`ceil(17/4)=5` 个逻辑 block。若当前表宽为 5，可以表示成：
+
+```text
+                 logical block column
+request 0:      [ 7,  2, 11,  _,  _ ]    valid_blocks = 3
+request 1:      [ 4,  _,  _,  _,  _ ]    valid_blocks = 1
+request 2:      [ 9,  6,  1, 13,  8 ]    valid_blocks = 5
+```
+
+这里 `_` 表示 **无效/未使用的表格单元**。底层 tensor 中它当然仍占一个 `int32` 位置，但没有对应新分配的物理 page。vLLM 的 `BlockTable` 同时保存固定二维 buffer 和 host 侧 `num_blocks_per_row`；`append_row()` 只向有效前缀写入 block ID 并更新该计数，见 `vllm/v1/worker/block_table.py:79-85`、`:114-140`。
+
+必须注意，`_` **不等价于某个可靠 sentinel 值**：
+
+- buffer 创建及整表清理时初始化为 0，见 `vllm/v1/utils.py:121-137` 和 `vllm/v1/worker/block_table.py:187-190`；
+- 行被复用或从较长请求换成较短请求时，未覆盖的后缀在某些更新路径中可能保留旧 block ID；
+- 因此不能扫描一行直到遇到 0 来推断有效长度，因为 physical block 0 本身也可能是合法 page。
+
+正确性依赖的是“只访问有效列”：
+
+```text
+有效 block 数 = ceil(request_effective_seq_len / block_size)
+本次 token 的 logical_block = position // block_size
+只要 position < request_effective_seq_len，logical_block 就位于有效前缀
+```
+
+生成写入 slot 时，kernel 按每个请求的 `query_start_loc` 只遍历其本次 token，并用 token `position` 算出要读的 block-table 列；batch/ACLGraph 补齐出来的 token slot 使用 `PAD_SLOT_ID`，见 `vllm/v1/worker/block_table.py:153-182`、`:346-409`。attention 读取历史 KV 时则同时接收 `seq_lens`/`seqused_kv`，不会把表尾当作真实历史；DSA 调用把 `common_metadata.seq_lens` 作为 `seqused_kv` 传入，见 `vllm_ascend/attention/dsa_v1.py:2136-2142`、`:2209-2216`。对整个 padding request 行，Ascend 还会显式将其 block table 清零，见 `vllm_ascend/attention/dsa_v1.py:1062-1068`。
+
+还要区分两种不同的“浪费”：
+
+| 空余位置 | 是否占用真实 KV page | 含义 |
+|---|---:|---|
+| block-table 行尾未使用列 | 否 | 只占固定 metadata tensor 中几个 `int32` 单元 |
+| 请求最后一个未填满 block 的页内空位 | 是 | 已分配完整物理 page，但最后若干 token row 暂未使用 |
+
+例如长度 10、`block_size=4` 的请求需要 3 个物理 page；第三页只使用 token offset 0、1，offset 2、3 暂时空闲。后续 decode token 11、12 可以继续填满同一页，所以这是 page 粒度分配带来的内部碎片，最大不足一个 block，而不是 block-table padding 额外申请出来的 page。
+
 token `t` 的普通 paged slot 计算为：
 
 ```text
@@ -185,13 +229,184 @@ slot           = physical_block × block_size + offset
 对于 DSV4，`block_table` 仍然表达“请求逻辑 block -> 该 cache group 的物理 block”关系，但它不是所有 plane 共用的最终 row 地址。SWA 可直接使用 token slot；C4/C128 compressor 则在压缩组完成后，根据自己的 `compress_ratio` 和 metadata，把逻辑 block/位置转换成 compressed plane 的 `compress_slot_mapping`。因此同一请求可能有：
 
 ```text
-SWA block_table      -> token/page slot
+SWA KV block_table   -> original-token KV row slot（r=1）
 C4 block_table/映射  -> C4 compressed row slot
 C128 block_table/映射 -> C128 compressed row slot
 indexer block_table  -> indexer K row slot
 ```
 
 这些表在逻辑上可以共享 block ID，但每个 plane 的 row 数、压缩比和有效长度不同；`block_table` 负责找到 page，plane-specific slot mapping 负责找到 page 内真正写入的 row。
+
+#### SWA 是滑窗，为什么仍然有 block table；它是不是 state
+
+`SWA` 确实是 **Sliding Window Attention**。这里的 `SWA KV block_table` 指向的是**滑动窗口 attention 使用的逐 token KV cache**，不是 compressor state：
+
+```text
+新 token
+  -> 生成该 token 的 latent/nope + RoPE KV
+  -> 用普通 token slot 写入 SWA KV row
+  -> attention 通过 SWA block table 找到最近窗口内的 KV rows
+```
+
+窗口是“哪些历史 token 仍可见/需要保留”的策略，并不把多行 KV 压缩成一个递归 state。SWA KV 仍然保持一 token 一 row 的可随机寻址历史，所以需要 block table 把请求的逻辑 token page 映射到物理 page。DSV4 为它创建独立的 `AscendDeepseekV4SWACache`，其 cache spec 是 `AscendSlidingWindowMLASpec(sliding_window=window_size)`，见 `vllm_ascend/models/deepseek_v4/model.py:119-140`、`:618-625`。
+
+运行时也能直接看到它是 KV：当前 token 的 `kv` 通过 `dsa_kv_compress_scatter(swa_kv_cache, kv, slot_mapping)` 逐行写入，见 `vllm_ascend/attention/dsa_v1.py:1976-1989`；attention 将它作为 `ori_kv`，并把 `swa_req_metadata.block_table` 作为 `ori_block_table`，再用 `ori_win_left/right` 限制滑窗可见范围，见同文件 `:2201-2223`。
+
+它与 compressor state 的差别是：
+
+| 对象 | 保存内容 | 更新/读取方式 | 是否逐 token 可寻址 |
+|---|---|---|---:|
+| SWA KV | 最近窗口内每个 token 的 KV | token slot scatter；attention 按窗口读取多行 | 是 |
+| compressor state | 当前尚未凑满 C4/C128 组的 KV/score accumulator | compressor 原地读写；组完成后产出一行 compressed KV | 否 |
+| KDA recurrent state | 线性注意力递推矩阵/卷积尾部 | 每步递推更新 | 否 |
+
+为什么容易混淆：`AscendCompressorStateCache.get_kv_cache_spec()` 为了复用 vLLM 的 bounded/paged cache 调度接口，也返回 `AscendSlidingWindowMLASpec`，见 `vllm_ascend/models/deepseek_v4/compressor.py:45-72`。但这只是 **cache spec/allocator 机制复用**，不能据此把 compressor state 当成 SWA attention KV。真正的语义要看持有者和消费者：SWA cache 被 attention 当作 `ori_kv`；state cache 被 `torch.ops._C_ascend.compressor` 作为 `state_cache` 和 `state_block_table` 读写，见 `compressor.py:193-224`。
+
+因此严格术语是：**SWA KV 也是模型运行状态的一部分，但它不是本文所说的 state plane。** 本文把“state plane”专门留给 compressor/KDA 这类递推或未完成分组状态。
+
+#### `indexer block_table -> indexer K row slot` 中的 indexer 是什么
+
+这里的 indexer 是稀疏 attention 前面的**候选检索器**。它不保存完整 attention value，也不直接产生最终 attention 输出；它用一个较小的 query/key 表示从长历史中选出 top-k 候选位置，主 sparse attention 再根据这些位置读取 main KV：
+
+```text
+当前 hidden state
+  ├─> indexer query Q_i [T, N_i, D_i]
+  │       × 历史 indexer K cache [compressed_rows, 1, D_i]
+  │       -> top-k historical indices
+  │
+  └─> 主 attention query
+          + 按 top-k indices 读取 main compressed KV
+          + 按 sliding window 读取 SWA KV
+          -> sparse attention output
+```
+
+把容易混在一起的三个对象拆开看：
+
+```text
+DeepseekV4Indexer（计算模块）
+  ├─ wq_b:         当前 token -> indexer Q [T,64,128]
+  ├─ weights_proj: 当前 token -> head weights [T,64]
+  └─ compressor:   每 4 个原始 token -> 1 个 indexer K row
+
+indexer cache（真正保存的历史数据）
+  ├─ compressor state: 未凑满 C4 的中间状态
+  ├─ K:               [B_i,P_i,1,128] FP8
+  ├─ scale:           [B_i,P_i,1,1] FP32
+  └─ full:            [B_i,P_i,1,132] FP8 byte-coverage alias
+
+indexer block_table（地址翻译表，不含 K payload）
+  shape = [active_requests, max_logical_indexer_blocks]
+  cell  = physical indexer page ID
+  作用  = request 的逻辑 C4 历史块 -> K/scale cache 的物理 page
+```
+
+所以“`indexer block_table -> indexer K row slot`”不是说 block table 里面装着 indexer K。block table 只给出物理 page ID；再结合 page 内 row offset 才得到 `indexer_slot`，最后用该 slot 分别寻址 K view 和 scale view。`DeepseekV4Indexer` 中 `wq_b`、`weights_proj` 和 `k_cache` 的构造见 `vllm_ascend/models/deepseek_v4/indexer.py:285-329`，query reshape 和 weights 生成见同文件 `:666`、`:722`。
+
+DSV4 的典型维度是：
+
+```text
+T   = 本次 forward 中展平后的 query token 总数
+N_i = 64       # indexer query heads
+D_i = 128      # 每个 query/key 的检索维度
+历史 K heads = 1
+```
+
+`T` 不是历史序列长度，也不是 cache 中已有的 row 数；它是这一次模型调用实际送入 indexer 的新 query token 数。prefill/chunked-prefill 时，`T` 是本批各请求本次处理 token 数之和；常规 decode 每个请求通常贡献 1 个 token，所以 `T` 通常等于本轮活跃请求数；speculative decode 等一次请求可贡献多个 query token 的路径中，`T` 也会相应增大。例如两个请求本轮分别处理 3 和 2 个 token，则展平后 `T=5`，indexer Q shape 为 `[5,64,128]`。
+
+因此每个 query token 会形成 `[64,128]` 的多头 query，但 cache 中不是为 64 个 query head 各存一份 K；历史 indexer K 是 MQA 风格的 `[1,128]`，供全部 query heads 共享。`DeepseekV4Indexer` 将展平 token 维 reshape 为 `[T, n_heads, head_dim]`，见 `vllm_ascend/models/deepseek_v4/indexer.py:650-676`；indexer cache spec 则明确使用 `num_kv_heads=1`、`head_size=head_dim`，见同文件 `:99-139`。
+
+##### DSV4 C4 indexer 的 cache 数据结构
+
+DSV4 只在 C4 attention layer 上创建 indexer，见 `vllm_ascend/models/deepseek_v4/model.py:548-616`。其持久 cache 和运行中 state 是两类对象：
+
+```text
+indexer compressor state
+  暂存尚未凑满 4 个原始 token 的 accumulator
+
+每完成 4 个原始 token
+  -> 产生一个 128-d indexer K row
+  -> A5 量化为 128 B FP8 K + 4 B FP32 scale
+  -> 按 indexer_slot_mapping 写入 indexer K/scale plane
+```
+
+A5 上逻辑 view 为：
+
+```text
+indexer K:      [B_i, P_i, 1, 128]  FP8
+indexer scale:  [B_i, P_i, 1,   1]  FP32
+indexer full:   [B_i, P_i, 1, 132]  FP8 byte-coverage alias
+
+compress_ratio = 4
+P_i            = 128 时，一个物理 page 覆盖 128×4 = 512 个原始 token
+```
+
+为什么 indexer compressor state 是 C4：DSV4 只在 `compress_ratio == 4` 的 attention layer 创建 `DeepseekV4Indexer`，并把同一个 ratio 传给 indexer，见 `vllm_ascend/models/deepseek_v4/model.py:594-616`。Indexer 随后创建自己独立的 `Compressor(compress_ratio=4, head_dim=128)`，见 `vllm_ascend/models/deepseek_v4/indexer.py:323-343`。所以这里不是“所有 indexer 天生都是 C4”，而是“当前 DSV4 的 indexer 只挂在 C4 layer 上，它自己的 K 也按 4 token 一组生成”。
+
+如果一次 forward 或一个请求边界停在组内，例如只到达这一组的第 1、2 或 3 个 token，最终的 indexer K row 还不能产生。indexer compressor state 保存这部分未完成组的 `kv_state + score_state` accumulator；第 4 个 token 到达后，compressor 才输出一行 128-d K，并返回该行的 `slot_mapping`。它不是把 1～3 个原始 K 简单拼起来。对 indexer 的 `head_dim=128`，C4 令 `overlap=True`、`coff=2`，因此 state 宽度为 `2×2×128=512` 个 FP32 元素，见 `vllm_ascend/models/deepseek_v4/compressor.py:113-125`、`:154-163`。
+
+`K` 与 `full` 的关系可以直接按一个 `P_i=128` 的 A5 indexer 物理 page 看：
+
+```text
+同一个 16,896-byte page allocation
+
+page_base + 0
+  ├─ K 区:     128 rows × 128 B FP8 = 16,384 B
+  │             K view = [128,1,128]
+  └─ scale 区: 128 rows ×   4 B FP32 =    512 B
+                scale view = [128,1,1]
+page_base + 16,896
+
+full view:
+  从 page_base 开始覆盖全部 16,896 B
+  shape 写成 [128,1,132] FP8，只为表达 128×(128+4) B 的整页覆盖范围
+```
+
+- `K` 是真正供 lightning indexer 查询的**逻辑 key 视图**。其中每个 `[1,128]` row 是 4 个原始 token 压缩后得到的检索 key；它不是主 MLA 的 latent/nope/rope KV。
+- `scale` 是与每个 K row 配套的一个 FP32 反量化 scale。读取 top-k 时，算子分别接收 `key_cache` 和 `scale_cache`，见 `vllm_ascend/models/deepseek_v4/indexer.py:209-238`。
+- `full` 不是另一份“完整 K”，也不是第三份 payload。它与 K/scale 重叠同一个 backing，从 page base 覆盖 K 区和 scale 区的全部字节。A5 融合算子把它转成 `uint8` 后只取整页基址，按 `layout=2` 一次写入 K 与 scale，见 `vllm_ascend/device/device_op.py:1149-1180`。
+
+特别注意：页内物理布局是 SoA，即“全部 K rows 在前、全部 scale rows 在后”。因此不要把 `full[row]` 理解成语义上的 `concat(K[row], scale[row])`；`[P_i,1,132]` 主要是 byte-coverage shape。创建 view 时，K、scale 使用各自 offset，而 full 的 offset 被重置到 page base，三者通过 `as_strided` 指向同一 backing，见 `vllm_ascend/worker/v2/attn_utils.py:439-466`、`:482-520`。
+
+cache spec 将逻辑 block size 设置为 `storage_block_size × compress_ratio`，并声明 `scale_dim=1`，见 `vllm_ascend/models/deepseek_v4/indexer.py:110-139`。
+
+##### indexer block table 如何找到 K row
+
+对 DSV4 C4 indexer，可以先把原始 token 位置转成 compressed-row 位置：
+
+```text
+compressed_position = floor(raw_token_position / 4)
+logical_indexer_block = compressed_position // P_i
+row_in_indexer_page    = compressed_position %  P_i
+
+physical_page = indexer_block_table[request_id, logical_indexer_block]
+indexer_slot  = physical_page × P_i + row_in_indexer_page
+```
+
+严格运行时只有当一个 C4 组完成时才产生最终 K row；组内尚未完成的 token 留在 indexer compressor state 中。上面的公式用于解释完成组对应的地址几何，真实 `indexer_slot_mapping` 由 compressor metadata 生成。
+
+例如 `P_i=128`，请求的第一个 indexer logical block 被分到物理 page 7：
+
+```text
+raw token 0~3       -> compressed row 0   -> page 7, row 0   -> slot 896
+raw token 4~7       -> compressed row 1   -> page 7, row 1   -> slot 897
+...
+raw token 508~511   -> compressed row 127 -> page 7, row 127 -> slot 1023
+```
+
+若第二个 logical block 被分到物理 page 2，则 `raw token 512~515` 产生的 compressed row 128 写到 `page 2, row 0`，flat slot 为 `2×128=256`。这也说明 slot 不要求随请求 token 单调增加：逻辑历史连续，物理 page 可以是 `7、2、11...`。
+
+写入路径中，indexer 自己的 compressor 返回 `(kv, slot_mapping_indexer)`，K/scale 随后使用同一 slot mapping scatter，见 `vllm_ascend/models/deepseek_v4/indexer.py:500-535`、`:570-580`。读取路径中，`npu_quant_lightning_indexer_v2` 接收 indexer K、scale、`block_table` 和 `cmp_ratio=4`，输出 top-k indices，见同文件 `:209-238`。
+
+##### 与普通 GLM/DeepSeek-V3.2 LightningIndexer 的区别
+
+普通 SFA indexer 通常不做 DSV4 的 C4 压缩：
+
+| 路径 | indexer K shape | 一个 K row 代表 | block table 寻址 |
+|---|---|---:|---|
+| GLM/DeepSeek-V3.2 SFA | `[B,P,1,128]` | 1 个原始 token | 普通 token slot，`r=1` |
+| DSV4 C4 indexer | `[B_i,P_i,1,128]` + scale | 4 个原始 token | compressor 生成的 compressed slot，`r=4` |
+
+所以前面的 `indexer block_table -> indexer K row slot` 是抽象说法；落实到普通 SFA 时是逐 token row，落实到 DSV4 时是逐 C4 compressed row，二者不能共用同一条 token-level slot mapping。DCP replicated indexer 还会在此基础上为每个 DCP rank 建立完整全局 indexer 视图，详见 4.2.1。
 
 这里的 **物理 row**，指 runtime cache view `[B, P, H, D]` 中固定 block/page 内的一个存储行：固定 `block`、`row` 和 `head` 后，最后一维 `D` 的整段元素就是这一行的 payload。它是 slot mapping 最终寻址的基本单位，但它不一定对应一个原始 token。
 
@@ -374,7 +589,7 @@ indexer global bytes/original-token
 total = 720 + 170 = 890 B/token
 ```
 
-所以不能用 `640` 去质疑 `890`：`640` 是“一份 cache 的一条已存 row”，而 `890` 是“四份共享 cache 经 C2/C1 摊销后的全模型合计”。V4.1 的代码确实只让 KV-source layer 拥有 compressed cache，consumer layer 通过 source prefix 复用，见 `vllm/models/deepseek_v41/attention.py:244-289`、`:369-420`、`:462-492`。
+这也解释了为什么不能用 `640` 去质疑 `890`：`640` 是“一份 cache 的一条已存 row”，而 `890` 是“四份共享 cache 经 C2/C1 摊销后的全模型合计”。V4.1 的代码确实只让 KV-source layer 拥有 compressed cache，consumer layer 通过 source prefix 复用，见 `vllm/models/deepseek_v41/attention.py:244-289`、`:369-420`、`:462-492`。
 
 **DSV4 为什么约为 3514。** DeepSeek-V4-Flash 的 43 个 backbone layer 中，前两层只有 SWA；其余 41 层交替为 21 个 C4 与 20 个 C128。每个压缩层各自拥有 main KV，只有 C4 层创建 indexer，后一点也直接体现在 `vllm_ascend/models/deepseek_v4/model.py:548-616`。标准 DSV4 main row 按 `448B FP8 NoPE + 128B BF16 RoPE + 7B scale + 1B scale pad = 584B` 计算；indexer row 为 `64B MXFP4 value + 4B scale = 68B`：
 
@@ -926,7 +1141,7 @@ real_page_size_bytes = (
 
 ### 4.2 `AscendSFAIndexerCacheSpec`：indexer 是独立物理 plane
 
-代码：`vllm_ascend/core/kv_cache_interface.py:140-165`
+代码：`vllm_ascend/core/kv_cache_interface.py:184-245`
 
 ```text
 indexer page bytes =
@@ -937,6 +1152,74 @@ indexer page bytes =
 ```
 
 它注册成 full-attention compatible spec，因此可以和主 MLA 共享 scheduler block 语义；但是 model runner 仍为它申请独立物理 cache。DCP 场景还会把 indexer page 按 replication size 扩大。
+
+#### 4.2.1 DCP replication 到底复制什么
+
+`DCP` 是 **Decode Context Parallel**。它把长序列的 decode attention 上下文分给 `g` 个 DCP rank，使主 SFA/MLA KV 不必在每张卡上保存完整历史。`replicated indexer` 采用的是一个非对称布局：
+
+```text
+                         DCP rank 0       DCP rank 1       ... DCP rank g-1
+主 SFA/MLA KV          全局历史的 shard 0  全局历史的 shard 1      shard g-1
+LightningIndexer K     完整全局 indexer    完整全局 indexer        完整全局 indexer
+可选 C8 indexer scale  完整全局 scale      完整全局 scale          完整全局 scale
+```
+
+也就是说：
+
+- **主 attention KV 是 sharded**：每个 rank 通常只持有约 `1/g` 的历史 KV，从而获得主要显存节省。
+- **indexer K/scale 是 replicated**：每个 rank 都持有覆盖完整序列的一份 indexer cache，能够在本地按全局历史做 top-k 选择。
+- replication 不复制 query head；复制的是历史 indexer K，以及启用 LI C8 时与它逐 row 对应的 scale。
+
+源码直接给出了这个设计约束：LightningIndexer 在每个 DCP rank 上复制以保持非 DCP SFA 的全局 top-k 语义，而 SFA KV 继续保持 DCP-local；选出的全局 top-k index 随后映射为本 rank 的局部 KV index，见 `vllm_ascend/attention/context_parallel/sfa_cp.py:598-611`、`:1172-1215`。
+
+##### `B×g` 不是单卡上的 g 份重复副本
+
+假设：
+
+```text
+g = DCP world size
+B = 一个 rank 的本地主 KV block 容量
+P = 每个 block 的 row 数
+```
+
+无 DCP 时，indexer K shape 是：
+
+```text
+[B, P, 1, D_i]
+```
+
+DCP replicated indexer 在**每个 rank**上的实际 shape 是：
+
+```text
+[B×g, P, 1, D_i]          # indexer K
+[B×g, P, 1, scale_dim]    # 可选 C8 scale
+```
+
+这里 `B×g` 的含义是：`B` 原本只覆盖一个 rank 的上下文分片，乘 `g` 后恢复到完整全局序列容量。它不是在同一张卡里保存 g 份完全相同的全局 indexer；单卡里只有一份完整全局 indexer，**跨 g 个 rank 才存在 g 份副本**。物理 tensor 把 DCP-rank 维与 block 维压平到第 0 维，实际 block 顺序由 replicated block table 定义，不能擅自假设为简单的 rank-major `[g,B,...]`。
+
+代码中，这个关系分三步落地：
+
+1. `sfa_dcp_replicated_indexer_size` 在开关开启时取 `dcp_size`，否则为 1，见 `vllm_ascend/worker/model_runner_v1.py:465-486`。
+2. `AscendSFAIndexerCacheSpec.real_page_size_bytes` 把 indexer page bytes 乘以该 replication size，见 `vllm_ascend/core/kv_cache_interface.py:193-210`。
+3. model runner 对 K 和 scale 的 raw bytes 都乘 `g`，reshape 后第 0 维为 `num_blocks×g`，见 `vllm_ascend/worker/model_runner_v1.py:4773-4795`、`:5097-5122`。
+
+例如全局序列容量需要 8 个 block，`g=4`，则每个 rank 的主 KV 本地容量可视为约 2 个 block，而 indexer tensor 在每个 rank 上仍需覆盖 `2×4=8` 个 block：
+
+```text
+rank 0: main KV 2 blocks + indexer 8 blocks
+rank 1: main KV 2 blocks + indexer 8 blocks
+rank 2: main KV 2 blocks + indexer 8 blocks
+rank 3: main KV 2 blocks + indexer 8 blocks
+
+全组主 KV 总量      ≈ 8 blocks
+全组 indexer 总量   = 4 × 8 blocks
+```
+
+因此它的取舍是：用较小的 indexer K/scale 的 `g` 倍集群内存，换取每个 rank 都能看到全局 indexer 历史；大得多的主 MLA KV 仍享受 DCP 分片节省。metadata builder 为 indexer 临时构造 replicated block table 和 slot mapping，而原始 DCP-local block table 继续供主 KV 写入与 attention 使用，见 `vllm_ascend/attention/context_parallel/sfa_cp.py:741-819`、`:836-873`。
+
+这不表示 DCP 路径完全没有通信。prefill、PCP 或 DSA-CP 组合模式仍可能 gather 新产生的 K/scale 或主 KV；例如 indexer 的并行写入准备在 PCP/DSA-CP 分支执行 gather，见 `vllm_ascend/attention/indexer.py:315-358`。replication 的准确含义是**稳态存储布局为每 rank 一份完整 indexer**，不是“所有阶段都零通信”。
+
+最后需要限定范围：当前 `enable_sfa_dcp_replicated_indexer()` 只在模型满足普通 SFA sparse 判定且 `decode_context_parallel_size > 1` 时开启；`model_uses_sfa_sparse()` 明确排除了带 `compress_ratios` 的模型，见 `vllm_ascend/utils.py:131-152`。因此这里描述的是 DeepSeek-V3.2/GLM 一类 LightningIndexer SFA 路径，不能直接套成 DSV4 C4 compressed indexer 的既定布局。
 
 ### 4.3 DSV4 page 表
 
@@ -1116,6 +1399,28 @@ NPU caching allocator 管理的 allocation
 
 #### 7.3.1 view 到底保存什么
 
+可以把 view 直观理解成**实际数据的解释别名**：它不是另一份 KV payload，而是一个新的 Tensor 对象，用自己的 dtype、shape、stride 和 offset 去访问底层 Storage 中的某段字节。更严格地说，view 是对象，alias 是它与其他 tensor 之间共享底层字节的关系。
+
+这与另外两种常见情况不同：
+
+```text
+b = a                 # Python 对象别名：a、b 指向同一个 Tensor 对象
+b = a.view(...)       # Tensor view：对象不同，底层 Storage/数据共享
+b = a.clone()         # 独立副本：对象和底层 payload 都不同
+```
+
+以 A5 indexer 为例：
+
+```text
+同一 backing: [ K 区 ][ scale 区 ]
+
+K view       只覆盖 K 区
+scale view   只覆盖 scale 区
+full view    覆盖 K 区和 scale 区
+```
+
+K view 与 scale view 虽然共享 allocation/Storage，但 byte coverage 不重叠，所以写 K 区不会改变 scale 区；full view 与两者的 byte coverage 都重叠，通过 full view 写相应字节，会立即反映到 K view 或 scale view 读到的结果。是否互相影响取决于**覆盖字节是否重叠**，而不只是是否共享同一个 Storage。
+
 可以把一个 tensor view 简化为：
 
 ```text
@@ -1250,13 +1555,115 @@ indexer_full_view  # storage offset 重置回 backing 起点
 
 ### 8.1 普通/SWA slot
 
-普通 vLLM slot 是：
+**slot 是某个 cache plane 中一个可寻址物理 row 的目标坐标。** 它回答的是“这条 K/V 或 compressed KV 输出应该写到 cache 的哪一行”，而不是“这行数据是什么”。
+
+对 runtime tensor `[B, P, H, D]`：
 
 ```text
-flat_slot = physical_block_id × block_size + offset_in_block
+B = 物理 block/page 数
+P = 每个物理 block 中可寻址的 row/slot 数
+H,D = 一个 slot 对应的完整 payload shape
 ```
 
-它可直接用于未压缩 attention 或 SWA plane。
+固定 `(physical_block, offset_in_block)` 后得到的 `[H,D]` 就是一个 slot 对应的目标 row。令 `P` 表示该 plane 每个物理 block 的 row 数；普通 plane 中它等于 token `block_size`，compressed plane 中它等于 `storage_block_size = block_size / compress_ratio`。flat slot 将二元坐标展平成一个整数：
+
+```text
+flat_slot = physical_block_id × P + offset_in_block
+
+physical_block_id = flat_slot // P
+offset_in_block    = flat_slot %  P
+```
+
+因此 slot 有两种等价的 ABI 表达：
+
+```text
+flat 格式:          slot = 896
+block/offset 格式:  slot = [7, 0]
+```
+
+`format_dsa_slot_mapping()` 正是用除法和取模在这两种表达之间转换；当前 A5 FP8 epilog 使用 flat slot，BF16/SparseFlashMLA 路径使用 `[block, offset]`，见 `vllm_ascend/attention/dsa_attn_kv_plan.py:102-130`、`:138-179`。slot 本身不是 byte pointer；kernel 还要结合当前 plane 的 dtype、row 宽度、shape 和 page stride 才能得到最终地址。
+
+#### slot 是不是相对基地址的偏移
+
+可以把它理解成**相对当前 cache plane 基址的逻辑 row 偏移/序号**，但不能直接理解成 byte offset：
+
+```text
+slot 的单位      = row
+byte offset 的单位 = byte
+```
+
+对于完全紧凑的二维 row 数组，二者可以简单换算。令：
+
+```text
+row_bytes = H × D × sizeof(dtype)
+P         = 每个 page 的 row 数
+slot      = physical_block × P + offset
+```
+
+若 page 内和 page 间都没有 padding：
+
+```text
+byte_address = plane_base + slot × row_bytes
+```
+
+例如 `P=4`、`physical_block=7`、`offset=2`，则 `slot=7×4+2=30`。若每 row 为 8 B，紧凑布局下目标地址就是 `plane_base + 30×8 = plane_base + 240 B`。
+
+但 Ascend DSA 可以采用 page-strided view，此时真实公式是：
+
+```text
+byte_address = plane_base
+             + physical_block × page_stride_bytes
+             + offset_in_block × row_stride_bytes
+```
+
+如果同一例子中逻辑 page payload 是 `4×8=32 B`，但物理 `page_stride_bytes=40 B`，则：
+
+```text
+正确地址 = plane_base + 7×40 + 2×8 = plane_base + 296 B
+错误算法 = plane_base + slot×8     = plane_base + 240 B
+```
+
+所以 flat slot 只是把 `[block, offset]` 压成一个整数，方便 metadata 和部分 kernel ABI 传递；它是否能直接乘 `row_bytes`，取决于该 kernel 所见的 plane 是否 block-compact。`_adjust_kv_layout()` 把 tensor 第 0 维 stride 设置为 `page_size_bytes / sizeof(dtype)`，而页内维度保留紧凑 stride，正是为了表达上述地址公式，见 `vllm_ascend/worker/model_runner_v1.py:4949-4978`。BF16 scatter 显式使用 `[block, offset]` 索引 `as_strided` tensor，见 `vllm_ascend/attention/dsa_attn_kv_plan.py:111-123`；接收 flat slot 的专用 epilog 则必须在其布局契约内解释该整数。
+
+还有一层容易混淆：slot 只在**某个 plane 内**有意义。同一个 slot 数字可以同时用于 indexer K plane 和 scale plane，但二者的 `plane_base`、dtype 和 row bytes 不同：
+
+```text
+K address     = K_base     + address_rule(K, slot)
+scale address = scale_base + address_rule(scale, slot)
+```
+
+在 A5 SoA indexer 中，`K_base` 与 `scale_base` 是同一 backing 的不同 offset。因此 slot 不携带“这是 K 还是 scale”的信息，也不携带 allocation 基址；调用方选择 tensor/view 后，kernel 才能把 slot 解析为最终地址。
+
+`slot_mapping` 则是一组 slot 坐标，通常为每条待写入的源 row 给出一个目标：
+
+```text
+source row 0 -> slot_mapping[0] -> cache target row
+source row 1 -> slot_mapping[1] -> cache target row
+...
+```
+
+所以“需要 128 个目标 slot”表示有 128 条 token row 需要 128 个写入目标，**不表示申请 128 个 allocation，也不一定表示占用 128 个 page**。假设 scheduler 的一个逻辑 block 含 128 个原始 token，并且为了便于比较，假设各 plane 自己的 block table 都把该逻辑 block 映射到各自的 `physical_block_id=7`：
+
+| plane | 每个 block 的物理 row 数 `P` | 一个 slot 代表 | 128 个原始 token 产生的目标 slot |
+|---|---:|---|---|
+| SWA/普通 token | 128 | 1 个原始 token | `7×128+[0..127] = 896..1023`，共 128 个 |
+| C4 | 32 | 4 个原始 token 的压缩结果 | `7×32+[0..31] = 224..255`，共 32 个 |
+| C128 | 1 | 128 个原始 token 的压缩结果 | `7×1+0 = 7`，共 1 个 |
+
+表中的 `physical_block_id=7` 只用于展示地址计算；实际不同 cache group/plane 可以由各自 block table 映射到不同物理 block。普通/SWA slot 由 token 的逻辑位置先拆成 `logical_block` 和 `offset`，再用 block table 查出 `physical_block_id`；DSpark SWA 代码最终执行 `slot_ids = block_ids * block_size + block_offsets`，无效或 padding 位置写成 `-1`，见 `vllm_ascend/attention/dsa_v1.py:449-466`。
+
+slot、row、page、allocation 的关系可以概括为：
+
+```text
+allocation/backing
+└── 多个 physical page/block
+    └── 每页 P 个 slot
+        └── 每个 slot 对应一行 [H,D] payload
+
+slot_mapping = 本次 scatter 的“目标行地址清单”
+```
+
+它可直接用于未压缩 attention 或 SWA plane，因为这些 plane 是“一个原始 token 对应一 row”。
 
 ### 8.2 compressed plane slot
 
@@ -2226,7 +2633,7 @@ KDA state
 [NPU][CI] Add CANN 9.1.0 and Ascend a5 nightly suites (#38833)
 ```
 
-一页关系图见下一小节（23.2 逻辑树、映射层、物理池）那张。
+一页关系图见：[`sglang-unified-radix-kv-format.svg`](sglang-unified-radix-kv-format.svg)。
 
 **源码事实**：SGLang 的“单树”统一的是 token prefix 的匹配、节点生命周期、锁引用、LRU/eviction 和 device/host residency；树本身只操作 `RadixKey` 和每个 component 的 `value` 引用，不把 MHA、SWA、Mamba/KDA、DSV4 C4/C128 等物理 tensor 强行变成同一种 layout。Unified Cache 的设计目标明确写成 “tree operates purely on keys (logical)，physical resource management … handled by components through hooks” (`python/sglang/srt/mem_cache/unified_cache/components/README.md:3-11`)。
 

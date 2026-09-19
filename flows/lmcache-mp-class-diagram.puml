@@ -1,0 +1,70 @@
+@startuml
+title LMCache MP NPU 适配关键类关系
+skinparam classAttributeIconSize 0
+skinparam packageStyle rectangle
+
+interface DeviceSpec
+class NpuDeviceSpec
+DeviceSpec <|.. NpuDeviceSpec
+
+abstract class DeviceIPCWrapper
+class NpuIPCWrapper
+DeviceIPCWrapper <|-- NpuIPCWrapper
+NpuIPCWrapper o-- "1..*" PlaneRecord : stores
+
+abstract class EventIPCBackend
+class NpuEventIPCBackend
+EventIPCBackend <|-- NpuEventIPCBackend
+
+abstract class BaseCacheContext
+class NpuCacheContext
+BaseCacheContext <|-- NpuCacheContext
+NpuCacheContext *-- KVLayerGroupsManager : owns
+NpuCacheContext *-- "1..*" NpuIPCWrapper : imports
+NpuCacheContext *-- "1..*" PointerTable : builds
+NpuCacheContext *-- TransferStream : owns
+
+class LMCacheDrivenTransferContext
+class EngineDrivenTransferContext
+LMCacheDrivenTransferContext ..> NpuEventIPCBackend : event IPC
+LMCacheDrivenTransferContext ..> NpuCacheContext : server registration
+EngineDrivenTransferContext ..> NpuDeviceSpec : device routing
+
+class NpuDeviceOps
+NpuDeviceSpec ..> NpuDeviceOps : binds native/fallback ops
+NpuCacheContext ..> NpuDeviceOps : transfer calls
+NpuDeviceOps ..> execute_object_group_transfer : native fast path
+NpuDeviceOps ..> TorchOps : fallback
+
+class KVLayerGroupsManager
+KVLayerGroupsManager ..> EngineKVFormat : discovers groups
+NpuCacheContext ..> EngineKVFormat : format 13/16/17
+
+class PlaneRecord {
+  handle
+  dtype
+  shape
+  stride
+  storage_offset
+}
+class PointerTable {
+  NPU int64[ ]
+}
+class TransferStream
+class EngineKVFormat {
+  NL_X_TWO_X_NB_BS_HS = 17
+}
+class execute_object_group_transfer
+class TorchOps
+
+note right of NpuIPCWrapper
+每层一个 wrapper；
+单 plane 返回 Tensor，
+多 plane 返回 tuple
+end note
+
+note right of NpuCacheContext
+注册阶段：import → discover →
+group → pointer table → staging → stream
+end note
+@enduml

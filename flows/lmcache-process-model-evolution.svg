@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="840" viewBox="0 0 1400 840" role="img" aria-labelledby="title desc">
+  <title id="title">LMCache 从 In-process 到 Multi-process 的演进</title>
+  <desc id="desc">左侧展示每个 serving worker 内嵌 LMCacheEngine 和 StorageManager；右侧展示多个 worker 通过 RPC 和设备或共享内存 IPC 连接独立 LMCache Server，共享 StorageManager、L1、会话、锁和淘汰。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 z" fill="#334155"/></marker>
+    <marker id="amberArrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 z" fill="#b45309"/></marker>
+    <style>
+      .title{font:700 28px sans-serif;fill:#0f172a}.subtitle{font:14px sans-serif;fill:#475569}.head{font:700 21px sans-serif;fill:#0f172a}.label{font:600 15px sans-serif;fill:#0f172a}.body{font:13px sans-serif;fill:#334155}.tiny{font:12px sans-serif;fill:#475569}.box{stroke:#475569;stroke-width:1.5;rx:12}.boundary{fill:none;stroke:#94a3b8;stroke-width:2;stroke-dasharray:8 6;rx:16}.flow{stroke:#334155;stroke-width:2;fill:none;marker-end:url(#arrow)}.cost{stroke:#b45309;stroke-width:2.4;fill:none;marker-end:url(#amberArrow)}.control{stroke:#64748b;stroke-width:1.8;fill:none;stroke-dasharray:7 5;marker-end:url(#arrow)}
+    </style>
+  </defs>
+  <rect width="1400" height="840" fill="#f8fafc"/>
+  <text x="50" y="48" class="title">LMCache 进程模型演进：从 Worker 内嵌到共享 Cache Service</text>
+  <text x="50" y="76" class="subtitle">变化核心是缓存资源与控制面的所有权；serving Worker 始终拥有 paged KV。橙色箭头表示新增的跨进程控制边界。</text>
+
+  <rect x="40" y="105" width="620" height="655" class="boundary"/>
+  <rect x="740" y="105" width="620" height="655" class="boundary"/>
+  <text x="65" y="140" class="head">In-process：每个 Worker 内嵌一套 Engine</text>
+  <text x="765" y="140" class="head">Multi-process：多个 Worker 共享独立 Server</text>
+
+  <rect x="70" y="170" width="560" height="395" fill="#eff6ff" class="box"/>
+  <text x="90" y="198" class="label">Serving Worker Process A</text>
+  <rect x="100" y="225" width="210" height="72" fill="#dbeafe" class="box"/>
+  <text x="120" y="252" class="label">LMCacheConnectorV1</text><text x="120" y="276" class="body">直接 Python 调用</text>
+  <rect x="390" y="225" width="210" height="72" fill="#dbeafe" class="box"/>
+  <text x="410" y="252" class="label">Paged KV</text><text x="410" y="276" class="body">Worker GPU/NPU 所有</text>
+  <rect x="100" y="345" width="210" height="85" fill="#dcfce7" class="box"/>
+  <text x="120" y="372" class="label">LMCacheEngine</text><text x="120" y="396" class="body">TokenDatabase + GPUConnector</text><text x="120" y="416" class="body">进程内 singleton</text>
+  <rect x="390" y="345" width="210" height="85" fill="#fef3c7" class="box"/>
+  <text x="410" y="372" class="label">StorageManager / L1</text><text x="410" y="396" class="body">allocator + eviction + backend</text><text x="410" y="416" class="body">跟随 Worker 生命周期</text>
+  <path d="M310 261 H390" class="flow"/><text x="320" y="215" class="tiny">KV tensor / slot mapping</text>
+  <path d="M205 297 V345" class="flow"/><text x="215" y="325" class="tiny">store/retrieve</text>
+  <path d="M310 387 H390" class="flow"/><text x="320" y="374" class="tiny">MemoryObj</text>
+  <path d="M495 345 V297" class="flow"/><text x="505" y="325" class="tiny">batched_to/from_gpu</text>
+  <rect x="70" y="590" width="560" height="125" fill="#f1f5f9" class="box"/>
+  <text x="90" y="618" class="label">扩大到多个 Worker 时</text>
+  <text x="90" y="644" class="body">每个参与进程创建自己的 Engine / manager / 后台线程</text>
+  <text x="90" y="668" class="body">本地 L1 与 Worker 生命周期绑定；远端 L2 可以共享</text>
+  <text x="90" y="692" class="body">优点：无 RPC；代价：容量、锁、淘汰和观测分散</text>
+
+  <rect x="770" y="170" width="245" height="128" fill="#eff6ff" class="box"/>
+  <text x="790" y="198" class="label">Serving Worker A</text><text x="790" y="222" class="body">LMCacheMPConnector</text><text x="790" y="246" class="body">Paged KV + block_ids</text><text x="790" y="270" class="body">storage/event handle</text>
+  <rect x="1085" y="170" width="245" height="128" fill="#eff6ff" class="box"/>
+  <text x="1105" y="198" class="label">Serving Worker B</text><text x="1105" y="222" class="body">LMCacheMPConnector</text><text x="1105" y="246" class="body">Paged KV + block_ids</text><text x="1105" y="270" class="body">storage/event handle</text>
+
+  <rect x="820" y="375" width="460" height="255" fill="#dcfce7" class="box"/>
+  <text x="845" y="405" class="label">Standalone LMCache Server Process</text>
+  <rect x="850" y="430" width="190" height="75" fill="#dbeafe" class="box"/>
+  <text x="870" y="458" class="label">Request transport</text><text x="870" y="482" class="body">ZMQ / gRPC + future</text>
+  <rect x="1060" y="430" width="190" height="75" fill="#dbeafe" class="box"/>
+  <text x="1080" y="458" class="label">Transfer modules</text><text x="1080" y="482" class="body">engine/lmcache-driven</text>
+  <rect x="850" y="530" width="190" height="75" fill="#fef3c7" class="box"/>
+  <text x="870" y="558" class="label">Shared StorageManager</text><text x="870" y="582" class="body">L1 allocator + backends</text>
+  <rect x="1060" y="530" width="190" height="75" fill="#fef3c7" class="box"/>
+  <text x="1080" y="558" class="label">Shared control state</text><text x="1080" y="582" class="body">session / locks / eviction</text>
+  <path d="M945 505 V530" class="flow"/><path d="M1155 505 V530" class="flow"/>
+  <path d="M1040 467 H1060" class="flow"/>
+
+  <path d="M892 298 V345 H945 V430" class="cost"/>
+  <text x="785" y="330" class="tiny">RPC：key / block_ids / event</text>
+  <path d="M1207 298 V345 H1155 V430" class="cost"/>
+  <text x="1120" y="330" class="tiny">register / heartbeat</text>
+  <rect x="770" y="660" width="560" height="70" fill="#f1f5f9" class="box"/>
+  <text x="790" y="687" class="label">结果</text>
+  <text x="790" y="712" class="body">共享 L1 容量与统一治理；新增 RPC/IPC、Server 运维与集中故障域</text>
+
+  <text x="50" y="805" class="tiny">源码已确认：对象所有权、调用边界与共享 context；演进动机中的容量/生命周期收益需结合部署规模实测。</text>
+</svg>

@@ -1,0 +1,94 @@
+@startuml
+title Yuanrong 与 Mooncake 的昇腾传输关键抽象
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+hide empty members
+
+package "openYuanrong datasystem" {
+  class ObjectClientImpl {
+    +MGetH2D()
+    +MSetD2H()
+    +PreRegisterDeviceMemory()
+    -HostDataCopy2Device()
+  }
+
+  class RemoteH2DManager <<singleton>> {
+    +P2PCommInitRootInfo()
+    +ImportHostSegment()
+    +ScatterBatch()
+  }
+
+  interface RH2DTransportStrategy {
+    +Connect()
+    +RegisterMemory()
+    +ImportRemoteAddressInfo()
+    +ScatterBatch()
+  }
+
+  class HCCSTransport {
+    -engines_
+    -transferMutex_
+    +PreRegisterDeviceMemory()
+  }
+
+  class RoCETransport {
+    -endpointToComm_
+    +RegisterMemory()
+  }
+
+  ObjectClientImpl ..> RemoteH2DManager : singleton calls
+  RemoteH2DManager *-- RH2DTransportStrategy : transport_
+  RH2DTransportStrategy <|.. HCCSTransport
+  RH2DTransportStrategy <|.. RoCETransport
+}
+
+package "Mooncake Transfer Engine" {
+  class MultiTransport {
+    +submitTransfer()
+    -selectTransport()
+  }
+
+  class AscendDirectTransport {
+    +submitTransferTask()
+    +registerLocalMemory()
+  }
+
+  interface ISliceDispatcher {
+    +enqueue()
+    +stop()
+  }
+
+  class DefaultSliceDispatcher
+  class RoceDummyRealSliceDispatcher
+
+  abstract class TransferExecutorBase {
+    +processSliceList()
+    +registerMem()
+    #execute()
+  }
+
+  class SyncTransferExecutor
+  class AsyncTransferExecutor
+  class LocalCopyEngine
+
+  MultiTransport o-- "0..*" AscendDirectTransport : transport_map_
+  AscendDirectTransport *-- ISliceDispatcher : dispatcher_
+  AscendDirectTransport *-- TransferExecutorBase : transfer_executor_
+  ISliceDispatcher <|.. DefaultSliceDispatcher
+  ISliceDispatcher <|.. RoceDummyRealSliceDispatcher
+  TransferExecutorBase <|-- SyncTransferExecutor
+  TransferExecutorBase <|-- AsyncTransferExecutor
+  TransferExecutorBase *-- LocalCopyEngine : local_copy_engine_
+}
+
+note bottom of HCCSTransport
+  Connect / ScatterBatch currently use
+  engines_.begin(); TransferSync is guarded
+  by transferMutex_.
+end note
+
+note bottom of TransferExecutorBase
+  Groups by remote ADXL endpoint and chooses
+  local engine; retry refreshes SegmentDesc.
+end note
+@enduml

@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="920" viewBox="0 0 1400 920" role="img" aria-labelledby="title desc">
+  <title id="title">Yuanrong 与 Mooncake 的昇腾底层传输链</title>
+  <desc id="desc">两列比较 Yuanrong Remote H2D 与 Mooncake Ascend Direct。从公开入口、路由分组、内存注册、传输执行到 ACL、HIXL、ADXL 和 HCCS/RoCE 边界。实线表示数据流，虚线表示控制或元数据流。</desc>
+  <defs>
+    <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#2563eb"/></marker>
+    <marker id="arrow-red" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#dc2626"/></marker>
+    <marker id="arrow-gray" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#64748b"/></marker>
+    <style>
+      .title{font:700 27px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#0f172a}
+      .subtitle{font:14px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#475569}
+      .head{font:700 20px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#fff}
+      .node{font:600 15px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#0f172a}
+      .small{font:13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#334155}
+      .tiny{font:12px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#475569}
+      .micro{font:11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#334155}
+      .row{font:700 11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#64748b;letter-spacing:.6px}
+    </style>
+  </defs>
+  <rect width="1400" height="920" fill="#f8fafc"/>
+  <text x="40" y="45" class="title">决定性差异：source-aware RH2D 专项链 vs request/endpoint 通用调度链</text>
+  <text x="40" y="72" class="subtitle">源码基线：Yuanrong ae841bf；Mooncake e389a85。实线=数据流，虚线=控制/元数据；所有框均为源码已确认。</text>
+
+  <rect x="55" y="95" width="620" height="55" rx="10" fill="#1d4ed8"/>
+  <rect x="725" y="95" width="620" height="55" rx="10" fill="#7c3aed"/>
+  <text x="365" y="130" text-anchor="middle" class="head">openYuanrong datasystem</text>
+  <text x="1035" y="130" text-anchor="middle" class="head">Mooncake Transfer Engine</text>
+
+  <text x="14" y="188" class="row">API</text>
+  <rect x="75" y="165" width="580" height="88" rx="9" fill="#dbeafe" stroke="#60a5fa"/>
+  <text x="95" y="193" class="node">MGetH2D(objectKeys, DeviceBlobList)</text>
+  <text x="95" y="217" class="small">应用直接给目标 NPU pointer；Get(..., isRH2DSupported=true)</text>
+  <text x="95" y="239" class="tiny">MSetD2H 是本地 DEVICE_TO_HOST 后发布对象，不走远端 RH2D</text>
+  <rect x="745" y="165" width="580" height="88" rx="9" fill="#ede9fe" stroke="#a78bfa"/>
+  <text x="765" y="193" class="node">TransferRequest { READ/WRITE, source, target_id/offset, length }</text>
+  <text x="765" y="217" class="small">统一请求面；MultiTransport 依据 SegmentDesc.protocol 选 transport</text>
+  <text x="765" y="239" class="tiny">一个 Ascend Direct request 初始化为一个 Slice；未见自动再切片</text>
+
+  <text x="14" y="300" class="row">ROUTE</text>
+  <rect x="75" y="277" width="580" height="142" rx="9" fill="#eff6ff" stroke="#60a5fa"/>
+  <text x="95" y="305" class="node">HostDataCopy2Device：按 source 分流</text>
+  <rect x="96" y="323" width="245" height="67" rx="7" fill="#fff" stroke="#93c5fd"/>
+  <text x="112" y="348" class="small">本地 Host source</text>
+  <text x="112" y="371" class="tiny">ACL MemcpyBatchH2D</text>
+  <rect x="368" y="323" width="265" height="67" rx="7" fill="#fff" stroke="#93c5fd"/>
+  <text x="384" y="348" class="small">远端 Host source</text>
+  <text x="384" y="371" class="tiny">按 root_info 分组 → ScatterBatch</text>
+  <text x="95" y="410" class="micro">ObjectClientImpl → RemoteH2DManager</text>
+  <rect x="745" y="277" width="580" height="142" rx="9" fill="#f5f3ff" stroke="#a78bfa"/>
+  <text x="765" y="305" class="node">MultiTransport + ISliceDispatcher + TransferExecutorBase</text>
+  <text x="765" y="332" class="small">① 按 transport　② 按 (target_id, opcode)　③ 按目标 ADXL endpoint</text>
+  <text x="765" y="357" class="small">RoCE agent：再按 (engine_idx, target_id, opcode) 入每 engine 队列</text>
+  <text x="765" y="382" class="tiny">默认线程池 8、上限 16；buffer-pool 模式强制 1 线程</text>
+  <text x="765" y="405" class="micro">分组/批量存在；不等于对单 request 做长度切片</text>
+
+  <text x="7" y="470" class="row">REGISTER</text>
+  <rect x="75" y="447" width="280" height="152" rx="9" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="95" y="475" class="node">HCCSTransport / HIXL</text>
+  <text x="95" y="501" class="small">BUFFER_POOL 或 ROCE_DIRECT</text>
+  <text x="95" y="526" class="small">HBM 可长期预注册；否则 batch 临时注册</text>
+  <text x="95" y="551" class="tiny">MEM_DEVICE 预算 253；descriptor/batch 1024</text>
+  <text x="95" y="576" class="tiny">transferMutex_ 串行 transfer 与注册生命周期</text>
+  <rect x="375" y="447" width="280" height="152" rx="9" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="395" y="475" class="node">RoCETransport / DSP2P</text>
+  <text x="395" y="501" class="small">worker Host memory 注册并导出 segment</text>
+  <text x="395" y="526" class="small">client import descriptor → ScatterBatch</text>
+  <text x="395" y="551" class="tiny">每批最多 16384 blobs；stream sync 5 s</text>
+  <text x="395" y="576" class="tiny">连接锁仅保护 map 查找；传输持 shared_ptr</text>
+  <rect x="745" y="447" width="365" height="152" rx="9" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="765" y="475" class="node">AscendDirectTransport / ADXL RegisterMem</text>
+  <text x="765" y="501" class="small">cpu*/npu* 或 aclrtPointerGetAttributes 识别类型</text>
+  <text x="765" y="526" class="small">先写 BufferDesc，再注册；失败回滚 metadata</text>
+  <text x="765" y="551" class="tiny">BufferDesc.device_id → 目标 endpoint；默认只注册当前 engine</text>
+  <text x="765" y="576" class="tiny">deregister 前断开该 engine 的连接</text>
+  <rect x="1130" y="447" width="195" height="152" rx="9" fill="#ecfdf5" stroke="#34d399"/>
+  <text x="1150" y="475" class="node">可选旁路</text>
+  <text x="1150" y="501" class="small">LocalCopyEngine</text>
+  <text x="1150" y="526" class="small">UBSHMEM IPC/VMM</text>
+  <text x="1150" y="551" class="small">fabric handle</text>
+  <text x="1150" y="576" class="tiny">heterogeneous RDMA 经 Host staging</text>
+
+  <text x="7" y="650" class="row">EXECUTE</text>
+  <rect x="75" y="627" width="580" height="123" rx="9" fill="#fee2e2" stroke="#f87171"/>
+  <text x="95" y="655" class="node">HIXL::TransferSync(READ) 或 DSP2PScatterBatchFromRemoteHostMem</text>
+  <text x="95" y="681" class="small">远端 Host DRAM → 本地 NPU HBM；以 P2pScatterEntry 批量描述</text>
+  <text x="95" y="706" class="tiny">HCCS Connect/ScatterBatch 当前使用 engines_.begin()；identity 轮询不等于多 engine 负载均衡</text>
+  <text x="95" y="731" class="tiny">同一 RemoteH2DContext 另有 communicator mutex；RoCE 有 heartbeat</text>
+  <rect x="745" y="627" width="580" height="123" rx="9" fill="#fee2e2" stroke="#f87171"/>
+  <text x="765" y="655" class="node">ADXL TransferSync / TransferAsync；同 endpoint 时 ACL local copy</text>
+  <text x="765" y="681" class="small">H2D / D2H / D2D 对称 READ/WRITE；目标 buffer 决定远端 endpoint</text>
+  <text x="765" y="706" class="tiny">retryable failure 最多两次：force_update 刷新 SegmentDesc 后重试</text>
+  <text x="765" y="731" class="tiny">未见 Ascend Direct 在单次失败后自动降级到另一 transport</text>
+
+  <text x="14" y="803" class="row">INFRA</text>
+  <rect x="75" y="780" width="580" height="76" rx="9" fill="#e2e8f0" stroke="#94a3b8"/>
+  <text x="95" y="809" class="node">ACL + HIXL ≥ 8.5.2 + HCCS/RoCE + HCCL/DSP2P</text>
+  <text x="95" y="834" class="tiny">缺 HIXL/版本不足时 HCCS transport 不编译；RoCE 路径仍可保留</text>
+  <rect x="745" y="780" width="580" height="76" rx="9" fill="#e2e8f0" stroke="#94a3b8"/>
+  <text x="765" y="809" class="node">ACL + ADXL(llm_datadist) + HCCS/RoCE；另有旧 HCCL/UBSHMEM 构建</text>
+  <text x="765" y="834" class="tiny">USE_ASCEND_DIRECT / USE_ASCEND / USE_UBSHMEM / USE_ASCEND_HETEROGENEOUS 形成构建矩阵</text>
+
+  <path d="M365 253 L365 277" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow-blue)"/>
+  <path d="M365 419 L365 447" stroke="#64748b" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#arrow-gray)"/>
+  <path d="M215 599 L215 627" stroke="#dc2626" stroke-width="3" marker-end="url(#arrow-red)"/>
+  <path d="M515 599 L515 627" stroke="#dc2626" stroke-width="3" marker-end="url(#arrow-red)"/>
+  <path d="M365 750 L365 780" stroke="#dc2626" stroke-width="3" marker-end="url(#arrow-red)"/>
+  <path d="M1035 253 L1035 277" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow-blue)"/>
+  <path d="M1035 419 L1035 447" stroke="#64748b" stroke-width="2.2" stroke-dasharray="7 5" marker-end="url(#arrow-gray)"/>
+  <path d="M930 599 L930 627" stroke="#dc2626" stroke-width="3" marker-end="url(#arrow-red)"/>
+  <path d="M1225 599 L1225 627" stroke="#dc2626" stroke-width="3" marker-end="url(#arrow-red)"/>
+  <path d="M1035 750 L1035 780" stroke="#dc2626" stroke-width="3" marker-end="url(#arrow-red)"/>
+
+  <rect x="55" y="875" width="1290" height="27" rx="6" fill="#e2e8f0"/>
+  <text x="75" y="893" class="micro">结论：Yuanrong 的昇腾专项控制面更贴近对象/RH2D；Mooncake 的多方向、多 endpoint、多 engine 调度更完整。两者均需同机实测验证吞吐与 P99。</text>
+</svg>

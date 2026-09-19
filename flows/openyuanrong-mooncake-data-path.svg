@@ -1,10 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="820" viewBox="0 0 1400 820" role="img" aria-labelledby="title desc">
-  <title id="title">Yuanrong DS 与 Mooncake：昇腾 KV 存储和传输路径</title>
-  <desc id="desc">两列对比 openYuanrong datasystem 与 Mooncake 在 KV lookup、存储和昇腾传输上的边界、数据位置和证据等级。</desc>
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="980" viewBox="0 0 1400 980" role="img" aria-labelledby="title desc">
+  <title id="title">Yuanrong DS 与 Mooncake：从元数据查询到昇腾 KV 回填</title>
+  <desc id="desc">两列对比 openYuanrong datasystem 与 Mooncake Store/Transfer Engine 的 KV 语义、元数据控制面、缓存存储和昇腾数据面。Yuanrong 使用 topology 定位多个 metadata owner；Mooncake Store 使用单 active Master 查询 replica，但数据由 client 和 Transfer Engine 直传。</desc>
   <defs>
     <marker id="arrow-blue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#2563eb"/></marker>
     <marker id="arrow-red" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#dc2626"/></marker>
-    <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#15803d"/></marker>
+    <marker id="arrow-gray" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto"><path d="M0,0 L10,3 L0,6 Z" fill="#64748b"/></marker>
     <style>
       .title{font:700 27px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#0f172a}
       .subtitle{font:15px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#475569}
@@ -12,23 +12,23 @@
       .node{font:600 16px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#0f172a}
       .small{font:13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#334155}
       .tiny{font:12px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#475569}
+      .micro{font:11px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#334155}
       .boundary{font:700 13px -apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;fill:#64748b;letter-spacing:1px}
     </style>
   </defs>
-  <rect width="1400" height="820" fill="#f8fafc"/>
-  <text x="40" y="46" class="title">同一语义结果：KV block 从产生到 HBM 回填</text>
-  <text x="40" y="74" class="subtitle">决定性差异：KV 语义在上层 connector 形成，还是在存储/传输平台内建</text>
+  <rect width="1400" height="980" fill="#f8fafc"/>
+  <text x="40" y="46" class="title">同一语义结果：查到 KV 副本并回填本地 NPU HBM</text>
+  <text x="40" y="74" class="subtitle">控制面差异不等于数据面差异：Mooncake 查单 active Master，但 replica 数据不经 Master 中转</text>
   <rect x="40" y="100" width="630" height="60" rx="10" fill="#1d4ed8"/>
   <rect x="730" y="100" width="630" height="60" rx="10" fill="#7c3aed"/>
   <text x="355" y="138" text-anchor="middle" class="head">openYuanrong datasystem</text>
-  <text x="1045" y="138" text-anchor="middle" class="head">Mooncake TE + Store</text>
-
-  <line x1="350" y1="180" x2="350" y2="760" stroke="#cbd5e1" stroke-dasharray="7 7"/>
-  <line x1="1050" y1="180" x2="1050" y2="760" stroke="#cbd5e1" stroke-dasharray="7 7"/>
-  <text x="55" y="190" class="boundary">SERVING / LOOKUP</text>
-  <text x="55" y="405" class="boundary">CACHE STORAGE</text>
-  <text x="55" y="605" class="boundary">ASCEND DATA PLANE</text>
-
+  <text x="1045" y="138" text-anchor="middle" class="head">Mooncake Store + Transfer Engine</text>
+  <line x1="350" y1="180" x2="350" y2="915" stroke="#cbd5e1" stroke-dasharray="7 7"/>
+  <line x1="1050" y1="180" x2="1050" y2="915" stroke="#cbd5e1" stroke-dasharray="7 7"/>
+  <text x="55" y="190" class="boundary">SERVING / KV SEMANTICS</text>
+  <text x="55" y="350" class="boundary">METADATA CONTROL PLANE</text>
+  <text x="55" y="570" class="boundary">CACHE STORAGE</text>
+  <text x="55" y="780" class="boundary">ASCEND DATA PLANE</text>
   <rect x="70" y="215" width="560" height="105" rx="9" fill="#dbeafe" stroke="#60a5fa"/>
   <text x="90" y="246" class="node">vLLM Ascend + AscendStoreConnector</text>
   <text x="90" y="273" class="small">object key / device blob；KV block 语义由 connector 组织</text>
@@ -37,36 +37,61 @@
   <text x="790" y="246" class="node">vLLM / SGLang KV connector</text>
   <text x="790" y="273" class="small">prefix hash → KV block lookup → 跨实例共享</text>
   <text x="790" y="298" class="tiny">Documented：MooncakeConnector / MooncakeStoreConnector</text>
-
-  <rect x="70" y="430" width="560" height="125" rx="9" fill="#fef3c7" stroke="#f59e0b"/>
-  <text x="90" y="462" class="node">Object cache + L2 / slot / shared memory</text>
-  <text x="90" y="490" class="small">DRAM/共享内存/持久化对象；可 spill、preload、recovery</text>
-  <text x="90" y="517" class="tiny">源码已确认：PersistenceApi、slot recovery；KV 专用 placement 未见</text>
-  <rect x="770" y="430" width="560" height="125" rx="9" fill="#dcfce7" stroke="#4ade80"/>
-  <text x="790" y="462" class="node">Mooncake Store：DRAM + SSD/NVMe KV pool</text>
-  <text x="790" y="490" class="small">replica / preferred segment / soft-hard pin / eviction</text>
-  <text x="790" y="517" class="tiny">源码/文档：placement、replica allocator、local SSD metrics</text>
-
-  <rect x="70" y="630" width="560" height="105" rx="9" fill="#fee2e2" stroke="#f87171"/>
-  <text x="90" y="662" class="node">HIXL HCCS / P2P RoCE / HCCL P2P</text>
-  <text x="90" y="689" class="small">RH2D：远端 Host DRAM → 本地 HBM；可预注册 HBM</text>
-  <text x="90" y="716" class="tiny">源码已确认：RegisterMemory、ScatterBatch、HCCS/RoCE/Auto</text>
-  <rect x="770" y="630" width="560" height="105" rx="9" fill="#fee2e2" stroke="#f87171"/>
-  <text x="790" y="662" class="node">Ascend Direct / ADXL；可选 UBSHMEM</text>
-  <text x="790" y="689" class="small">H2D / D2H / D2D；HCCS 或 RDMA；TE 批量/多 NIC/选路</text>
-  <text x="790" y="716" class="tiny">源码已确认：USE_ASCEND_DIRECT 优先；旧 USE_ASCEND 已弃用</text>
-
-  <path d="M350 320 L350 430" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow-blue)"/>
-  <text x="365" y="382" class="small">object key / blob</text>
-  <path d="M1050 320 L1050 430" stroke="#15803d" stroke-width="3" marker-end="url(#arrow-green)"/>
-  <text x="1065" y="382" class="small">hash_ids / KV blocks</text>
-  <path d="M350 555 L350 630" stroke="#dc2626" stroke-width="3" marker-end="url(#arrow-red)"/>
-  <text x="365" y="598" class="small">MGetH2D / MSetD2H</text>
-  <path d="M1050 555 L1050 630" stroke="#dc2626" stroke-width="3" marker-end="url(#arrow-red)"/>
-  <text x="1065" y="598" class="small">TE transfer / DMA</text>
-  <path d="M630 682 L770 682" stroke="#dc2626" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#arrow-red)"/>
-  <text x="700" y="667" text-anchor="middle" class="tiny">可组合，但 owner/注册预算需统一</text>
-
-  <rect x="40" y="770" width="1320" height="28" rx="6" fill="#e2e8f0"/>
-  <text x="60" y="789" class="tiny">蓝=对象/控制流　绿=KV 存储/复用　红=跨设备/网络传输　虚线=架构推演或组合边界</text>
+  <rect x="70" y="375" width="180" height="115" rx="9" fill="#e0f2fe" stroke="#38bdf8"/>
+  <text x="90" y="405" class="node">Topology placement</text>
+  <text x="90" y="432" class="small">Locate(object key)</text>
+  <text x="90" y="458" class="tiny">coordination / version</text>
+  <rect x="300" y="375" width="330" height="115" rx="9" fill="#eff6ff" stroke="#60a5fa"/>
+  <text x="320" y="405" class="node">分布式 metadata owner</text>
+  <rect x="320" y="425" width="82" height="38" rx="6" fill="#fff" stroke="#93c5fd"/>
+  <rect x="419" y="425" width="82" height="38" rx="6" fill="#fff" stroke="#93c5fd"/>
+  <rect x="518" y="425" width="82" height="38" rx="6" fill="#fff" stroke="#93c5fd"/>
+  <text x="361" y="449" text-anchor="middle" class="micro">Owner A</text>
+  <text x="460" y="449" text-anchor="middle" class="micro">Owner B</text>
+  <text x="559" y="449" text-anchor="middle" class="micro">Owner C</text>
+  <text x="320" y="482" class="tiny">Observed：按 committedOwnerAddress 分片</text>
+  <rect x="770" y="375" width="350" height="115" rx="9" fill="#f3e8ff" stroke="#c084fc"/>
+  <text x="790" y="405" class="node">单 active MasterService</text>
+  <text x="790" y="432" class="small">GetReplicaList / PutStart / PutEnd</text>
+  <text x="790" y="458" class="tiny">进程内 1024 shards；统一 placement/lease 裁决</text>
+  <rect x="1150" y="390" width="180" height="82" rx="9" fill="#fff" stroke="#a78bfa" stroke-dasharray="7 5"/>
+  <text x="1170" y="420" class="node">Standby</text>
+  <text x="1170" y="445" class="tiny">lease + oplog/snapshot</text>
+  <text x="1170" y="463" class="micro">接管；不分担在线请求</text>
+  <path d="M350 320 L350 355 L270 355 L270 432 L250 432" fill="none" stroke="#64748b" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#arrow-gray)"/>
+  <text x="365" y="348" class="tiny">key 路由（控制流）</text>
+  <path d="M250 432 L300 432" stroke="#2563eb" stroke-width="2.5" marker-end="url(#arrow-blue)"/>
+  <text x="275" y="420" text-anchor="middle" class="micro">owner</text>
+  <path d="M1050 320 L1050 375" stroke="#64748b" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#arrow-gray)"/>
+  <text x="1065" y="350" class="tiny">Query / Put control</text>
+  <path d="M1120 432 L1150 432" stroke="#64748b" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#arrow-gray)"/>
+  <text x="1135" y="420" text-anchor="middle" class="micro">HA</text>
+  <rect x="70" y="595" width="560" height="125" rx="9" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="90" y="627" class="node">Object cache + L2 / slot / shared memory</text>
+  <text x="90" y="655" class="small">DRAM/共享内存/持久化对象；可 spill、preload、recovery</text>
+  <text x="90" y="682" class="tiny">源码已确认：PersistenceApi、slot recovery；KV 专用 placement 未见</text>
+  <rect x="770" y="595" width="560" height="125" rx="9" fill="#dcfce7" stroke="#4ade80"/>
+  <text x="790" y="627" class="node">Mooncake Store：DRAM + SSD/NVMe KV pool</text>
+  <text x="790" y="655" class="small">replica / preferred segment / soft-hard pin / eviction</text>
+  <text x="790" y="682" class="tiny">源码/文档：placement、replica allocator、local SSD metrics</text>
+  <path d="M465 490 L465 595" stroke="#2563eb" stroke-width="3" marker-end="url(#arrow-blue)"/>
+  <text x="480" y="548" class="small">object metadata / worker location</text>
+  <path d="M945 490 L945 595" stroke="#64748b" stroke-width="2.5" stroke-dasharray="7 5" marker-end="url(#arrow-gray)"/>
+  <text x="960" y="548" class="small">replica descriptor + lease</text>
+  <rect x="70" y="805" width="560" height="105" rx="9" fill="#fee2e2" stroke="#f87171"/>
+  <text x="90" y="837" class="node">HIXL HCCS / P2P RoCE / HCCL P2P</text>
+  <text x="90" y="864" class="small">RH2D：远端 Host DRAM → 本地 HBM；可预注册 HBM</text>
+  <text x="90" y="891" class="tiny">源码已确认：RegisterMemory、ScatterBatch、HCCS/RoCE/Auto</text>
+  <rect x="770" y="805" width="560" height="105" rx="9" fill="#fee2e2" stroke="#f87171"/>
+  <text x="790" y="837" class="node">Client + TE：Ascend Direct / ADXL；可选 UBSHMEM</text>
+  <text x="790" y="864" class="small">从 replica 直传 H2D / D2H / D2D；数据不经过 Master</text>
+  <text x="790" y="891" class="tiny">源码已确认：TransferRead；USE_ASCEND_DIRECT；HCCS 或 RDMA</text>
+  <path d="M350 720 L350 805" stroke="#dc2626" stroke-width="3" marker-end="url(#arrow-red)"/>
+  <text x="365" y="768" class="small">MGetH2D（RH2D）/ MSetD2H（本地 D2H 后发布）</text>
+  <path d="M1050 720 L1050 805" stroke="#dc2626" stroke-width="3" marker-end="url(#arrow-red)"/>
+  <text x="1065" y="768" class="small">TransferRead / DMA</text>
+  <path d="M630 857 L770 857" stroke="#dc2626" stroke-width="3" stroke-dasharray="8 6" marker-end="url(#arrow-red)"/>
+  <text x="700" y="842" text-anchor="middle" class="tiny">可组合；需统一 owner 与注册预算</text>
+  <rect x="40" y="930" width="1320" height="30" rx="6" fill="#e2e8f0"/>
+  <text x="60" y="950" class="tiny">蓝实线=对象/owner 路径　灰虚线=元数据控制流/HA　红实线=跨设备数据传输　Mooncake Master 不在红色数据路径上</text>
 </svg>

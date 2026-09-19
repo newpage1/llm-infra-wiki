@@ -130,7 +130,11 @@ ANALYSES.forEach(a => {
         errs.push(`② ${where}.${k} 以 <svg> 开头——SVG 应放 svg 字段（走 figCanvas），否则没有图号与缩放`);
         continue;
       }
-      const blk = v.match(/<(p|h[1-6]|table|thead|tbody|ul|ol|div)\b/i);
+      // 只在**围栏之外**找预渲染标签，而且标签必须真的闭合。
+      // 两个真实误报：Rust 泛型 `<P, C, Sel = ...>` 与 `<PolicyQueueEntry<T>>`
+      // 会在围栏里被旧正则的 `\b` 命中（`<P,` 里 P 后面就是词边界）。
+      const noFence = v.replace(/~~~[a-z]*\n[\s\S]*?\n\s*~~~/g, '').replace(/```[a-z]*\n[\s\S]*?\n\s*```/g, '');
+      const blk = noFence.match(/<(p|h[1-6]|table|thead|tbody|ul|ol|div)(?:\s[^<>]*)?>/i);
       if (blk) {
         errs.push(`② ${where}.${k} 里有预渲染 HTML 标签 <${blk[1]}>`
           + `——渲染器会转义成字面文本，应写成 markdown`);

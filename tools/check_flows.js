@@ -31,7 +31,7 @@ const BASE = rootIdx >= 0 ? path.resolve(argv[rootIdx + 1])
 
 /* 检出目录名 → 用它来核行号；找不到就跳过（笔记可以引用本站没分析过的仓库） */
 const CHECKOUTS = ['sglang-review', 'vllm-review', 'vllm-ascend-review',
-  'lmcache-review', 'lmcache-ascend-combined', 'mooncake-review'];
+  'lmcache-review', 'lmcache-ascend-combined', 'mooncake-review', 'dynamo-review'];
 
 const problems = [];
 const warns = [];
@@ -105,6 +105,7 @@ const REPO_OF = {
   lmcache: 'lmcache-review',
   'lmcache-ascend': 'lmcache-ascend-combined',
   mooncake: 'mooncake-review',
+  dynamo: 'dynamo-review',
 };
 const roots = CHECKOUTS.map(d => path.join(BASE, d)).filter(d => fs.existsSync(d));
 

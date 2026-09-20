@@ -46,6 +46,7 @@ const SECTIONS = [
   ['sglang', 'SGLang 侧的跨组件链路'],
   ['vllm', 'vLLM 与 vLLM-Ascend：KV 卸载、传输与调度'],
   ['新模型', '新模型的 KV 形态带来的改动（DeepSeek V4.1 等）'],
+  ['know-how', '跨组件的方法论：把容量公式、对象语义与执行成本整理成可复用的做法'],
 ];
 const SECTION_NAMES = SECTIONS.map(x => x[0]);
 const NO_SECTION = '未归类';

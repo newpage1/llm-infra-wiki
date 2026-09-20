@@ -28,6 +28,18 @@
   ],
   "flows": [
     {
+      "slug": "lmcache-ascend-vs-ascendstore-mooncake-kvc-comparison",
+      "section": "lmcache",
+      "group": "",
+      "title": "LMCache-Ascend 与 AscendStoreConnector + Mooncake 的 KV Cache 特性对比",
+      "author": "MadaoRui",
+      "date": "2026-09-21",
+      "tags": [],
+      "summary": "比较两套完整方案而不是两个同层组件：LMCache-Ascend + LMCache（KV 管理、分层缓存与控制器 + NPU 搬运/P2P/PD backend）对比 vLLM-Ascend AscendStoreConnector + Mooncake（block 语义与调度 + key/layout 适配 + 分布式对象与传输）。",
+      "updated": "2026-09-21",
+      "file": "lmcache-ascend-vs-ascendstore-mooncake-kvc-comparison.md"
+    },
+    {
       "slug": "lmcache-mp-adaptation-report",
       "section": "lmcache",
       "group": "",
@@ -64,6 +76,18 @@
       "file": "lmcache-engram-offload-design.md"
     },
     {
+      "slug": "mooncake-tent-vs-transfer-engine-opportunity",
+      "section": "mooncake",
+      "group": "",
+      "title": "Mooncake TENT 相比 TransferEngine 的变化与切入机会",
+      "author": "MadaoRui",
+      "date": "2026-09-21",
+      "tags": [],
+      "summary": "Mooncake TENT 相比 TransferEngine 的变化与切入机会：按 commit 408b831b 的源码基线，梳理 TENT 与 TE 的定位差异、能力边界与可切入的位置。",
+      "updated": "2026-09-21",
+      "file": "mooncake-tent-vs-transfer-engine-opportunity.md"
+    },
+    {
       "slug": "openyuanrong-mooncake-competitive-report",
       "section": "mooncake",
       "group": "",
@@ -88,6 +112,30 @@
       "file": "vllm-ascend/vllm-ascend-mooncake-ascend-call-path.md"
     },
     {
+      "slug": "kvconnectorv1-evolution-report",
+      "section": "vllm",
+      "group": "",
+      "title": "vLLM / vLLM Ascend：KVConnector V1 与 KV Cache Manager 演进路线",
+      "author": "MadaoRui",
+      "date": "2026-09-21",
+      "tags": [],
+      "summary": "KVConnector V1 与 KV Cache Manager 在 vLLM 与 vLLM-Ascend 上的演进路线：从 API V1 首次合入到当前主线的接口形状变化、类关系与迁移要点。",
+      "updated": "2026-09-21",
+      "file": "kvconnectorv1-evolution-report.md"
+    },
+    {
+      "slug": "vllm-ascend-layerwise-sparse-delay-pull-analysis",
+      "section": "vllm",
+      "group": "",
+      "title": "vLLM-Ascend Layerwise + Sparse KV Offload 与 LMCache-Ascend Delay-Pull 分析",
+      "author": "MadaoRui",
+      "date": "2026-09-21",
+      "tags": [],
+      "summary": "把 vLLM-Ascend 的 layerwise KV offload、Sparse KV offload 与 P/D 按层传输串成一条可核验的数据路径，并评估 LMCache-Ascend delay-pull 的结合方式与观测指标。",
+      "updated": "2026-09-21",
+      "file": "vllm-ascend-layerwise-sparse-delay-pull-analysis.md"
+    },
+    {
       "slug": "vllm-ascend-layerwise-sparse-full-flow",
       "section": "vllm",
       "group": "vllm-ascend",
@@ -98,6 +146,66 @@
       "summary": "这套特性解决一个问题：长序列推理时 KV cache 太大，NPU 装不下。",
       "updated": "2026-09-16",
       "file": "vllm-ascend/vllm-ascend-layerwise-sparse-full-flow.md"
+    },
+    {
+      "slug": "deepseek-v41-engram-adaptation-report",
+      "section": "新模型",
+      "group": "",
+      "title": "DeepSeek-V4.1 Engram 适配分析报告",
+      "author": "MadaoRui",
+      "date": "2026-09-21",
+      "tags": [],
+      "summary": "DeepSeek-V4.1 Engram 在 vLLM / SGLang / vLLM-Ascend 三个仓库的适配现状对比：vLLM 已有完整实现并接入，SGLang 是文档先行、主线 runtime 未对齐，vLLM-Ascend 更像专用镜像能力，插件源码无法独立审计。",
+      "updated": "2026-09-21",
+      "file": "deepseek-v41-engram-adaptation-report.md"
+    },
+    {
+      "slug": "kda-gdn-kvc-evolution-impact-report",
+      "section": "新模型",
+      "group": "",
+      "title": "KDA/GDN 对 KVC 组件的影响与演进趋势",
+      "author": "MadaoRui",
+      "date": "2026-09-21",
+      "tags": [],
+      "summary": "KDA/GDN 会把 KVC 从单一的 token-KV block 管理器推向异构推理状态平台：缓存对象从一种变成多种、检索从 prefix block 命中变成 boundary state 恢复、传输从 raw bytes 变成 layout-aware、一致性要求显著提高。",
+      "updated": "2026-09-21",
+      "file": "kda-gdn-kvc-evolution-impact-report.md"
+    },
+    {
+      "slug": "kda-gdn-kvc-update-and-memory-analysis",
+      "section": "新模型",
+      "group": "",
+      "title": "KDA/GDN State 是否需要逐 token 保存：论证与内存访问机会",
+      "author": "MadaoRui",
+      "date": "2026-09-21",
+      "tags": [],
+      "summary": "区分「计算状态更新」「设备内存写回」「外部持久化」三件事：KDA/GDN 的 recurrent state 必须逐 token 更新，但不需要逐 token 保存——可按 checkpoint 边界、固定间隔或请求迁移时机批量落盘，这里就是内存访问与调度的机会。",
+      "updated": "2026-09-21",
+      "file": "kda-gdn-kvc-update-and-memory-analysis.md"
+    },
+    {
+      "slug": "kda-gdn-vllm-ascend-support-report",
+      "section": "新模型",
+      "group": "",
+      "title": "KDA 与 GDN 技术对比及 vLLM-Ascend 支持现状",
+      "author": "MadaoRui",
+      "date": "2026-09-21",
+      "tags": [],
+      "summary": "KDA 与 GDN 同属线性注意力，状态大小不随上下文线性增长；KDA 可看作 GDN 的细粒度泛化（遗忘门细化到每个 value head 与 key 特征维度），并对比两者在 vLLM-Ascend 上的支持现状。",
+      "updated": "2026-09-21",
+      "file": "kda-gdn-vllm-ascend-support-report.md"
+    },
+    {
+      "slug": "speculative-decoding-no-retrain-report",
+      "section": "新模型",
+      "group": "",
+      "title": "无重训投机解码与草稿 KV 方案评估",
+      "author": "MadaoRui",
+      "date": "2026-09-21",
+      "tags": [],
+      "summary": "在不重训目标与草稿模型、不引入 RL 或蒸馏的前提下，评估哪些投机解码与草稿 KV 优化可以迁移到新模型：拒绝后缀可只靠逻辑长度回滚而不必恢复 KV，长上下文下缩短历史 draft window 往往比减少单轮临时 token 更值。",
+      "updated": "2026-09-21",
+      "file": "speculative-decoding-no-retrain-report.md"
     },
     {
       "slug": "position-independent-kv-cache-report",
@@ -136,6 +244,18 @@
       "file": "vllm-ascend/deepseek-v4.1-reuse-group-layer-chunk-scheduling.md"
     },
     {
+      "slug": "arxiv-2608-30963-cross-model-kv-sharing-report",
+      "section": "know-how",
+      "group": "",
+      "title": "A Universal Context-Reuse Layer for Cross-Model KV Sharing",
+      "author": "MadaoRui",
+      "date": "2026-09-21",
+      "tags": [],
+      "summary": "跨模型 KV 共享论文整理：把 KV 看作可翻译的上下文计算表示——当翻译成本低于目标模型 prefill、且质量损失可接受时，跨模型共享才有价值，复用边界由此从同模型 prefix cache 扩出去。",
+      "updated": "2026-09-21",
+      "file": "arxiv-2608-30963-cross-model-kv-sharing-report.md"
+    },
+    {
       "slug": "kv-context-model-state-runtime-roadmap",
       "section": "know-how",
       "group": "",
@@ -146,6 +266,30 @@
       "summary": "把工作区里分散的 KV、state、复用、压缩、P/D、投机、多模态与 Engram 材料收敛成一条技术路线：统一对象模型与 RestorePlan、八条技术主线、目标架构与控制面 API、五个 ADR、分四阶段的路线图，以及指标矩阵与近期立项拆分。",
       "updated": "2026-09-21",
       "file": "kv-context-model-state-runtime-roadmap.md"
+    },
+    {
+      "slug": "llm-context-kv-cache-paper-report",
+      "section": "know-how",
+      "group": "",
+      "title": "长上下文 LLM 缓存与存储论文分析报告",
+      "author": "MadaoRui",
+      "date": "2026-09-21",
+      "tags": [],
+      "summary": "7 篇长上下文缓存论文的原文分析：Strata、ECHO、DirectKV、SYMPHONY、DroidSpeak、Cortex、ZipLLM 各自处理的层并不相同，把它们统称为「非前缀 KV 匹配」会掩盖关键差异。",
+      "updated": "2026-09-21",
+      "file": "llm-context-kv-cache-paper-report.md"
+    },
+    {
+      "slug": "lmcache-kvc-papers-and-feasibility-report",
+      "section": "know-how",
+      "group": "",
+      "title": "KV Cache 论文全景分析与 LMCache 落地可行性报告",
+      "author": "MadaoRui",
+      "date": "2026-09-21",
+      "tags": [],
+      "summary": "8 篇 arXiv 论文与 ParaCache 的全景梳理，以及 LMCache 的落地可行性评估：这些工作共同推动 KVC 从显存里的 token-KV 数组变成跨模型、跨介质、可调度、可恢复的推理状态基础设施，并给出按投入产出比排序的路线。",
+      "updated": "2026-09-21",
+      "file": "lmcache-kvc-papers-and-feasibility-report.md"
     },
     {
       "slug": "kv-cache-formula-driven-optimization-methodology",

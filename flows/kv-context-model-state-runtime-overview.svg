@@ -1,0 +1,185 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">从 KV Cache 中间层到 Context / Model State Runtime</title>
+  <desc id="desc">展示异构状态生产者、统一状态运行时、分层数据面与短中长期记忆系统之间的关系。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F3EBDD"/>
+      <stop offset="1" stop-color="#EDE0D0"/>
+    </linearGradient>
+    <linearGradient id="runtime" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#EAD8C8"/>
+      <stop offset="1" stop-color="#F2E6D8"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#6E5A4D" flood-opacity="0.2"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#B96E51"/>
+    </marker>
+    <marker id="arrow-amber" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#C39158"/>
+    </marker>
+    <style>
+      .title { font: 700 34px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; fill: #40352D; }
+      .subtitle { font: 400 16px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; fill: #75675D; }
+      .section { font: 700 18px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; fill: #40352D; }
+      .label { font: 600 15px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; fill: #40352D; }
+      .body { font: 400 13px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; fill: #75675D; }
+      .tiny { font: 400 11px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; fill: #A49486; }
+      .badge { font: 700 11px -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; }
+    </style>
+  </defs>
+
+  <rect width="1440" height="900" fill="url(#bg)"/>
+  <circle cx="1310" cy="72" r="190" fill="#C88A6E" opacity="0.12"/>
+  <circle cx="80" cy="850" r="210" fill="#AAB69A" opacity="0.12"/>
+
+  <text x="72" y="62" class="title">从 KV Cache 中间层到 Context / Model State Runtime</text>
+  <text x="72" y="92" class="subtitle">统一管理“可恢复计算状态”，让复用、传输、压缩、重算与长期记忆进入同一成本闭环</text>
+
+  <g filter="url(#shadow)">
+    <rect x="72" y="132" width="300" height="510" rx="22" fill="#FBF7F0" stroke="#D0BFAE"/>
+    <rect x="402" y="132" width="636" height="510" rx="22" fill="url(#runtime)" stroke="#BFA08B" stroke-width="2"/>
+    <rect x="1068" y="132" width="300" height="510" rx="22" fill="#FBF7F0" stroke="#D0BFAE"/>
+  </g>
+
+  <text x="96" y="170" class="section">状态生产者</text>
+  <text x="426" y="170" class="section">统一状态运行时</text>
+  <text x="1092" y="170" class="section">分层数据与记忆面</text>
+
+  <g>
+    <rect x="96" y="194" width="252" height="78" rx="14" fill="#F1E3D4" stroke="#BFA08B"/>
+    <text x="116" y="220" class="label">LLM / Hybrid LLM</text>
+    <text x="116" y="244" class="body">Main KV · SWA KV · KDA/GDN/Mamba state</text>
+    <text x="116" y="262" class="tiny">精确前缀、边界快照、tail replay</text>
+
+    <rect x="96" y="290" width="252" height="78" rx="14" fill="#F1E3D4" stroke="#BFA08B"/>
+    <text x="116" y="316" class="label">VLM / DiT</text>
+    <text x="116" y="340" class="body">ViT embedding · 条件侧 K/V · 中间特征</text>
+    <text x="116" y="358" class="tiny">精确复用与近似复用必须分级</text>
+
+    <rect x="96" y="386" width="252" height="78" rx="14" fill="#F1E3D4" stroke="#BFA08B"/>
+    <text x="116" y="412" class="label">Speculative Decode</text>
+    <text x="116" y="436" class="body">Draft KV · tentative state · accepted prefix</text>
+    <text x="116" y="454" class="tiny">窗口化、量化、逻辑长度回滚</text>
+
+    <rect x="96" y="482" width="252" height="78" rx="14" fill="#F1E3D4" stroke="#BFA08B"/>
+    <text x="116" y="508" class="label">Model State / Assets</text>
+    <text x="116" y="532" class="body">Engram · expert weights · adapter · index</text>
+    <text x="116" y="550" class="tiny">版本、只读性、放置与热迁移</text>
+
+    <rect x="96" y="578" width="252" height="42" rx="12" fill="#E9DCCB" stroke="#8B9A79"/>
+    <text x="116" y="604" class="label">Agent / Workflow DAG</text>
+  </g>
+
+  <path d="M372 388 H402" stroke="#B96E51" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="374" y="377" class="tiny">descriptor</text>
+
+  <g>
+    <rect x="426" y="194" width="180" height="86" rx="14" fill="#F8F1E8" stroke="#B96E51"/>
+    <text x="446" y="220" class="label">State Registry</text>
+    <text x="446" y="244" class="body">语义、版本、layout</text>
+    <text x="446" y="263" class="tiny">LogicalStateKey → ReplicaSet</text>
+
+    <rect x="630" y="194" width="180" height="86" rx="14" fill="#F8F1E8" stroke="#B96E51"/>
+    <text x="650" y="220" class="label">Restore Planner</text>
+    <text x="650" y="244" class="body">load / replay / recompute</text>
+    <text x="650" y="263" class="tiny">含 quality risk 与 fallback</text>
+
+    <rect x="834" y="194" width="180" height="86" rx="14" fill="#F8F1E8" stroke="#B96E51"/>
+    <text x="854" y="220" class="label">Consistency</text>
+    <text x="854" y="244" class="body">COW · generation fence</text>
+    <text x="854" y="263" class="tiny">atomic publish / rollback</text>
+
+    <rect x="426" y="304" width="180" height="86" rx="14" fill="#F8F1E8" stroke="#8B9A79"/>
+    <text x="446" y="330" class="label">Policy Engine</text>
+    <text x="446" y="354" class="body">admission · eviction</text>
+    <text x="446" y="373" class="tiny">容量配比、冷热与主动预取</text>
+
+    <rect x="630" y="304" width="180" height="86" rx="14" fill="#F8F1E8" stroke="#8B9A79"/>
+    <text x="650" y="330" class="label">Transform Engine</text>
+    <text x="650" y="354" class="body">re-RoPE · translate</text>
+    <text x="650" y="373" class="tiny">quant / codec / reshard</text>
+
+    <rect x="834" y="304" width="180" height="86" rx="14" fill="#F8F1E8" stroke="#8B9A79"/>
+    <text x="854" y="330" class="label">Telemetry</text>
+    <text x="854" y="354" class="body">收益、质量、带宽</text>
+    <text x="854" y="373" class="tiny">hit → usable → beneficial</text>
+
+    <rect x="426" y="424" width="588" height="92" rx="16" fill="#E9DCCB" stroke="#C39158" stroke-width="2"/>
+    <text x="450" y="451" class="label">语义化数据面</text>
+    <text x="450" y="477" class="body">layer / group / chunk pull · sparse plane · P/D pool · RDMA / IPC / DMA</text>
+    <text x="450" y="498" class="tiny">每个对象携带 owner、位置、精度、layout、generation、checksum 与 ready event</text>
+
+    <rect x="426" y="542" width="588" height="78" rx="16" fill="#F1E3D4" stroke="#B96E51"/>
+    <text x="450" y="568" class="label">统一决策目标</text>
+    <text x="450" y="592" class="body">端到端 SLO / 成本，而不是单一 hit rate、压缩比或带宽利用率</text>
+    <text x="450" y="611" class="tiny">只有“正确、可用且比重算更便宜”的命中才算收益</text>
+  </g>
+
+  <path d="M1038 388 H1068" stroke="#B96E51" stroke-width="3" marker-end="url(#arrow)"/>
+  <text x="1028" y="377" class="tiny">plan</text>
+
+  <g>
+    <rect x="1092" y="194" width="252" height="62" rx="14" fill="#F1E3D4" stroke="#B96E51"/>
+    <text x="1112" y="220" class="label">L0 · Device / HBM</text>
+    <text x="1112" y="241" class="tiny">当前窗口、活跃 state、draft tentative</text>
+
+    <rect x="1092" y="272" width="252" height="62" rx="14" fill="#F1E3D4" stroke="#B96E51"/>
+    <text x="1112" y="298" class="label">L1 · Host DRAM / CXL</text>
+    <text x="1112" y="319" class="tiny">热副本、压缩 KV、Engram / experts</text>
+
+    <rect x="1092" y="350" width="252" height="62" rx="14" fill="#F1E3D4" stroke="#C39158"/>
+    <text x="1112" y="376" class="label">L2 · Remote Memory</text>
+    <text x="1112" y="397" class="tiny">P/D 池、跨实例共享、预取候选</text>
+
+    <rect x="1092" y="428" width="252" height="62" rx="14" fill="#F1E3D4" stroke="#C39158"/>
+    <text x="1112" y="454" class="label">L3 · SSD / Object Store</text>
+    <text x="1112" y="475" class="tiny">冷 KV、checkpoint、模型资产</text>
+
+    <rect x="1092" y="506" width="252" height="62" rx="14" fill="#F1E3D4" stroke="#8B9A79"/>
+    <text x="1112" y="532" class="label">L4 · Memory DB</text>
+    <text x="1112" y="553" class="tiny">摘要、向量、事实、任务与原始上下文</text>
+
+    <rect x="1092" y="584" width="252" height="36" rx="12" fill="#E9DCCB" stroke="#8B9A79"/>
+    <text x="1112" y="607" class="tiny">长期记忆只参与检索/重编码，不冒充精确 KV 命中</text>
+  </g>
+
+  <path d="M1218 256 V272" stroke="#C39158" stroke-width="2.5" marker-end="url(#arrow-amber)"/>
+  <path d="M1218 334 V350" stroke="#C39158" stroke-width="2.5" marker-end="url(#arrow-amber)"/>
+  <path d="M1218 412 V428" stroke="#C39158" stroke-width="2.5" marker-end="url(#arrow-amber)"/>
+  <path d="M1218 490 V506" stroke="#C39158" stroke-width="2.5" marker-end="url(#arrow-amber)"/>
+
+  <g>
+    <rect x="72" y="682" width="1296" height="154" rx="22" fill="#E9DCCB" stroke="#D0BFAE"/>
+    <text x="96" y="718" class="section">多层记忆闭环：从执行态到原始上下文</text>
+    <line x1="126" y1="774" x2="1314" y2="774" stroke="#BFA08B" stroke-width="4" marker-end="url(#arrow-amber)"/>
+    <circle cx="156" cy="774" r="12" fill="#B96E51"/>
+    <circle cx="424" cy="774" r="12" fill="#D7925B"/>
+    <circle cx="692" cy="774" r="12" fill="#C39158"/>
+    <circle cx="960" cy="774" r="12" fill="#8B9A79"/>
+    <circle cx="1284" cy="774" r="12" fill="#A9827E"/>
+    <text x="116" y="755" class="label">短期滑窗</text>
+    <text x="116" y="805" class="tiny">原精度 KV / active state</text>
+    <text x="382" y="755" class="label">中期压缩</text>
+    <text x="382" y="805" class="tiny">量化、稀疏、摘要、replay</text>
+    <text x="648" y="755" class="label">长期 State</text>
+    <text x="648" y="805" class="tiny">checkpoint / translated state</text>
+    <text x="916" y="755" class="label">Agent Memory / DB</text>
+    <text x="916" y="805" class="tiny">事实、向量、工作流与偏好</text>
+    <text x="1230" y="755" class="label">原始上下文</text>
+    <text x="1230" y="805" class="tiny">审计、重建与纠错根</text>
+  </g>
+
+  <g transform="translate(72 862)">
+    <rect x="0" y="-15" width="10" height="10" rx="2" fill="#B96E51"/>
+    <text x="18" y="-6" class="tiny">源码/本地实现已观察</text>
+    <rect x="170" y="-15" width="10" height="10" rx="2" fill="#C39158"/>
+    <text x="188" y="-6" class="tiny">文档或论文描述</text>
+    <rect x="324" y="-15" width="10" height="10" rx="2" fill="#8B9A79"/>
+    <text x="342" y="-6" class="tiny">目标架构推演</text>
+    <path d="M472 -10 H500" stroke="#A49486" stroke-width="2" stroke-dasharray="5 5"/>
+    <text x="510" y="-6" class="tiny">可选 / 未验证路径</text>
+    <text x="1052" y="-6" class="tiny">结论：统一语义与成本决策，存储/传输只是可替换数据面</text>
+  </g>
+</svg>

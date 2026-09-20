@@ -20,6 +20,10 @@
     {
       "name": "新模型",
       "blurb": "新模型的 KV 形态带来的改动（DeepSeek V4.1 等）"
+    },
+    {
+      "name": "know-how",
+      "blurb": "跨组件的方法论：把容量公式、对象语义与执行成本整理成可复用的做法"
     }
   ],
   "flows": [
@@ -130,6 +134,18 @@
       "summary": "跨层复用 sparse top-k 的模型该按什么粒度调度？这篇的结论是：值得用 layer chunk，但调度单位应是模型语义上的 reuse group 而不是任意单层 task，优先在 ModelRunner 内做 group-aware prefetch。",
       "updated": "2026-09-16",
       "file": "vllm-ascend/deepseek-v4.1-reuse-group-layer-chunk-scheduling.md"
+    },
+    {
+      "slug": "kv-cache-formula-driven-optimization-methodology",
+      "section": "know-how",
+      "group": "",
+      "title": "KV Cache 公式驱动的优化方法论",
+      "author": "MadaoRui",
+      "date": "2026-09-20",
+      "tags": [],
+      "summary": "从一个容量公式、逐因子下刀，扩展到对象语义、生命周期成本与端到端闭环的系统优化方法：两张账（静态容量与全生命周期成本）、七类优化方法、六个基本变换，以及一套八步可执行流程和快速检查清单。",
+      "updated": "2026-09-20",
+      "file": "kv-cache-formula-driven-optimization-methodology.md"
     }
   ]
 }

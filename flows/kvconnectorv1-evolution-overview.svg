@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="850" viewBox="0 0 1400 850" role="img" aria-labelledby="title desc">
+  <title id="title">KVConnector V1 与 KV cache manager 演进路线</title>
+  <desc id="desc">从 2025 年 vLLM V1 connector 和单 cache manager，演进到 HMA 多 cache group、异步 connector 生命周期，以及 vLLM Ascend 的 NPU 数据面与多级 KV pool。</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .lane { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; }
+      .up { fill: #e0f2fe; stroke: #0284c7; stroke-width: 2; }
+      .asc { fill: #f3e8ff; stroke: #9333ea; stroke-width: 2; }
+      .why { fill: #fff7ed; stroke: #ea580c; stroke-width: 1.5; }
+      .title { font: 700 30px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .subtitle { font: 500 16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #475569; }
+      .laneTitle { font: 700 19px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .head { font: 700 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .body { font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #334155; }
+      .date { font: 700 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #0369a1; }
+      .dateAsc { font: 700 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #7e22ce; }
+      .arrow { stroke: #475569; stroke-width: 2.5; fill: none; marker-end: url(#arrow); }
+      .dash { stroke: #64748b; stroke-width: 2; stroke-dasharray: 7 6; fill: none; marker-end: url(#arrow); }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1400" height="850"/>
+  <text class="title" x="55" y="52">KVConnector V1：控制面稳定，block 管理与数据面不断分层</text>
+  <text class="subtitle" x="55" y="82">真实变化不是 KVBlockManager 改名，而是单表管理 → 多 cache group/HMA → connector-aware 异步所有权</text>
+
+  <rect class="lane" x="40" y="115" rx="18" width="1320" height="315"/>
+  <text class="laneTitle" x="65" y="148">上游 vLLM：scheduler / cache ownership / connector contract</text>
+
+  <rect class="up" x="70" y="180" rx="12" width="215" height="145"/>
+  <text class="date" x="88" y="205">2025-04 · 3408e471</text>
+  <text class="head" x="88" y="231">KV Connector API V1</text>
+  <text class="body" x="88" y="257">KVCacheManager</text>
+  <text class="body" x="88" y="278">+ SpecializedManager</text>
+  <text class="body" x="88" y="299">单 block table / 单 spec</text>
+
+  <rect class="up" x="330" y="180" rx="12" width="235" height="145"/>
+  <text class="date" x="348" y="205">2025-06 · f8a1a2d1</text>
+  <text class="head" x="348" y="231">Hybrid Memory Allocator</text>
+  <text class="body" x="348" y="257">KVCacheBlocks[group][block]</text>
+  <text class="body" x="348" y="278">KVCacheCoordinator</text>
+  <text class="body" x="348" y="299">SingleTypeKVCacheManager</text>
+
+  <rect class="up" x="610" y="180" rx="12" width="235" height="145"/>
+  <text class="date" x="628" y="205">2025-07～11</text>
+  <text class="head" x="628" y="231">Hybrid + 不同 block size</text>
+  <text class="body" x="628" y="257">Full / SWA / Mamba / Cross</text>
+  <text class="body" x="628" y="278">group physical block size</text>
+  <text class="body" x="628" y="299">与 hash/scheduler 粒度解耦</text>
+
+  <rect class="up" x="890" y="180" rx="12" width="210" height="145"/>
+  <text class="date" x="908" y="205">2025-12～2026-03</text>
+  <text class="head" x="908" y="231">HMA + Connector</text>
+  <text class="body" x="908" y="257">all-group finish</text>
+  <text class="body" x="908" y="278">manager / BlockPool bind</text>
+  <text class="body" x="908" y="299">跨 group 一致命中</text>
+
+  <rect class="up" x="1145" y="180" rx="12" width="185" height="145"/>
+  <text class="date" x="1163" y="205">2026 当前</text>
+  <text class="head" x="1163" y="231">异步所有权</text>
+  <text class="body" x="1163" y="257">external tokens</text>
+  <text class="body" x="1163" y="278">partial tail / failure</text>
+  <text class="body" x="1163" y="299">preemption / delayed free</text>
+
+  <path class="arrow" d="M285 252 H325"/>
+  <path class="arrow" d="M565 252 H605"/>
+  <path class="arrow" d="M845 252 H885"/>
+  <path class="arrow" d="M1100 252 H1140"/>
+
+  <rect class="why" x="330" y="350" rx="10" width="760" height="55"/>
+  <text class="head" x="350" y="375">驱动因素</text>
+  <text class="body" x="445" y="375">Hybrid cache 语义不同 · P/D 外部命中先占 slot 后搬运 · 异步 transfer 必须 pin/refcount · TP/DCP/PCP 粒度不同</text>
+
+  <rect class="lane" x="40" y="455" rx="18" width="1320" height="330"/>
+  <text class="laneTitle" x="65" y="488">vLLM Ascend：复用上游控制面，扩展 NPU worker / attention / storage data path</text>
+
+  <rect class="asc" x="70" y="525" rx="12" width="215" height="145"/>
+  <text class="dateAsc" x="88" y="550">2025-09 · 6666e526</text>
+  <text class="head" x="88" y="576">首次接入 V1</text>
+  <text class="body" x="88" y="602">attention 前 wait layer</text>
+  <text class="body" x="88" y="623">attention 后 save layer</text>
+  <text class="body" x="88" y="644">支持 LMCache layerwise</text>
+
+  <rect class="asc" x="330" y="525" rx="12" width="235" height="145"/>
+  <text class="dateAsc" x="348" y="550">2025-09 · a486ff8c</text>
+  <text class="head" x="348" y="576">Mooncake Layerwise P/D</text>
+  <text class="body" x="348" y="602">逐层传输 / 计算重叠</text>
+  <text class="body" x="348" y="623">P/D lifecycle + metadata</text>
+  <text class="body" x="348" y="644">形成 kv_p2p 路线</text>
+
+  <rect class="asc" x="610" y="525" rx="12" width="235" height="145"/>
+  <text class="dateAsc" x="628" y="550">2025-11～2026-03</text>
+  <text class="head" x="628" y="576">KV pool 多后端</text>
+  <text class="body" x="628" y="602">AscendStore / UCM</text>
+  <text class="body" x="628" y="623">LMCache Ascend / Mooncake</text>
+  <text class="body" x="628" y="644">PCP + pooled reuse</text>
+
+  <rect class="asc" x="890" y="525" rx="12" width="210" height="145"/>
+  <text class="dateAsc" x="908" y="550">2026 hybrid/HMA</text>
+  <text class="head" x="908" y="576">NPU layout 适配</text>
+  <text class="body" x="908" y="602">K/V 分离 canonical page</text>
+  <text class="body" x="908" y="623">torch.npu stream / memcpy</text>
+  <text class="body" x="908" y="644">复用 upstream manager 语义</text>
+
+  <rect class="asc" x="1145" y="525" rx="12" width="185" height="145"/>
+  <text class="dateAsc" x="1163" y="550">2026-08～09</text>
+  <text class="head" x="1163" y="576">多数据路径</text>
+  <text class="body" x="1163" y="602">SFA RD2H / Mooncake V2</text>
+  <text class="body" x="1163" y="623">CPU + SSD tiering</text>
+  <text class="body" x="1163" y="644">长上下文 / sparse KV</text>
+
+  <path class="arrow" d="M285 597 H325"/>
+  <path class="arrow" d="M565 597 H605"/>
+  <path class="arrow" d="M845 597 H885"/>
+  <path class="arrow" d="M1100 597 H1140"/>
+
+  <path class="dash" d="M447 325 V520"/>
+  <text class="body" x="460" y="440">V1 contract / HMA group 语义下沉到 Ascend</text>
+
+  <rect class="why" x="245" y="705" rx="10" width="910" height="55"/>
+  <text class="head" x="265" y="730">边界原则</text>
+  <text class="body" x="350" y="730">GPU/NPU block ownership 仍归 scheduler + KVCacheManager；Ascend connector 负责 NPU layout、同步和传输后端</text>
+
+  <text class="subtitle" x="55" y="820">实线：时间演进　虚线：上游协议/语义被插件复用　橙框：变化背后的约束</text>
+</svg>

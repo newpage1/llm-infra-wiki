@@ -1,0 +1,162 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="920" viewBox="0 0 1440 920" role="img" aria-labelledby="title desc">
+  <title id="title">Engram 表的三种部署路径</title>
+  <desc id="desc">对比 HBM 分片、vLLM Host 分片和 Shared Host Table，展示查表、TP collective 与 Host 驱动要求。</desc>
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .panel { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; }
+      .panel-vllm { fill: #fffdf5; stroke: #f59e0b; stroke-width: 2; }
+      .panel-shared { fill: #f4fbf7; stroke: #10b981; stroke-width: 2; }
+      .title { font: 700 30px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .subtitle { font: 500 16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #475569; }
+      .column-title { font: 700 20px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .label { font: 650 15px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .text { font: 14px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #334155; }
+      .small { font: 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #475569; }
+      .mono { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #0f172a; }
+      .band-label { font: 700 11px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 1.8px; fill: #64748b; }
+      .hash { fill: #ede9fe; stroke: #8b5cf6; stroke-width: 1.5; }
+      .hbm { fill: #dbeafe; stroke: #3b82f6; stroke-width: 1.5; }
+      .host { fill: #fef3c7; stroke: #f59e0b; stroke-width: 1.5; }
+      .shared { fill: #d1fae5; stroke: #10b981; stroke-width: 1.5; }
+      .device { fill: #f1f5f9; stroke: #64748b; stroke-width: 1.5; }
+      .collective { fill: #fee2e2; stroke: #ef4444; stroke-width: 1.5; }
+      .output { fill: #e0f2fe; stroke: #0284c7; stroke-width: 1.5; }
+      .driver { fill: #ecfeff; stroke: #0891b2; stroke-width: 1.2; }
+      .yes { fill: #dcfce7; stroke: #22c55e; stroke-width: 1.2; }
+      .no { fill: #fee2e2; stroke: #ef4444; stroke-width: 1.2; }
+      .arrow { stroke: #64748b; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+      .arrow-hot { stroke: #ef4444; stroke-width: 2.2; fill: none; marker-end: url(#arrow-red); }
+      .arrow-host { stroke: #d97706; stroke-width: 2; fill: none; marker-end: url(#arrow-amber); }
+      .arrow-shared { stroke: #059669; stroke-width: 2; fill: none; marker-end: url(#arrow-green); }
+      .dash { stroke-dasharray: 7 5; }
+    </style>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#64748b"/>
+    </marker>
+    <marker id="arrow-red" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#ef4444"/>
+    </marker>
+    <marker id="arrow-amber" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#d97706"/>
+    </marker>
+    <marker id="arrow-green" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#059669"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" width="1440" height="920"/>
+  <text class="title" x="52" y="52">Engram 表放在哪里，决定 TP 通信还在不在</text>
+  <text class="subtitle" x="52" y="82">三条路径使用相同 hash_ids；差别在于每个设备能否直接读取全部 hash heads</text>
+
+  <rect class="hash" x="420" y="105" width="600" height="58" rx="12"/>
+  <text class="label" x="720" y="130" text-anchor="middle">所有 TP rank 都有完整 hash_ids</text>
+  <text class="mono" x="720" y="151" text-anchor="middle">[T, H]  ·  row address = table_base + hash_id × row_stride</text>
+
+  <rect class="panel" x="35" y="195" width="430" height="565" rx="18"/>
+  <rect class="panel-vllm" x="505" y="195" width="430" height="565" rx="18"/>
+  <rect class="panel-shared" x="975" y="195" width="430" height="565" rx="18"/>
+
+  <text class="column-title" x="250" y="232" text-anchor="middle">① HBM 分片</text>
+  <text class="small" x="250" y="255" text-anchor="middle">表分片驻留各设备 HBM</text>
+  <text class="column-title" x="720" y="232" text-anchor="middle">② vLLM Host 分片</text>
+  <text class="small" x="720" y="255" text-anchor="middle">源码已确认：offload 后 TP 分片不变</text>
+  <text class="column-title" x="1190" y="232" text-anchor="middle">③ Shared Host Table</text>
+  <text class="small" x="1190" y="255" text-anchor="middle">SGLang 文档方案；当前公开 runtime 未见</text>
+
+  <text class="band-label" x="62" y="292">TABLE PLACEMENT</text>
+  <rect class="hbm" x="65" y="310" width="170" height="74" rx="10"/>
+  <text class="label" x="150" y="338" text-anchor="middle">GPU0 HBM shard</text>
+  <text class="mono" x="150" y="362" text-anchor="middle">heads 0..H/2</text>
+  <rect class="hbm" x="265" y="310" width="170" height="74" rx="10"/>
+  <text class="label" x="350" y="338" text-anchor="middle">GPU1 HBM shard</text>
+  <text class="mono" x="350" y="362" text-anchor="middle">heads H/2..H</text>
+
+  <text class="band-label" x="532" y="292">TABLE PLACEMENT</text>
+  <rect class="host" x="535" y="310" width="170" height="74" rx="10"/>
+  <text class="label" x="620" y="338" text-anchor="middle">Host shard 0</text>
+  <text class="mono" x="620" y="362" text-anchor="middle">pinned · heads 0..H/2</text>
+  <rect class="host" x="735" y="310" width="170" height="74" rx="10"/>
+  <text class="label" x="820" y="338" text-anchor="middle">Host shard 1</text>
+  <text class="mono" x="820" y="362" text-anchor="middle">pinned · heads H/2..H</text>
+
+  <text class="band-label" x="1002" y="292">TABLE PLACEMENT</text>
+  <rect class="shared" x="1010" y="310" width="360" height="74" rx="10"/>
+  <text class="label" x="1190" y="338" text-anchor="middle">一份完整 CPU Host Engram table</text>
+  <text class="mono" x="1190" y="362" text-anchor="middle">HugeTLB · pinned · all heads 0..H</text>
+
+  <text class="band-label" x="62" y="425">DEVICE LOOKUP</text>
+  <rect class="device" x="65" y="445" width="170" height="72" rx="10"/>
+  <text class="label" x="150" y="474" text-anchor="middle">GPU0 local lookup</text>
+  <text class="mono" x="150" y="497" text-anchor="middle">[T,H/2,D]</text>
+  <rect class="device" x="265" y="445" width="170" height="72" rx="10"/>
+  <text class="label" x="350" y="474" text-anchor="middle">GPU1 local lookup</text>
+  <text class="mono" x="350" y="497" text-anchor="middle">[T,H/2,D]</text>
+  <path class="arrow" d="M150 384 V445"/>
+  <path class="arrow" d="M350 384 V445"/>
+  <text class="small" x="250" y="414" text-anchor="middle">HBM 随机读</text>
+
+  <text class="band-label" x="532" y="425">DEVICE LOOKUP</text>
+  <rect class="device" x="535" y="445" width="170" height="72" rx="10"/>
+  <text class="label" x="620" y="474" text-anchor="middle">GPU0 local lookup</text>
+  <text class="mono" x="620" y="497" text-anchor="middle">[T,H/2,D]</text>
+  <rect class="device" x="735" y="445" width="170" height="72" rx="10"/>
+  <text class="label" x="820" y="474" text-anchor="middle">GPU1 local lookup</text>
+  <text class="mono" x="820" y="497" text-anchor="middle">[T,H/2,D]</text>
+  <path class="arrow-host" d="M620 384 V445"/>
+  <path class="arrow-host" d="M820 384 V445"/>
+  <text class="small" x="720" y="414" text-anchor="middle">UVA 读取各自 Host shard</text>
+
+  <text class="band-label" x="1002" y="425">DEVICE LOOKUP</text>
+  <rect class="device" x="1010" y="445" width="170" height="72" rx="10"/>
+  <text class="label" x="1095" y="474" text-anchor="middle">GPU/NPU0 full lookup</text>
+  <text class="mono" x="1095" y="497" text-anchor="middle">[T,H,D]</text>
+  <rect class="device" x="1200" y="445" width="170" height="72" rx="10"/>
+  <text class="label" x="1285" y="474" text-anchor="middle">GPU/NPU1 full lookup</text>
+  <text class="mono" x="1285" y="497" text-anchor="middle">[T,H,D]</text>
+  <path class="arrow-shared" d="M1125 384 V420 H1095 V445"/>
+  <path class="arrow-shared" d="M1255 384 V420 H1285 V445"/>
+  <text class="small" x="1190" y="414" text-anchor="middle">每个设备直读完整 Host 表</text>
+
+  <rect class="collective" x="88" y="555" width="324" height="65" rx="11"/>
+  <text class="label" x="250" y="582" text-anchor="middle">TP all-gather</text>
+  <text class="mono" x="250" y="604" text-anchor="middle">2 × [T,H/2,D] -> [T,H,D]</text>
+  <path class="arrow-hot" d="M150 517 V535 H250 V555"/>
+  <path class="arrow-hot" d="M350 517 V535 H250"/>
+
+  <rect class="collective" x="558" y="555" width="324" height="65" rx="11"/>
+  <text class="label" x="720" y="582" text-anchor="middle">TP all-gather 仍存在</text>
+  <text class="mono" x="720" y="604" text-anchor="middle">2 × [T,H/2,D] -> [T,H,D]</text>
+  <path class="arrow-hot" d="M620 517 V535 H720 V555"/>
+  <path class="arrow-hot" d="M820 517 V535 H720"/>
+
+  <rect class="yes" x="1028" y="555" width="324" height="65" rx="11"/>
+  <text class="label" x="1190" y="582" text-anchor="middle">无 Engram TP collective</text>
+  <text class="mono" x="1190" y="604" text-anchor="middle">每个设备已经得到 [T,H,D]</text>
+  <path class="arrow-shared" d="M1095 517 V540 H1190 V555"/>
+  <path class="arrow-shared" d="M1285 517 V540 H1190"/>
+
+  <rect class="output" x="88" y="655" width="324" height="62" rx="11"/>
+  <text class="label" x="250" y="682" text-anchor="middle">完整 rows -> replicated wkv</text>
+  <text class="small" x="250" y="704" text-anchor="middle">HBM 多，设备通信存在</text>
+  <path class="arrow" d="M250 620 V655"/>
+  <rect class="output" x="558" y="655" width="324" height="62" rx="11"/>
+  <text class="label" x="720" y="682" text-anchor="middle">完整 rows -> replicated wkv</text>
+  <text class="small" x="720" y="704" text-anchor="middle">释放 HBM，但仍有设备通信</text>
+  <path class="arrow" d="M720 620 V655"/>
+  <rect class="output" x="1028" y="655" width="324" height="62" rx="11"/>
+  <text class="label" x="1190" y="682" text-anchor="middle">完整 rows -> replicated wkv</text>
+  <text class="small" x="1190" y="704" text-anchor="middle">无 Engram collective，Host 读取放大</text>
+  <path class="arrow-shared" d="M1190 620 V655"/>
+
+  <rect class="driver" x="35" y="790" width="1370" height="95" rx="16"/>
+  <text class="column-title" x="62" y="823">Shared Host Table 对 Host/驱动的四个硬条件</text>
+  <text class="label" x="72" y="856">① CPU HugeTLB</text>
+  <text class="small" x="72" y="876">2 MB / 1 GB 物理页</text>
+  <text class="label" x="362" y="856">② pin/register</text>
+  <text class="small" x="362" y="876">常驻、只读、稳定 VA/IOVA</text>
+  <text class="label" x="682" y="856">③ IOMMU/SMMU 大页映射</text>
+  <text class="small" x="682" y="876">不能重新碎成海量 4 KB PTE</text>
+  <text class="label" x="1060" y="856">④ NUMA + 多设备共享</text>
+  <text class="small" x="1060" y="876">同一物理表、近端链路、生命周期一致</text>
+</svg>

@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="760" viewBox="0 0 1320 760" role="img" aria-labelledby="title desc">
+  <title id="title">无重训投机解码方案选择图</title>
+  <desc id="desc">左侧是输入和已有模型，中间比较草稿候选、草稿 KV 优化和运行时控制，右侧是完整目标模型验证与最终输出。只有草稿路径近似，目标验证器保持完整，因此标准规则下最终输出无损。</desc>
+  <rect width="1320" height="760" fill="#f8fafc"/>
+  <text x="56" y="54" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="28" font-weight="700" fill="#0f172a">无重训投机解码：近似只放在草稿路径</text>
+  <text x="56" y="84" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#475569">决策重点：不牺牲目标模型的完整验证，优先压低草稿计算、KV 访存和负载相关开销</text>
+
+  <rect x="56" y="132" width="210" height="164" rx="14" fill="#e2e8f0" stroke="#64748b" stroke-width="2"/>
+  <text x="78" y="166" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#0f172a">请求输入</text>
+  <text x="78" y="198" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#334155">prompt / 历史 token</text>
+  <text x="78" y="226" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#334155">context、QPS、显存压力</text>
+  <text x="78" y="254" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#64748b">观测：运行时指标</text>
+
+  <rect x="332" y="112" width="292" height="210" rx="14" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+  <text x="356" y="148" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#1e3a8a">草稿候选源</text>
+  <text x="356" y="180" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#1e40af">已有小模型</text>
+  <text x="356" y="207" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#1e40af">Prompt Lookup / n-gram</text>
+  <text x="356" y="234" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#1e40af">动态 gamma</text>
+  <text x="356" y="274" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#475569">无需训练；候选错了也不提交</text>
+  <text x="356" y="298" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#475569">状态：工程可迁移</text>
+
+  <rect x="332" y="366" width="292" height="210" rx="14" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+  <text x="356" y="402" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#92400e">草稿 KV 优化</text>
+  <text x="356" y="434" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#92400e">recent-window</text>
+  <text x="356" y="461" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#92400e">INT8 / INT4</text>
+  <text x="356" y="488" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#92400e">规则型 sparse / eviction</text>
+  <text x="356" y="528" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#78350f">影响接受率和草稿耗时</text>
+  <text x="356" y="552" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#78350f">不近似目标 verifier</text>
+
+  <rect x="700" y="178" width="250" height="198" rx="14" fill="#fee2e2" stroke="#dc2626" stroke-width="2"/>
+  <text x="724" y="214" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#991b1b">完整目标验证器</text>
+  <text x="724" y="248" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#991b1b">full target KV</text>
+  <text x="724" y="275" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#991b1b">标准 accept / reject</text>
+  <text x="724" y="315" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#7f1d1d">正确性边界</text>
+  <text x="724" y="339" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#7f1d1d">不做目标 KV 近似</text>
+
+  <rect x="1024" y="178" width="240" height="198" rx="14" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+  <text x="1048" y="214" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="19" font-weight="700" fill="#166534">最终输出</text>
+  <text x="1048" y="248" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#166534">committed tokens</text>
+  <text x="1048" y="275" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="15" fill="#166534">理论输出损失：0</text>
+  <text x="1048" y="315" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#14532d">需用 exact match 验证</text>
+  <text x="1048" y="339" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#14532d">墙钟收益需实测</text>
+
+  <path d="M266 214 H332" fill="none" stroke="#475569" stroke-width="3"/>
+  <polygon points="332,214 320,207 320,221" fill="#475569"/>
+  <text x="274" y="200" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#475569">请求特征</text>
+
+  <path d="M624 214 H700" fill="none" stroke="#2563eb" stroke-width="3"/>
+  <polygon points="700,214 688,207 688,221" fill="#2563eb"/>
+  <text x="637" y="199" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#1d4ed8">draft tokens + draft KV</text>
+
+  <path d="M950 277 H1024" fill="none" stroke="#16a34a" stroke-width="3"/>
+  <polygon points="1024,277 1012,270 1012,284" fill="#16a34a"/>
+  <text x="961" y="262" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#166534">accepted prefix</text>
+
+  <path d="M477 322 V366" fill="none" stroke="#d97706" stroke-width="3" stroke-dasharray="8 7"/>
+  <text x="492" y="352" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="13" fill="#92400e">只优化草稿路径</text>
+
+  <rect x="56" y="650" width="1208" height="54" rx="10" fill="#0f172a"/>
+  <text x="82" y="683" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="17" font-weight="700" fill="#f8fafc">验收公式：wall-clock latency / output token，而不是只看 acceptance rate</text>
+</svg>

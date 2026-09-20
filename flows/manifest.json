@@ -136,6 +136,18 @@
       "file": "vllm-ascend/deepseek-v4.1-reuse-group-layer-chunk-scheduling.md"
     },
     {
+      "slug": "kv-context-model-state-runtime-roadmap",
+      "section": "know-how",
+      "group": "",
+      "title": "KV 后续技术全景：从缓存中间层到 Context / Model State Runtime",
+      "author": "MadaoRui",
+      "date": "2026-09-21",
+      "tags": [],
+      "summary": "把工作区里分散的 KV、state、复用、压缩、P/D、投机、多模态与 Engram 材料收敛成一条技术路线：统一对象模型与 RestorePlan、八条技术主线、目标架构与控制面 API、五个 ADR、分四阶段的路线图，以及指标矩阵与近期立项拆分。",
+      "updated": "2026-09-21",
+      "file": "kv-context-model-state-runtime-roadmap.md"
+    },
+    {
       "slug": "kv-cache-formula-driven-optimization-methodology",
       "section": "know-how",
       "group": "",

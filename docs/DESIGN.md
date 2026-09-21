@@ -498,3 +498,24 @@ diagrams/render.sh         # *.puml → *.svg
 ```
 
 页面运行时按需注入 SVG，**不依赖任何在线 PlantUML 服务**。
+
+---
+
+## 运行时按需加载的渲染器
+
+页面是零构建的静态站，需要渲染的东西都走「自托管 + 用到才取」，不引任何外部 CDN：
+
+| 渲染器 | 资源 | 触发条件 | 位置 |
+|---|---|---|---|
+| mermaid | `assets/js/mermaid.min.js`（3.5MB） | 文章里出现 ```` ```mermaid ```` 块 | `app.js` 的 `renderMermaid` |
+| KaTeX | `assets/js/katex.min.js` + `auto-render` + `assets/css/katex.min.css` + 20 个 woff2 字体（合计约 550KB，字体在 `assets/fonts/KaTeX_*`） | 文章里出现 `\(` 或 `\[` | `app.js` 的 `renderMath` |
+
+两者都由 `app.js` 在 HTML 插进页面之后扫一遍再决定加不加载，版本参数跟着 `index.html` 的
+`?v=N` 走（`bump.py` 一改就同步）。KaTeX 跳过 `pre` / `code` / `.codeblk`，所以示例代码里的
+LaTeX 不会被当成公式排版。
+
+配套的解析约定：`markdown.js` 把 `\[ ... \]` 当成**原子块**消费掉（和围栏同等待遇）。
+不这样做的话，公式里以 `+`、`-` 开头的续行会被列表规则切开，公式被拆进 `<p>` 与 `<ul>`
+两个节点，auto-render 就找不到成对的定界符了——这个坑在 `kda-gdn-vllm-ascend-support-report`
+里真实踩到过（8 个行间公式只排出 6 个）。
+

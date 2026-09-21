@@ -138,6 +138,26 @@
         continue;
       }
 
+      /* 行间公式：把 \[ ... \] 整段吃掉
+         公式的续行常以 +、-、* 开头（换行相加的 LaTeX 写法），不拦住就会被
+         下面那条列表规则切开，公式被拆进 <p> 与 <ul> 两个节点，页面上的
+         KaTeX（app.js 的 renderMath）就看不到成对的定界符了。
+         这里按「围栏」的待遇处理：整段当一个段落输出，内部不再做块级解释。 */
+      const mathAt = line.indexOf('\\[');
+      if (mathAt >= 0 && line.indexOf('\\]', mathAt + 2) < 0) {
+        flushPara(); closeList();
+        const buf = [line];
+        i++;
+        while (i < lines.length) {
+          buf.push(lines[i]);
+          const done = lines[i].indexOf('\\]') >= 0;
+          i++;
+          if (done) break;
+        }
+        out.push('<p>' + inline(buf.join('\n')) + '</p>');
+        continue;
+      }
+
       /* 空行 */
       if (!line.trim()) { flushPara(); closeList(); i++; continue; }
 

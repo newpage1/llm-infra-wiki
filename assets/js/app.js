@@ -713,6 +713,7 @@
       const box = el('div', { class: 'an-body' }, window.md(b.html).html);
       out.push(box);
       renderMermaid(box);
+      renderMath(box);
     }
     return out;
   }
@@ -1057,7 +1058,7 @@
      这个库有 3.5MB，只在页面真的出现 mermaid 块时才去取（脚本一次就够）。
      自托管而不是走 CDN：站点的原则是不依赖任何外部资源，而且同事那边
      未必连得上公共 CDN。 */
-  const MERMAID_VER = (() => {
+  const ASSET_VER = (() => {
     // 版本号跟着 index.html 的 ?v=N 走，bump.py 一改就同步
     const t = document.querySelector('script[src*="app.js"]');
     const m = t && t.getAttribute('src').match(/\?v=(\d+)/);
@@ -1069,7 +1070,7 @@
     if (mermaidLoading) return mermaidLoading;
     mermaidLoading = new Promise((resolve, reject) => {
       const sc = document.createElement('script');
-      sc.src = 'assets/js/mermaid.min.js' + MERMAID_VER;
+      sc.src = 'assets/js/mermaid.min.js' + ASSET_VER;
       sc.onload = () => resolve(window.mermaid);
       sc.onerror = () => reject(new Error('mermaid 加载失败'));
       document.head.appendChild(sc);
@@ -1144,6 +1145,55 @@
           }
         }
       });
+  }
+
+  /* ── 数学公式：按需加载 KaTeX ────────────────────────────────
+     文章里用 \(...\) 写行内公式、\[...\] 写行间公式，但 markdown.js 不认数学，
+     所以 HTML 插进页面之后在这里扫一遍，把公式真正排出来。
+     katex.min.js 275KB + 20 个 woff2 字体 254KB，和 mermaid 一样只在页面
+     真的出现定界符时才去取。pre/code 里的 LaTeX 不参与（那是示例代码）。 */
+  let katexLoading = null;
+
+  function loadKatex() {
+    if (katexLoading) return katexLoading;
+    katexLoading = new Promise((resolve, reject) => {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'assets/css/katex.min.css' + ASSET_VER;
+      document.head.appendChild(link);
+      const core = document.createElement('script');
+      core.src = 'assets/js/katex.min.js' + ASSET_VER;
+      core.onerror = () => reject(new Error('katex 加载失败'));
+      core.onload = () => {
+        const auto = document.createElement('script');
+        auto.src = 'assets/js/katex-auto-render.min.js' + ASSET_VER;
+        auto.onerror = () => reject(new Error('katex auto-render 加载失败'));
+        auto.onload = () => resolve();
+        document.head.appendChild(auto);
+      };
+      document.head.appendChild(core);
+    });
+    return katexLoading;
+  }
+
+  /** 把 root 里的 \(..\) 与 \[..\] 排成公式；没有定界符就什么都不做。 */
+  function renderMath(root) {
+    if (!/\\\(|\\\[/.test(root.textContent || '')) return;
+    loadKatex()
+      .then(() => {
+        if (!window.renderMathInElement) return;
+        window.renderMathInElement(root, {
+          delimiters: [
+            { left: '\\[', right: '\\]', display: true },
+            { left: '\\(', right: '\\)', display: false },
+          ],
+          ignoredTags: ['pre', 'code', 'script', 'style', 'textarea'],
+          ignoredClasses: ['codeblk', 'mermaid', 'mermaid-fail'],
+          throwOnError: false,        // 单条写错只标红，不牵连整页
+          strict: false,              // 公式里出现中文/Unicode 时不刷警告
+        });
+      })
+      .catch(err => console.warn('数学渲染跳过：' + err.message));
   }
 
   /* 标签：子目录名（项目）在前，作者写的 tags 在后。 */
@@ -1253,6 +1303,7 @@
           wrapTables(wrap);
           inlineFlowSvgs(art);
           renderMermaid(art);
+          renderMath(art);
         })
         .catch(() => {
           body.appendChild(el('h1', null, '没有这一篇'));

@@ -1202,7 +1202,7 @@
         mine.forEach(f => {
           const a = el('a', { class: 'flow-card', href: '#/f/' + f.slug });
           a.innerHTML = `
-            <em>${esc(f.date)} · ${esc(f.author)}</em>
+            <em>${esc(f.date)} · ${esc(f.author)}${f.updated && f.updated !== f.date ? ` · 更新 ${esc(f.updated)}` : ''}</em>
             <b>${esc(f.title)}</b>
             <div class="fc-parts">${flowTags(f)}</div>
             <p>${window.md(f.summary || '').html.replace(/^<p>|<\/p>$/g, '')}</p>`;
@@ -1243,7 +1243,7 @@
           if (meta) {
             body.appendChild(el('header', null, `
               <h1>${esc(meta.title)}</h1>
-              <p class="flow-sub">${esc(meta.date)} · ${esc(meta.author)}</p>
+              <p class="flow-sub">${esc(meta.date)} · ${esc(meta.author)}${meta.updated && meta.updated !== meta.date ? ` · 更新 ${esc(meta.updated)}` : ''}</p>
               <div class="fc-parts">${flowTags(meta)}</div>`));
           }
           const art = el('div', { class: 'flow-art' });

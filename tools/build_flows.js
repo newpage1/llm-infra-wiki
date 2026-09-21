@@ -90,6 +90,9 @@ function gitOrigin(rel) {
   const added = git(['log', '--diff-filter=A', '-1', '--format=%an%x09%cs', '--', repoRel]);
   if (added) { const [a, d] = added.split('\t'); out.author = a || ''; out.date = d || ''; }
   if (!out.date) out.date = git(['log', '-1', '--format=%cs', '--', repoRel]);
+  // 「添加」与「最近一次改动」是两件事：卡片的日期用前者，而一篇被改写过时，
+  // 读者需要看到后者——否则改过的文章在列表页看起来和没改过一模一样。
+  out.updated = git(['log', '-1', '--format=%cs', '--', repoRel]) || out.date;
   // 文件还没提交（本地刚写下、或 CI 上还没进历史）时，作者与日期都问不出来。
   // 日期退回 mtime；作者退回本地 git 身份——否则清单里会是一串空作者，
   // 而 CI 上文件一旦提交，`--diff-filter=A` 就找得到真正的作者了。
@@ -247,7 +250,7 @@ function collect() {
       date: String(data.date),
       tags: data.tags,
       summary: String(data.summary || ''),
-      updated: origin.date,
+      updated: origin.updated || origin.date,
       file: rel,             // 相对 flows/ 的路径，app.js 直接拿它去 fetch
     });
   }

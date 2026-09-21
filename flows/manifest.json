@@ -96,7 +96,7 @@
       "date": "2026-09-17",
       "tags": [],
       "summary": "两者不是完全同层竞争：Mooncake 在 KVCache 专用存储、跨实例复用与 LLM serving 生态上领先，Yuanrong DS 在昇腾原生 RH2D/HIXL/HCCS、统一对象数据系统与可随 worker 分片的 metadata owner 上更深；本轮新增昇腾底层传输专项，把两条实现追到 ACL/ADXL/HCCL 与 HCCS/RoCE 边界，并给出地址发现、内存注册、分组批量、并发与失败路径的源码对照。",
-      "updated": "2026-09-17",
+      "updated": "2026-09-20",
       "file": "openyuanrong-mooncake-competitive-report.md"
     },
     {
@@ -108,7 +108,7 @@
       "date": "2026-09-16",
       "tags": [],
       "summary": "在昇腾栈上，vLLM-Ascend 从 Scheduler 命中检查一路把 KV 存进 / 取出 Mooncake Store 的完整调用路径：三条路径怎么分、KV 地址怎么注册与映射、Save 与 Load 两条数据通路各经过谁。",
-      "updated": "2026-09-16",
+      "updated": "2026-09-17",
       "file": "vllm-ascend/vllm-ascend-mooncake-ascend-call-path.md"
     },
     {
@@ -144,7 +144,7 @@
       "date": "2026-09-16",
       "tags": [],
       "summary": "这套特性解决一个问题：长序列推理时 KV cache 太大，NPU 装不下。",
-      "updated": "2026-09-16",
+      "updated": "2026-09-20",
       "file": "vllm-ascend/vllm-ascend-layerwise-sparse-full-flow.md"
     },
     {
@@ -228,7 +228,7 @@
       "date": "2026-09-17",
       "tags": [],
       "summary": "DSV4/GLM 的 DSA KV 不再是单一同构 page，而是多个独立 paging plane 叠加不同 dtype / block size / 压缩比 / slot stream 与运行中的 compressor state。vLLM-Ascend 已在 spec、planner、raw allocation 与写入 kernel 上表达这些差异；LMCache-Ascend 要正确承接，必须保留每 group 的 block table/slot mapping，并把异构 plane 转成带 metadata 的连续 byte chunk。",
-      "updated": "2026-09-17",
+      "updated": "2026-09-20",
       "file": "vllm-ascend-dsa-kv-lmcache-analysis.md"
     },
     {
@@ -240,7 +240,7 @@
       "date": "2026-09-16",
       "tags": [],
       "summary": "跨层复用 sparse top-k 的模型该按什么粒度调度？这篇的结论是：值得用 layer chunk，但调度单位应是模型语义上的 reuse group 而不是任意单层 task，优先在 ModelRunner 内做 group-aware prefetch。",
-      "updated": "2026-09-16",
+      "updated": "2026-09-17",
       "file": "vllm-ascend/deepseek-v4.1-reuse-group-layer-chunk-scheduling.md"
     },
     {

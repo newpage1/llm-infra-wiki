@@ -18,7 +18,7 @@ summary: 把工作区里分散的 KV、state、复用、压缩、P/D、投机、
 
 - 异构 KV / state：Main KV、SWA、MLA、KDA/GDN/Mamba recurrent state、index/scale 等辅助 plane。
 - 极致复用：exact prefix、位置可迁移 cache、跨模型 translation、跨实例与跨工作流复用。
-- 量化压缩：CacheGen、TurboQuant、HyQuant 待核验项，以及压缩后的直接计算问题。
+- 量化压缩：CacheGen、TurboQuant、HyQuant（已记录、原始来源待核验），以及压缩后的直接计算问题。
 - 成本管理：state 检索、冷热分层、主动预取、容量配比、拉取 / replay / 重算决策。
 - 多模态与 DiT：VLM 的 embedding/KV 复用，以及 DiT 条件侧状态和去噪中间态的复用边界。
 - P/D 协同池化：layerwise、sparse、group-aware 的发布、拉取、ready 与 backpressure。
@@ -408,6 +408,23 @@ DiT 不是自回归 token 前缀模型。去噪 step 的 self-attention K/V 通�
 | Cross-attention 的静态 condition K/V | 高 | prompt/condition + DiT revision + layer | 同条件多 step 可复用，需核对实现是否每步重算 |
 | Self-attention K/V、hidden feature、router plan | 低到中 | latent + timestep + schedule + control + layer | 默认 step-local；跨 step/请求复用属于近似算法，必须带质量 profile |
 
+这里的 `condition` 不是单一的文本 prompt，而是去噪网络在多个 step 中保持不变、用于约束生成结果的一组输入。常见对象包括：
+
+- 正向文本与 negative prompt 的 CLIP/T5 embedding；CFG 场景应分别缓存 conditional / unconditional 两个分支。
+- 参考图、首尾帧、风格、人物身份等经 ViT / image encoder 得到的 embedding。
+- 音频、语音、节奏等经 audio encoder 得到的 embedding。
+- 相机轨迹、姿态、深度、边缘、分割图、mask 等控制输入的静态 encoder 输出。
+- 固定 condition 经各层 projection 生成的 cross-attention K/V；只有当 projection 仅依赖 condition 和固定模型权重时，才可跨 denoise step exact reuse。
+
+应把“原始控制条件不变”和“由控制条件产生的全部中间张量不变”区分开。ControlNet / adapter 的输入图或 encoder feature 可以是静态的，但其 residual 若同时读取 `noisy_latent_t` 或 `timestep_t`，仍然只能在当前 step 使用。可用下面的依赖关系做第一道判断：
+
+```text
+f(condition, model_weights)                              → exact-cache candidate
+f(condition, noisy_latent_t, timestep_t, scheduler_state) → step-local state
+```
+
+即使满足第一式，cache key 仍需包含 condition digest、encoder/DiT revision、layer/projection、CFG branch、dtype/layout 和 processor revision；随机预处理或动态 mask 也必须进入 key 或直接禁用复用。
+
 SGLang 当前 MiniMax-H3 DiT 材料证明的是 training-free block sparse attention，并明确早期 denoise step 对质量更敏感；它不是通用 KV cache 复用证据（sglang-review/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse/README.md:1、sglang-review/python/sglang/multimodal_gen/runtime/layers/attention/backends/subblock_sparse/README.md:107）。因此近期应先做 encoder/condition exact cache；中间态复用放入研究轨，并以 CLIP/VBench/人评和 seed 稳定性做回归。
 
 ### 4.6 KV 的 P/D 协同池化：Layerwise + Sparse + Group-aware
@@ -481,6 +498,31 @@ Engram 与 expert weights 可以共用：分层存储、内存注册、replica d
 5. **固定最大 K → bucket 化 K**：先控制 graph/kernel shape，再按 request 动态减少 tentative allocation。
 
 本地源码分析指出，拒绝后缀可通过逻辑长度回滚而无需 KV 拷贝恢复；长上下文下缩短历史 draft window 往往比减少单轮 5–7 个临时 token 更有价值（speculative-decoding-no-retrain-report.md:355、speculative-decoding-no-retrain-report.md:399）。
+
+#### `K`、`A`、`R` 与实际提交长度
+
+在线性 speculative decoding 中，可先用三个量描述一轮提议：
+
+```text
+K = drafter 本轮实际送交 verifier 的预测长度
+A = verifier 从候选开头连续接受的 draft token 数
+R = K - A = 本轮未被接受、需要逻辑失效的候选后缀长度
+
+0 ≤ A ≤ K
+```
+
+`K` 的上限由 `max_draft_tokens` 或 K bucket 决定；遇到 EOS、资源限制等情况时，实际送验长度可以更短。`A` 不在生成 draft 时确定，而是在 target/verifier 验证后才能知道。因此预分配与 graph shape 通常按 K bucket 准备，收益却由接受率 `A / K` 决定。还要区分 **accepted draft tokens** 和 **本轮最终提交 tokens**：发生拒绝时，target 通常会在第一个拒绝位置产生一个纠正 token，因此常见实现本轮提交 `A + 1` 个 token；若 `K` 个 draft token 全部接受，支持 bonus token 的算法可提交 `K + 1`，不生成 bonus token 的实现则只提交 `K`。Runtime 不应把 `committed_tokens` 固定写成 `A` 或无条件写成 `A + 1`，而应读取 verifier 的实际输出协议。
+
+在线性方案里，`K` 可以等同于 `max_draft_tokens`；在 tree/branch speculation 中则不能只用一个 `K` 描述显存和回滚成本，需要至少拆成：
+
+```text
+max_draft_tokens       # 单路径最大预测长度
+max_tree_depth         # 树的最大深度
+max_candidate_nodes    # 本轮所有候选节点上限
+max_branches_per_level # 每层最大分支数
+```
+
+此时 `A` 表示最终被 verifier 接受的那条路径长度，而不是树中“通过验证的节点总数”；无效显存取决于候选节点数、前缀共享方式和 block 映射，不能再用 `K - A` 直接估算。
 
 #### Draft KV 的实际回滚
 

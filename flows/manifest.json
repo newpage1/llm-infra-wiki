@@ -112,6 +112,18 @@
       "file": "vllm-ascend/vllm-ascend-mooncake-ascend-call-path.md"
     },
     {
+      "slug": "vllm-kv-transfer-v0-v1-evolution",
+      "section": "vllm",
+      "group": "",
+      "title": "vLLM KV 全链路：从 v0 worker-centric Connector 到 V1 跨调度步协议",
+      "author": "MadaoRui",
+      "date": "2026-09-24",
+      "tags": [],
+      "summary": "vLLM 的 KV 外部通路怎么从 v0 的 worker 钩子长成 V1 的 scheduler/worker 双侧协议：v0 原生 CPU swap 与 v0 connector 是两套完全不同的机制；V1 的关键不是多了几个传输 API，而是调度器先问外部命中多少 token、再分配真实 HBM block、最后把目标块号封成 metadata——外部存储因此不能自行写任意 HBM block。layerwise API 从 V1 初版就在，但初版 P/D 实现并没有真正逐层重叠。",
+      "updated": "2026-09-24",
+      "file": "vllm-kv-transfer-v0-v1-evolution.md"
+    },
+    {
       "slug": "kvconnectorv1-evolution-report",
       "section": "vllm",
       "group": "",

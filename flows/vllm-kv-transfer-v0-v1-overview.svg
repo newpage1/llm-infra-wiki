@@ -1,0 +1,163 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="980" viewBox="0 0 1600 980" role="img" aria-labelledby="title desc">
+  <title id="title">vLLM KV 数据路径：v0 到 V1</title>
+  <desc id="desc">对比 v0 原生 CPU swap、v0 worker 中心 connector、V1 初版 scheduler worker 双侧协议，以及 V1 后续跨调度步异步状态机。</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#344054"/>
+    </marker>
+    <marker id="arrowData" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#0b7285"/>
+    </marker>
+    <style>
+      .title{font:700 30px system-ui,Segoe UI,sans-serif;fill:#101828}
+      .subtitle{font:400 15px system-ui,Segoe UI,sans-serif;fill:#475467}
+      .coltitle{font:700 19px system-ui,Segoe UI,sans-serif;fill:#101828}
+      .label{font:600 14px system-ui,Segoe UI,sans-serif;fill:#1d2939}
+      .small{font:400 12px system-ui,Segoe UI,sans-serif;fill:#344054}
+      .tiny{font:400 11px system-ui,Segoe UI,sans-serif;fill:#475467}
+      .box{fill:#fff;stroke:#98a2b3;stroke-width:1.5;rx:10}
+      .sched{fill:#eef4ff;stroke:#6172f3;stroke-width:1.5;rx:10}
+      .worker{fill:#ecfdf3;stroke:#12b76a;stroke-width:1.5;rx:10}
+      .hbm{fill:#fff6ed;stroke:#f79009;stroke-width:1.5;rx:10}
+      .external{fill:#fdf2fa;stroke:#c11574;stroke-width:1.5;rx:10}
+      .state{fill:#f4f3ff;stroke:#7a5af8;stroke-width:1.5;rx:10}
+      .ctrl{fill:none;stroke:#344054;stroke-width:1.8;marker-end:url(#arrow)}
+      .data{fill:none;stroke:#0b7285;stroke-width:2.7;marker-end:url(#arrowData)}
+      .dash{fill:none;stroke:#667085;stroke-width:1.5;stroke-dasharray:6 5;marker-end:url(#arrow)}
+      .divider{stroke:#d0d5dd;stroke-width:1}
+    </style>
+  </defs>
+
+  <rect width="1600" height="980" fill="#f8fafc"/>
+  <text x="48" y="50" class="title">vLLM KV 数据路径：从 v0 到 V1</text>
+  <text x="48" y="78" class="subtitle">黑线是控制/metadata；蓝绿粗线是 KV 数据；HBM block 的分配与复用始终由 vLLM scheduler / cache manager 掌握。</text>
+
+  <line x1="400" y1="112" x2="400" y2="915" class="divider"/>
+  <line x1="800" y1="112" x2="800" y2="915" class="divider"/>
+  <line x1="1200" y1="112" x2="1200" y2="915" class="divider"/>
+
+  <!-- Column 1 -->
+  <text x="40" y="135" class="coltitle">① v0 原生 CPU swap</text>
+  <text x="40" y="158" class="small">vLLM-owned；请求抢占；不是外部 KVConnector</text>
+  <rect x="45" y="190" width="310" height="92" class="sched"/>
+  <text x="65" y="217" class="label">Scheduler / BlockSpaceManager</text>
+  <text x="65" y="242" class="small">选择 victim；生成 GPU↔CPU block mapping</text>
+  <text x="65" y="263" class="tiny">状态：RUNNING ⇄ SWAPPED</text>
+  <rect x="45" y="338" width="310" height="90" class="worker"/>
+  <text x="65" y="365" class="label">Worker.execute_worker</text>
+  <text x="65" y="390" class="small">forward 前执行 swap_in / swap_out</text>
+  <text x="65" y="411" class="tiny">遍历所有 attention layers</text>
+  <rect x="45" y="495" width="138" height="104" class="hbm"/>
+  <text x="65" y="524" class="label">GPU HBM</text>
+  <text x="65" y="548" class="small">gpu_cache</text>
+  <text x="65" y="570" class="tiny">paged blocks</text>
+  <rect x="217" y="495" width="138" height="104" class="external"/>
+  <text x="237" y="524" class="label">CPU DDR</text>
+  <text x="237" y="548" class="small">cpu_cache</text>
+  <text x="237" y="570" class="tiny">预分配 swap 池</text>
+  <path d="M200 282 L200 338" class="ctrl"/>
+  <path d="M114 428 L114 495" class="ctrl"/>
+  <path d="M183 530 C205 500 205 500 217 530" class="data"/>
+  <path d="M217 570 C205 600 205 600 183 570" class="data"/>
+  <rect x="45" y="665" width="310" height="154" class="box"/>
+  <text x="65" y="694" class="label">关键语义</text>
+  <text x="65" y="720" class="small">• CPU block 与 GPU block 都由 vLLM 分配</text>
+  <text x="65" y="744" class="small">• swap_in 完整恢复后才 forward</text>
+  <text x="65" y="768" class="small">• 只服务进程内抢占，不做 SSD / 跨实例</text>
+  <text x="65" y="792" class="small">• 默认 swap-space：每 GPU 4 GiB</text>
+
+  <!-- Column 2 -->
+  <text x="430" y="135" class="coltitle">② v0 外部 KVConnector</text>
+  <text x="430" y="158" class="small">worker-centric；接口直接理解 model_input</text>
+  <rect x="445" y="190" width="310" height="92" class="worker"/>
+  <text x="465" y="217" class="label">ModelRunner</text>
+  <text x="465" y="240" class="small">blocking recv → forward / bypass</text>
+  <text x="465" y="263" class="tiny">→ nonblocking send；嵌在一次模型执行里</text>
+  <rect x="445" y="338" width="310" height="116" class="box"/>
+  <text x="465" y="365" class="label">三个核心接口</text>
+  <text x="465" y="389" class="small">close()</text>
+  <text x="465" y="413" class="small">recv_kv_caches_and_hidden_states(...)</text>
+  <text x="465" y="437" class="small">send_kv_caches_and_hidden_states(...)</text>
+  <rect x="445" y="512" width="135" height="105" class="hbm"/>
+  <text x="465" y="542" class="label">本地 HBM</text>
+  <text x="465" y="567" class="small">真实目标 slots</text>
+  <text x="465" y="590" class="tiny">slot_mapping</text>
+  <rect x="620" y="512" width="135" height="105" class="external"/>
+  <text x="640" y="542" class="label">外部后端</text>
+  <text x="640" y="567" class="small">P/D、CPU、SSD</text>
+  <text x="640" y="590" class="tiny">connector 自己实现</text>
+  <path d="M600 282 L600 338" class="ctrl"/>
+  <path d="M512 454 L512 512" class="ctrl"/>
+  <path d="M580 548 C600 522 600 522 620 548" class="data"/>
+  <path d="M620 586 C600 612 600 612 580 586" class="data"/>
+  <rect x="445" y="665" width="310" height="178" class="box"/>
+  <text x="465" y="694" class="label">根本问题</text>
+  <text x="465" y="720" class="small">• scheduler 不知道外部命中与传输生命周期</text>
+  <text x="465" y="744" class="small">• recv 默认阻塞 worker；miss/partial 易整段重算</text>
+  <text x="465" y="768" class="small">• connector 依赖 model_input/attention metadata</text>
+  <text x="465" y="792" class="small">• 无统一 block pin / async completion / failure 回报</text>
+  <text x="465" y="816" class="small">• 难以安全延迟释放正在发送的 HBM block</text>
+
+  <!-- Column 3 -->
+  <text x="830" y="135" class="coltitle">③ V1 初版七接口</text>
+  <text x="830" y="158" class="small">scheduler 控制面 + worker 数据面</text>
+  <rect x="845" y="190" width="310" height="122" class="sched"/>
+  <text x="865" y="217" class="label">Scheduler connector（3）</text>
+  <text x="865" y="242" class="small">查外部命中 token 数</text>
+  <text x="865" y="265" class="small">先分配 HBM blocks，再绑定请求</text>
+  <text x="865" y="288" class="small">构造 opaque metadata 发给 worker</text>
+  <rect x="845" y="360" width="310" height="134" class="worker"/>
+  <text x="865" y="387" class="label">Worker connector（4）</text>
+  <text x="865" y="412" class="small">start_load_kv()</text>
+  <text x="865" y="435" class="small">每层 wait_for_layer_load()</text>
+  <text x="865" y="458" class="small">每层 save_kv_layer()</text>
+  <text x="865" y="481" class="small">wait_for_save()</text>
+  <rect x="845" y="548" width="135" height="104" class="hbm"/>
+  <text x="865" y="578" class="label">HBM blocks</text>
+  <text x="865" y="602" class="small">vLLM 分配</text>
+  <text x="865" y="625" class="tiny">block IDs → slots</text>
+  <rect x="1020" y="548" width="135" height="104" class="external"/>
+  <text x="1040" y="578" class="label">Connector</text>
+  <text x="1040" y="602" class="small">disk / pool / PD</text>
+  <text x="1040" y="625" class="tiny">决定怎么搬</text>
+  <path d="M1000 312 L1000 360" class="ctrl"/>
+  <path d="M912 494 L912 548" class="ctrl"/>
+  <path d="M980 585 C1000 559 1000 559 1020 585" class="data"/>
+  <path d="M1020 625 C1000 651 1000 651 980 625" class="data"/>
+  <rect x="845" y="700" width="310" height="143" class="box"/>
+  <text x="865" y="729" class="label">注意：API layerwise ≠ 实现 layerwise</text>
+  <text x="865" y="755" class="small">初版 SharedStorage load 是同步遍历全部层；</text>
+  <text x="865" y="779" class="small">默认 NIXL PD 是 request/block-level；</text>
+  <text x="865" y="803" class="small">只有实现真正异步多流，逐层 fence 才形成 overlap。</text>
+
+  <!-- Column 4 -->
+  <text x="1230" y="135" class="coltitle">④ V1 后续异步状态机</text>
+  <text x="1230" y="158" class="small">transfer 可以跨 scheduler step；无 forward 也推进</text>
+  <rect x="1245" y="190" width="310" height="96" class="sched"/>
+  <text x="1265" y="217" class="label">lookup</text>
+  <text x="1265" y="242" class="small">返回 (tokens | None, load_async)</text>
+  <text x="1265" y="264" class="tiny">None = 结果未就绪，稍后重试</text>
+  <rect x="1245" y="330" width="310" height="94" class="state"/>
+  <text x="1265" y="357" class="label">reserve + WAITING_FOR_REMOTE_KVS</text>
+  <text x="1265" y="382" class="small">先锁定真实目标 blocks；本 step 不 forward</text>
+  <text x="1265" y="404" class="tiny">request.num_computed_tokens 暂存预期命中长度</text>
+  <rect x="1245" y="468" width="310" height="94" class="worker"/>
+  <text x="1265" y="495" class="label">no-forward worker step</text>
+  <text x="1265" y="520" class="small">start_load_kv → RDMA / H2D 到目标 blocks</text>
+  <text x="1265" y="542" class="tiny">get_finished / errors / worker metadata 回 scheduler</text>
+  <rect x="1245" y="606" width="310" height="94" class="state"/>
+  <text x="1265" y="633" class="label">completion</text>
+  <text x="1265" y="658" class="small">成功 blocks 标记 cached；失败部分重算</text>
+  <text x="1265" y="680" class="tiny">请求重新 READY / WAITING</text>
+  <rect x="1245" y="744" width="310" height="94" class="worker"/>
+  <text x="1265" y="771" class="label">下一 scheduler step</text>
+  <text x="1265" y="796" class="small">分配新 token slots → D 继续 decode</text>
+  <text x="1265" y="818" class="tiny">发送未完成时，旧 HBM blocks 延迟释放</text>
+  <path d="M1400 286 L1400 330" class="ctrl"/>
+  <path d="M1400 424 L1400 468" class="ctrl"/>
+  <path d="M1400 562 L1400 606" class="ctrl"/>
+  <path d="M1400 700 L1400 744" class="ctrl"/>
+
+  <rect x="40" y="890" width="1515" height="52" fill="#eaf2f8" stroke="#7f8c8d" rx="10"/>
+  <text x="62" y="922" class="label">不变量：外部存储可以查、读、写、淘汰自己的副本，但不能自行挑一个可复用 HBM block 写入；必须等 vLLM 分配并通过 metadata 暴露目标 block/slot。</text>
+</svg>
